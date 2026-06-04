@@ -13,10 +13,24 @@ const styles = css`
   max-width: 100%;
   min-width: 0;
   color: var(--foreground-dim);
-  font-family: var(--font-family);
+  font-family: var(--font-family-monospace);
   font-size: var(--ui-font-size-sm);
   line-height: 1.2;
   user-select: none;
+
+  .boolean-node-body-toggle-wrap {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    line-height: 0;
+  }
+
+  .boolean-node-body-toggle {
+    width: calc(32px * var(--ui-font-scale, 1));
+    height: calc(16px * var(--ui-font-scale, 1));
+    aspect-ratio: 2 / 1;
+    line-height: 0;
+  }
 
   .boolean-node-body-value {
     color: var(--foreground-bright);
@@ -47,18 +61,20 @@ const BooleanNodeBody: FC<{ node: BooleanNode }> = ({ node }) => {
       },
     });
   };
-  const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+  const handleToggleDoubleClick = (event: MouseEvent<HTMLSpanElement>) => {
     event.stopPropagation();
   };
 
   return (
-    <div css={styles} onDoubleClick={handleDoubleClick}>
-      <ScalableToggle
-        ariaLabel="Bool value"
-        className="boolean-node-body-toggle"
-        isChecked={value}
-        onChange={handleChange}
-      />
+    <div css={styles}>
+      <span className="boolean-node-body-toggle-wrap" onDoubleClick={handleToggleDoubleClick}>
+        <ScalableToggle
+          ariaLabel="Bool value"
+          className="boolean-node-body-toggle"
+          isChecked={value}
+          onChange={handleChange}
+        />
+      </span>
       <div className="boolean-node-body-value">{value ? 'True' : 'False'}</div>
     </div>
   );

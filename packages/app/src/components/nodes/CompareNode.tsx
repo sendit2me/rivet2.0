@@ -15,7 +15,7 @@ const styles = css`
   align-items: center;
   color: var(--foreground-bright);
   display: inline-flex;
-  font-family: var(--font-family);
+  font-family: var(--font-family-monospace);
   font-size: var(--ui-font-size-sm);
   gap: calc(7px * var(--ui-font-scale, 1));
   line-height: 1.2;

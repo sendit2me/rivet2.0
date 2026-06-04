@@ -27,6 +27,8 @@ test('compare node exports one shared comparison operator list for settings and 
 
 test('compare node canvas body edits comparisonFunction through the node edit command', () => {
   assert.match(compareNodeSource, /useEditNodeCommand\(\)/);
+  assert.match(compareNodeSource, /font-family: var\(--font-family-monospace\);/);
+  assert.doesNotMatch(compareNodeSource, /font-family: var\(--font-family\);/);
   assert.match(compareNodeSource, /comparisonFunction: nextComparisonFunction/);
   assert.match(compareNodeSource, /aria-label="Comparison function"/);
   assert.match(compareNodeSource, /<select[\s\S]*?compareNodeComparisonFunctionOptions\.map/);

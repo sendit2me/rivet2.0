@@ -11,6 +11,7 @@ test('scalable toggle state marks use centered inline svg icons', () => {
   assert.match(scalableToggleSource, /stroke="currentColor"/);
   assert.match(scalableToggleSource, /aria-label=\{ariaLabel\}/);
   assert.match(scalableToggleSource, /strokeLinecap="round"/);
+  assert.match(scalableToggleSource, /border-radius: 999px;/);
   assert.match(
     scalableToggleSource,
     /\.scalable-toggle-mark\s*{[\s\S]*?position: absolute;[\s\S]*?top: 50%;[\s\S]*?left: 50%;[\s\S]*?width: var\(--toggle-icon-size\);[\s\S]*?height: var\(--toggle-icon-size\);[\s\S]*?transform: translate\(-50%, -50%\);/,

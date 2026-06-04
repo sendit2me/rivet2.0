@@ -56,7 +56,7 @@ const scalableToggleStyles = css`
     width: 100%;
     height: 100%;
     overflow: hidden;
-    border-radius: calc(var(--toggle-height) * 2);
+    border-radius: 999px;
     corner-shape: superellipse(1.15);
     background-color: var(--ds-background-neutral-bold, #a5adba);
     transition: background-color 0.15s ease-out;
