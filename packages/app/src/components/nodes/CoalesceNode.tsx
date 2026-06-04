@@ -60,6 +60,8 @@ const styles = css`
   }
 
   .coalesce-node-body-label {
+    font-family: inherit !important;
+    font-size: inherit !important;
     padding-left: calc(7px * var(--ui-font-scale, 1));
     overflow: hidden;
     text-overflow: ellipsis;

@@ -15,6 +15,8 @@ test('coalesce node uses canvas toggles for ignore-null and ignore-undefined set
   assert.match(coalesceNodeSource, /ariaLabel: "Ignore 'undefined'"/);
   assert.match(coalesceNodeSource, /font-family: var\(--font-family-monospace\);/);
   assert.doesNotMatch(coalesceNodeSource, /font-family: var\(--font-family\);/);
+  assert.match(coalesceNodeSource, /font-family: inherit !important;/);
+  assert.match(coalesceNodeSource, /font-size: inherit !important;/);
   assert.match(coalesceNodeSource, /gap: calc\(9px \* var\(--ui-font-scale, 1\)\);/);
   assert.match(coalesceNodeSource, /aspect-ratio: 2 \/ 1;/);
   assert.match(coalesceNodeSource, /line-height: 0;/);

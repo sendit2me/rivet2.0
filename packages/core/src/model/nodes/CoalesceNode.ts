@@ -38,7 +38,7 @@ export class CoalesceNodeImpl extends NodeImpl<CoalesceNode> {
       visualData: {
         x: 0,
         y: 0,
-        width: 150,
+        width: 190,
       },
     };
     return chartNode;
