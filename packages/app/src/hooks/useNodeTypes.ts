@@ -21,6 +21,7 @@ import { jsFilterNodeDescriptor, jsMapNodeDescriptor } from '../components/nodes
 import { extractObjectPathNodeDescriptor } from '../components/nodes/ExtractObjectPathNode';
 import { httpCallNodeDescriptor } from '../components/nodes/HttpCallNode.js';
 import { promptNodeDescriptor } from '../components/nodes/PromptNode.js';
+import { booleanNodeDescriptor } from '../components/nodes/BooleanNode.js';
 import { useAtomValue } from 'jotai';
 import { useProjectNodeRegistry } from './useProjectNodeRegistry';
 import type { NodeOutputCopyValueProjector } from '../utils/executionDataCopyValue.js';
@@ -79,6 +80,7 @@ const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
   extractObjectPath: extractObjectPathNodeDescriptor,
   httpCall: httpCallNodeDescriptor,
   prompt: promptNodeDescriptor,
+  boolean: booleanNodeDescriptor,
 };
 
 export function useNodeTypes(): NodeComponentDescriptors {

@@ -13,7 +13,9 @@ import TabItem from '@theme/TabItem';
 
 The Bool Node is used to output a boolean constant or convert an input value into a boolean. This node can be useful when you need to create a boolean value for use in other nodes, such as the [If Node](./if.mdx) or [If/Else Node](./if-else.mdx).
 
-The Bool Node can either output a constant boolean value that you set in the node's settings, or it can take an input and convert it into a boolean. The conversion follows JavaScript's rules for truthy and falsy values, with two exception:
+The Bool Node can either output a constant boolean value that you set in the node's settings or directly from the node body on the canvas, or it can take an input and convert it into a boolean. The canvas switch shows the current `True`/`False` state below it and stays synchronized with the settings-panel `Value` switch. When `Use Input` is enabled, the canvas switch is hidden because the node value comes from the input port instead of the constant setting.
+
+The conversion follows JavaScript's rules for truthy and falsy values, with two exception:
 
 - Empty arrays are considered falsey
 - The string "false" is considered falsey.
@@ -65,7 +67,7 @@ If you need to treat empty arrays as truthy, or the string "false" as truthy, yo
 ## Example 1: Using a Constant Boolean Value
 
 1. Add a Bool Node to your graph.
-2. Set the `Value` setting to `true`.
+2. Set the `Value` setting to `true` in the settings panel, or turn on the switch in the node body on the canvas.
 3. Run the graph. The `Value` output of the Bool Node will be `true`.
 
 ## Example 2: Converting an Input to a Boolean
