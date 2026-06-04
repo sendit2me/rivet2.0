@@ -7,9 +7,11 @@ use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "windows")]
 use tauri::LogicalSize;
+#[cfg(target_os = "linux")]
+use tauri::MenuItem;
 use tauri::{AppHandle, InvokeError, Manager};
-#[cfg(not(target_os = "windows"))]
-use tauri::{CustomMenuItem, Menu, MenuItem, Submenu};
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+use tauri::{CustomMenuItem, Menu, Submenu};
 #[cfg(target_os = "windows")]
 use tauri_plugin_window_state::StateFlags;
 mod plugins;
@@ -37,20 +39,30 @@ fn main() {
             read_relative_project_file
         ]);
 
-    #[cfg(not(target_os = "windows"))]
-    let builder = builder
-        .menu(create_menu())
-        .on_menu_event(|event| match event.menu_item_id() {
-            "toggle_devtools" => {
-                if event.window().is_devtools_open() {
-                    event.window().close_devtools();
-                } else {
-                    event.window().open_devtools();
+    #[cfg(target_os = "macos")]
+    let builder =
+        builder
+            .menu(create_macos_menu())
+            .on_menu_event(|event| match event.menu_item_id() {
+                "quit" => event.window().app_handle().exit(0),
+                _ => {}
+            });
+
+    #[cfg(target_os = "linux")]
+    let builder =
+        builder
+            .menu(create_linux_menu())
+            .on_menu_event(|event| match event.menu_item_id() {
+                "toggle_devtools" => {
+                    if event.window().is_devtools_open() {
+                        event.window().close_devtools();
+                    } else {
+                        event.window().open_devtools();
+                    }
                 }
-            }
-            "quit" => event.window().app_handle().exit(0),
-            _ => {}
-        });
+                "quit" => event.window().app_handle().exit(0),
+                _ => {}
+            });
 
     builder
         .setup(|app| {
@@ -134,8 +146,16 @@ fn read_relative_project_file(
     std::fs::read_to_string(full_path).map_err(|_| InvokeError::from("Failed to read file"))
 }
 
-#[cfg(not(target_os = "windows"))]
-fn create_menu() -> Menu {
+#[cfg(target_os = "macos")]
+fn create_macos_menu() -> Menu {
+    Menu::new().add_submenu(Submenu::new(
+        "App",
+        Menu::new().add_item(CustomMenuItem::new("quit", "Exit")),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn create_linux_menu() -> Menu {
     let about_menu = Submenu::new(
         "App",
         Menu::new()
