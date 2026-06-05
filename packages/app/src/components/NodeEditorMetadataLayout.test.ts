@@ -134,7 +134,7 @@ test('collapsible settings surfaces share opaque colors across panels and modals
   );
   assert.match(
     colorsSource,
-    /--settings-collapsible-header-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darkest\) [^)]+\);/,
+    /--settings-collapsible-header-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darker-darker\) [^)]+\);/,
   );
   assert.match(
     colorsSource,

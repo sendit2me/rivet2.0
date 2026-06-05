@@ -43,12 +43,15 @@ const modalBody = css`
     border-right: 1px solid var(--grey-darkish);
     max-height: 100%;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-bottom: 20px;
   }
 
   .settings-modal-sidebar > nav {
     background-color: var(--grey-dark-colorish);
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   main {
@@ -86,8 +89,13 @@ const buttonsContainer = css`
     line-height: 1.25 !important;
   }
 
+  > button {
+    max-width: 100%;
+  }
+
   > button span {
-    overflow-x: visible !important;
+    overflow-x: hidden !important;
+    text-overflow: ellipsis;
   }
 `;
 

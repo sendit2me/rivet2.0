@@ -66,7 +66,7 @@ test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
     '--ds-font-heading-xxsmall:',
     '--ds-font-label:',
     '--ds-surface-overlay: var(--grey-dark-colorish);',
-    '--ds-border: var(--grey-darkish);',
+    '--ds-border: var(--settings-collapsible-border);',
     '--toastify-font-family: var(--font-family);',
   ]) {
     assert.ok(indexCss.includes(token), `index.css should define ${token}`);
@@ -80,7 +80,7 @@ test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
   assert.match(postResetCss, /--ds-font-heading-xxsmall:[\s\S]*var\(--ds-font-family-heading, var\(--font-family\)\)/);
   assert.match(postResetCss, /--ds-font-label:[\s\S]*var\(--label-font-family,/);
   assert.match(postResetCss, /--ds-surface-overlay: var\(--grey-dark-colorish\);/);
-  assert.match(postResetCss, /--ds-border: var\(--grey-darkish\);/);
+  assert.match(postResetCss, /--ds-border: var\(--settings-collapsible-border\);/);
   assert.match(postResetCss, /--toastify-font-family: var\(--font-family\);/);
 });
 

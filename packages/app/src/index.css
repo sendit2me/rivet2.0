@@ -65,7 +65,7 @@
   --ds-font-ui-small: normal 400 var(--ui-font-size-xs) / 1 var(--ds-font-family-body, var(--font-family));
   --ds-text-inverse: #fff;
   --ds-surface-overlay: var(--grey-dark-colorish);
-  --ds-border: var(--grey-darkish);
+  --ds-border: var(--settings-collapsible-border);
   --ds-border-radius: var(--ui-button-radius);
   --ds-border-radius-050: var(--ui-button-radius-sm);
   --ds-border-radius-100: var(--ui-button-radius);

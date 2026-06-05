@@ -13,6 +13,8 @@ test('shared popup menu surfaces use the opaque theme-tinted material', () => {
     popupMenuSource,
     /export const popupMenuSurfaceStyles = css`[\s\S]*background-color: var\(--grey-dark-colorish\);/,
   );
+  assert.match(popupMenuSource, /border: 1px solid var\(--settings-collapsible-border\);/);
+  assert.doesNotMatch(popupMenuSource, /border: 2px solid var\(--grey-dark\);/);
   assert.doesNotMatch(popupMenuSource, /background-color: var\(--grey-dark-colorish-seethrough\);/);
   assert.doesNotMatch(popupMenuSource, /background-color: var\(--foreground-on-primary\);/);
 });
