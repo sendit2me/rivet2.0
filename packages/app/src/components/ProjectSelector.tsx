@@ -53,7 +53,7 @@ export const styles = css`
   height: var(--project-selector-height);
   z-index: 250;
 
-  --project-selector-strip-bg: var(--grey-dark-bluish-seethrough);
+  --project-selector-strip-bg: var(--grey-dark-colorish-seethrough);
 
   background: var(--project-selector-strip-bg);
 

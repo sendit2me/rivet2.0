@@ -115,7 +115,7 @@ const Container = styled.div`
     --ds-font-family-heading: var(--font-family);
     --ds-font-family-code: var(--font-family-monospace);
     --label-font-family: var(--font-family);
-    background-color: var(--grey-dark-bluish-seethrough);
+    background-color: var(--grey-dark-colorish-seethrough);
     backdrop-filter: blur(2px);
     font-family: var(--font-family);
     width: 100%;

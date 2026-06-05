@@ -128,13 +128,22 @@ test('collapsible settings surfaces share opaque colors across panels and modals
   const projectInfoModalSource = readFileSync(join(componentsDir, 'ProjectInfoModal.tsx'), 'utf8');
   const aiAssistEditorSource = readFileSync(join(componentsDir, 'editors', 'custom', 'AiAssistEditorBase.tsx'), 'utf8');
 
-  assert.match(colorsSource, /--settings-collapsible-border: var\(--grey-darkish\);/);
-  assert.match(colorsSource, /--settings-collapsible-header-bg: var\(--grey-darker\);/);
   assert.match(
     colorsSource,
-    /--settings-collapsible-body-bg: color-mix\(in srgb, var\(--grey-light\) 5%, var\(--grey-darker\) 95%\);/,
+    /--settings-collapsible-border: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
   );
-  assert.match(colorsSource, /--settings-collapsible-hover-bg: var\(--grey-darkish\);/);
+  assert.match(
+    colorsSource,
+    /--settings-collapsible-header-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darkest\) [^)]+\);/,
+  );
+  assert.match(
+    colorsSource,
+    /--settings-collapsible-body-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darker\) [^)]+\);/,
+  );
+  assert.match(
+    colorsSource,
+    /--settings-collapsible-hover-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
+  );
 
   for (const source of [editorGroupSource, projectInfoModalSource, aiAssistEditorSource]) {
     assert.match(source, /border: 1px solid var\(--settings-collapsible-border\);/);

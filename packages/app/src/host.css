@@ -52,6 +52,8 @@ textarea,
     var(--label-font-family, var(--ds-font-family-body, var(--font-family)));
   --ds-font-ui: normal 400 var(--ui-font-size-base) / 1 var(--ds-font-family-body, var(--font-family));
   --ds-font-ui-small: normal 400 var(--ui-font-size-xs) / 1 var(--ds-font-family-body, var(--font-family));
+  --ds-surface-overlay: var(--grey-dark-colorish-seethrough);
+  --ds-border: var(--grey-darkish);
   --toastify-font-family: var(--font-family);
   font-family: var(--font-family);
 }
