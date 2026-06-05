@@ -173,7 +173,7 @@ export const UiSettingsPage: FC = () => {
                 <FieldHelperMessage>
                   Scales Rivet UI text and icon glyphs. Code editor text uses its separate editor font-size controls.
                 </FieldHelperMessage>
-                <div className="toggle-field">
+                <div className="toggle-field settings-range-field">
                   <Range
                     min={MIN_UI_FONT_SIZE}
                     max={MAX_UI_FONT_SIZE}
@@ -248,7 +248,7 @@ export const UiSettingsPage: FC = () => {
                 <FieldHelperMessage>
                   Controls the grid, dot, or cross pattern strength independently of the theme.
                 </FieldHelperMessage>
-                <div className="toggle-field">
+                <div className="toggle-field settings-range-field">
                   <Range
                     min={MIN_CANVAS_BACKGROUND_PATTERN_OPACITY}
                     max={MAX_CANVAS_BACKGROUND_PATTERN_OPACITY}
@@ -344,7 +344,7 @@ export const UiSettingsPage: FC = () => {
                 <FieldHelperMessage>
                   The sensitivity of the zoom when using the mouse wheel. Lower values will zoom slower.
                 </FieldHelperMessage>
-                <div className="toggle-field">
+                <div className="toggle-field settings-range-field">
                   <Range
                     min={0.01}
                     max={2}

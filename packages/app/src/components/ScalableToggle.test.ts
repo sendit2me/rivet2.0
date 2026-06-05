@@ -20,3 +20,19 @@ test('scalable toggle state marks use centered inline svg icons', () => {
   assert.doesNotMatch(scalableToggleSource, /content: '\\00d7';/);
   assert.doesNotMatch(scalableToggleSource, /\.scalable-toggle-icon-cross::before/);
 });
+
+test('checked scalable toggles use the calculated primary foreground for thumb and checkmark contrast', () => {
+  assert.match(scalableToggleSource, /--toggle-checked-icon-color: var\(--foreground-on-primary\);/);
+  assert.match(
+    scalableToggleSource,
+    /&:not\(\.is-disabled\):hover\.is-checked \.scalable-toggle-track \{[\s\S]*--toggle-checked-icon-color: var\(--foreground-on-primary-light\);/,
+  );
+  assert.match(
+    scalableToggleSource,
+    /&\.is-checked \.scalable-toggle-thumb \{[\s\S]*background-color: var\(--toggle-checked-icon-color\);/,
+  );
+  assert.match(
+    scalableToggleSource,
+    /&\.is-checked \.scalable-toggle-icon-check \{[\s\S]*color: var\(--toggle-checked-icon-color\);/,
+  );
+});

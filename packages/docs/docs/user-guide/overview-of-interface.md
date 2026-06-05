@@ -56,7 +56,7 @@ Right click to open the context menu to add new nodes.
 
 Hold shift and drag to create a selection box. Any nodes inside the selection box will be selected. You can then move all of the selected nodes as a group, or create a subgraph from the selected nodes. You can also hold shift and click the title bar of a node to add it to the selection.
 
-In **Rivet settings** > **UI**, you can choose a built-in theme or choose **Custom** and pick primary and secondary theme colors. Primary controls accents, while secondary tints the dark UI surfaces. Under **Canvas**, you can change the canvas color and choose the canvas background pattern. **Theme** uses the current theme's dark canvas surface, and **Custom** lets you pick your own canvas color.
+In **Rivet settings** > **UI**, you can choose a built-in dark theme, the built-in **Bright** theme, or choose **Custom** and pick primary and secondary theme colors. Primary controls accents, while secondary tints the main UI surfaces. Under **Canvas**, you can change the canvas color and choose the canvas background pattern. **Theme** uses the current theme's canvas surface, and **Custom** lets you pick your own canvas color. Dark themes use a pale canvas pattern; the Bright theme uses a dark pattern so the grid, dots, or crosses stay visible on the light canvas.
 
 ## Node Editor
 
@@ -87,6 +87,8 @@ Variants allow you to save slight differences to a node, and test them without l
 This area contains the editors for the currently selected node. The editor will change depending on the type of node you are editing. For example, the shown [Text Node](../node-reference/text) has a text editor, and the [LLM Chat Node](../node-reference/llm-chat) has provider, model, reasoning, response-format, tools, and technical-details sections.
 
 Text and code editors have their own font-size control, separate from the main app UI font size. When focus is inside one of these editors, press **Ctrl + +** or **Cmd + +** to make the editor text larger, **Ctrl + -** or **Cmd + -** to make it smaller, and **Ctrl + 0** or **Cmd + 0** to reset it. You can also hold **Ctrl** or **Cmd** and use the mouse wheel or trackpad scroll while the pointer is over the editor to scale the editor font.
+
+When the **Bright** theme is active, node text and code editors use Monaco's light editor theme so Comment, Code, Expression, JS Filter, and LLM Chat technical-option editors match the rest of the light interface.
 
 ## Workspaces
 

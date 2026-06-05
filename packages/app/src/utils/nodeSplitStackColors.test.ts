@@ -10,9 +10,9 @@ test('dark neutral node colors use the strongest lift profile', () => {
 });
 
 test('default gray node backgrounds use the strongest lift profile', () => {
-  assert.deepEqual(getSplitStackGhostColors('var(--grey-darkish)'), {
-    frontBackground: 'color-mix(in srgb, var(--grey-darkish) 68%, white 32%)',
-    backBackground: 'color-mix(in srgb, var(--grey-darkish) 58%, white 42%)',
+  assert.deepEqual(getSplitStackGhostColors('var(--node-color-0)'), {
+    frontBackground: 'color-mix(in srgb, var(--node-color-0) 68%, white 32%)',
+    backBackground: 'color-mix(in srgb, var(--node-color-0) 58%, white 42%)',
   });
 });
 

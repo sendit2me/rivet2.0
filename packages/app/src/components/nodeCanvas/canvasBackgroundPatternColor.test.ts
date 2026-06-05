@@ -7,17 +7,18 @@ import { fileURLToPath } from 'node:url';
 const nodeCanvasDir = dirname(fileURLToPath(import.meta.url));
 const appSrcDir = resolve(nodeCanvasDir, '..', '..');
 
-test('canvas background pattern color is independent from theme changes', () => {
+test('canvas background pattern color uses dark ink for Bright and pale ink for dark themes', () => {
   const colorsCss = readFileSync(join(appSrcDir, 'colors.css'), 'utf8');
   const canvasBackgroundPatternSource = readFileSync(join(nodeCanvasDir, 'CanvasBackgroundPattern.tsx'), 'utf8');
 
-  assert.equal(colorsCss.match(/--canvas-background-pattern-rgb:/g)?.length, 1);
+  assert.equal(colorsCss.match(/--canvas-background-pattern-rgb:/g)?.length, 2);
+  assert.match(colorsCss, /--canvas-background-pattern-rgb: 255, 255, 255;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--canvas-background-pattern-rgb: 0, 0, 0;/);
   assert.equal(colorsCss.match(/--canvas-background-theme-color:/g)?.length, 1);
   assert.match(
     colorsCss,
     /--canvas-background-theme-color: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-[^)]+\) [^)]+\);/,
   );
-  assert.doesNotMatch(colorsCss, /\.theme-[\s\S]*--canvas-background-pattern-rgb:/);
   assert.match(colorsCss, /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{/);
   assert.doesNotMatch(colorsCss, /\.theme-custom[\s\S]*--canvas-background-pattern-rgb:/);
   assert.doesNotMatch(canvasBackgroundPatternSource, /themeState/);

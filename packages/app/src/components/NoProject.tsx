@@ -78,6 +78,7 @@ const styles = css`
   }
 
   .logo {
+    filter: var(--rivet-logo-filter);
     width: 92px;
     margin-bottom: 6px;
   }

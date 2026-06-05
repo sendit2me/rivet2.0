@@ -11,12 +11,12 @@ export const nodeStyles = css`
     --node-output-multi-hover-max-height: calc(20 * 1.4em + 60px);
     --node-frozen-output-accent: #68b7ff;
     --node-frozen-output-bg: color-mix(in srgb, var(--node-frozen-output-accent) 25%, var(--grey-darkest) 83%);
-    background-color: var(--grey-darker-darker);
+    background-color: var(--node-body-bg);
     background-clip: padding-box;
     border-radius: var(--node-card-radius);
     corner-shape: var(--node-card-corner-shape);
     /* border: 2px solid transparent; */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--node-resting-shadow);
     display: flex;
     flex-direction: column;
     position: absolute;
@@ -161,7 +161,6 @@ export const nodeStyles = css`
     border-radius: var(--node-card-radius) var(--node-card-radius) 0 0;
     corner-shape: var(--node-card-corner-shape);
     pointer-events: none;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16);
   }
 
   .node.isSplit::before {
@@ -171,7 +170,7 @@ export const nodeStyles = css`
     right: calc(8px * var(--ui-font-scale));
     background: var(--node-bg);
     background: var(--node-stack-front-bg);
-    opacity: 0.35;
+    opacity: var(--node-stack-front-opacity);
     z-index: -1;
   }
 
@@ -182,7 +181,7 @@ export const nodeStyles = css`
     right: calc(17px * var(--ui-font-scale));
     background: var(--node-bg);
     background: var(--node-stack-back-bg);
-    opacity: 0.15;
+    opacity: var(--node-stack-back-opacity);
     z-index: -2;
   }
 
@@ -760,7 +759,14 @@ export const nodeStyles = css`
   }
 
   .port.connected .port-label {
-    color: var(--primary-text);
+    color: var(--port-connected-label-color);
+    opacity: var(--port-connected-label-opacity);
+  }
+
+  .node.selected .port.connected .port-label,
+  .node.overlayNode .port.connected .port-label,
+  .port.connected .port-label:hover {
+    opacity: 1;
   }
 
   .node-output {
@@ -863,8 +869,8 @@ export const nodeStyles = css`
 
   .node.error,
   .node.interrupted {
-    --node-output-status-bg: color-mix(in srgb, var(--error) 10%, var(--grey-darker) 90%);
-    --node-output-status-border: var(--error-light);
+    --node-output-status-bg: var(--node-output-error-bg);
+    --node-output-status-border: var(--node-output-error-border);
   }
 
   .node.success .node-output:not(.multi) .node-output-inner,
@@ -1040,7 +1046,7 @@ export const nodeStyles = css`
     align-items: center;
     justify-content: center;
     font-size: var(--ui-font-size-2xl);
-    opacity: 0.2;
+    opacity: var(--node-output-action-opacity);
     cursor: pointer;
     transition:
       opacity 0.2s,
@@ -1053,7 +1059,7 @@ export const nodeStyles = css`
   .node:is(:hover, .hovered, .showHoverControls) .expand-button,
   .node:is(:hover, .hovered, .showHoverControls) .output-toggle-button,
   .node:is(:hover, .hovered, .showHoverControls) .prompt-designer-button {
-    opacity: 0.35;
+    opacity: var(--node-output-action-node-hover-opacity);
   }
 
   .node .copy-button:hover,

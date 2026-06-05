@@ -23,7 +23,7 @@ const segmentedEditorStyles = css`
     padding: calc(3px * var(--ui-font-scale));
     margin-left: -0.2em;
     box-sizing: border-box;
-    background: rgba(0, 0, 0, 0.22);
+    background: var(--segmented-choice-bg);
     border: 0;
     border-radius: calc(32px * var(--ui-font-scale));
     corner-shape: superellipse(1.15);
@@ -89,7 +89,7 @@ const segmentedEditorStyles = css`
 
   .segmented-choice-option.is-active {
     background: var(--primary);
-    color: var(--grey-darkest);
+    color: var(--foreground-on-primary);
     box-shadow: none;
   }
 

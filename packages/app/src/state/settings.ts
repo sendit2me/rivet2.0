@@ -1,6 +1,7 @@
 import { atomWithDefault, atomWithStorage } from 'jotai/utils';
 import { DEFAULT_CHAT_NODE_TIMEOUT, type Settings } from '@valerypopoff/rivet2-core';
 import { isInTauri } from '../utils/tauri';
+import { getContrastingMonochromeColor } from '../utils/colorContrast.js';
 import { createHybridStorage, memoryStorage } from './storage.js';
 
 // Legacy storage key for recoil-persist to avoid breaking existing users' settings
@@ -50,6 +51,10 @@ export const themes = [
   {
     label: 'Taffy',
     value: 'taffy',
+  },
+  {
+    label: 'Bright',
+    value: 'bright',
   },
   {
     label: 'Custom',
@@ -140,6 +145,20 @@ export type RgbaColor = {
   a: number;
 };
 
+const THEME_PRIMARY_COLORS: Record<Exclude<Theme, 'custom'>, RgbaColor> = {
+  molten: { r: 255, g: 153, b: 0, a: 1 },
+  grapefruit: { r: 255, g: 136, b: 98, a: 1 },
+  taffy: { r: 165, g: 95, b: 255, a: 1 },
+  bright: { r: 23, g: 105, b: 224, a: 1 },
+};
+
+const THEME_PRIMARY_LIGHT_COLORS: Record<Exclude<Theme, 'custom'>, RgbaColor> = {
+  molten: { r: 255, g: 181, b: 69, a: 1 },
+  grapefruit: { r: 255, g: 163, b: 130, a: 1 },
+  taffy: { r: 183, g: 138, b: 255, a: 1 },
+  bright: { r: 91, g: 156, b: 255, a: 1 },
+};
+
 export type CanvasBackgroundCustomColor = RgbaColor;
 
 export const DEFAULT_CANVAS_BACKGROUND_CUSTOM_COLOR = 'rgba(40,44,52,1)';
@@ -200,6 +219,39 @@ export function getCustomThemeCssVariables({
   return {
     '--custom-theme-primary': normalizedPrimaryColor,
     '--custom-theme-secondary': normalizeCustomThemeSecondaryColor(secondaryColor, normalizedPrimaryColor),
+  };
+}
+
+export function getThemeContrastCssVariables({
+  theme,
+  customThemePrimaryColor,
+}: {
+  theme: Theme | undefined;
+  customThemePrimaryColor: unknown;
+}): Record<'--foreground-on-primary' | '--foreground-on-primary-light', string> {
+  const primaryColor =
+    theme === 'custom'
+      ? parseCustomThemePrimaryColor(customThemePrimaryColor)
+      : THEME_PRIMARY_COLORS[theme ?? 'molten'] ?? THEME_PRIMARY_COLORS.molten;
+  const primaryLightColor =
+    theme === 'custom'
+      ? mixRgbaColor(primaryColor, { r: 255, g: 255, b: 255, a: 1 }, 0.25)
+      : THEME_PRIMARY_LIGHT_COLORS[theme ?? 'molten'] ?? THEME_PRIMARY_LIGHT_COLORS.molten;
+
+  return {
+    '--foreground-on-primary': getContrastingMonochromeColor(primaryColor),
+    '--foreground-on-primary-light': getContrastingMonochromeColor(primaryLightColor),
+  };
+}
+
+function mixRgbaColor(baseColor: RgbaColor, mixColor: RgbaColor, mixAmount: number): RgbaColor {
+  const baseAmount = 1 - mixAmount;
+
+  return {
+    r: baseColor.r * baseAmount + mixColor.r * mixAmount,
+    g: baseColor.g * baseAmount + mixColor.g * mixAmount,
+    b: baseColor.b * baseAmount + mixColor.b * mixAmount,
+    a: 1,
   };
 }
 

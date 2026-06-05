@@ -67,9 +67,9 @@ if (!isLanguageRegistered('prompt-interpolation-markdown')) {
   monaco.languages.setLanguageConfiguration('prompt-interpolation-markdown', promptInterpolationMarkdownConf);
 }
 
-const definePITheme = (name: string, colors: { primary: string }) =>
+const definePITheme = (name: string, colors: { primary: string; base?: 'vs' | 'vs-dark' }) =>
   monaco.editor.defineTheme(`prompt-interpolation-${name}`, {
-    base: 'vs-dark',
+    base: colors.base ?? 'vs-dark',
     inherit: true,
     rules: [{ token: 'prompt-replacement', foreground: colors.primary }],
     colors: {},
@@ -78,4 +78,5 @@ const definePITheme = (name: string, colors: { primary: string }) =>
 definePITheme('molten', { primary: 'ff9900' });
 definePITheme('grapefruit', { primary: 'ff8862' });
 definePITheme('taffy', { primary: 'd6c2ff' });
+definePITheme('bright', { primary: '1769e0', base: 'vs' });
 definePITheme('custom', { primary: 'ff9900' });

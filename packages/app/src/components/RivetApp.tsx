@@ -19,6 +19,7 @@ import {
   customThemePrimaryColorState,
   customThemeSecondaryColorState,
   getCustomThemeCssVariables,
+  getThemeContrastCssVariables,
   selectedExecutorState,
   themeState,
   themes,
@@ -90,9 +91,21 @@ export const RivetApp: FC = () => {
         : {},
     [customThemePrimaryColor, customThemeSecondaryColor, theme],
   );
+  const themeContrastCssVariables = useMemo<Record<string, string>>(
+    () =>
+      getThemeContrastCssVariables({
+        theme,
+        customThemePrimaryColor,
+      }),
+    [customThemePrimaryColor, theme],
+  );
+  const rootThemeCssVariables = useMemo(
+    () => ({ ...customThemeCssVariables, ...themeContrastCssVariables }),
+    [customThemeCssVariables, themeContrastCssVariables],
+  );
   const appCssVariables = useMemo(
-    () => ({ ...uiFontSizeCssVariables, ...customThemeCssVariables }) as CSSProperties,
-    [customThemeCssVariables, uiFontSizeCssVariables],
+    () => ({ ...uiFontSizeCssVariables, ...rootThemeCssVariables }) as CSSProperties,
+    [rootThemeCssVariables, uiFontSizeCssVariables],
   );
 
   const noProjectOpen = openedProjectIds.length === 0;
@@ -164,16 +177,16 @@ export const RivetApp: FC = () => {
   useEffect(() => {
     const rootStyle = document.documentElement.style;
 
-    for (const [name, value] of Object.entries(customThemeCssVariables)) {
+    for (const [name, value] of Object.entries(rootThemeCssVariables)) {
       rootStyle.setProperty(name, value);
     }
 
     return () => {
-      for (const name of Object.keys(customThemeCssVariables)) {
+      for (const name of Object.keys(rootThemeCssVariables)) {
         rootStyle.removeProperty(name);
       }
     };
-  }, [customThemeCssVariables]);
+  }, [rootThemeCssVariables]);
 
   useEffect(() => {
     const rootElement = document.documentElement;

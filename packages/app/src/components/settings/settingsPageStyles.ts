@@ -47,4 +47,12 @@ export const fields = css`
     color: var(--grey-light);
     font-size: var(--ui-font-size-base);
   }
+
+  .settings-range-field {
+    --ds-background-neutral: var(--settings-range-track-bg);
+    --ds-background-neutral-hovered: var(--settings-range-track-bg-hover);
+    --ds-background-neutral-bold: var(--settings-range-fill-bg);
+    --ds-background-neutral-bold-hovered: var(--settings-range-fill-bg-hover);
+    --ds-background-neutral-bold-pressed: var(--settings-range-fill-bg-pressed);
+  }
 `;

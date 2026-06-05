@@ -12,6 +12,7 @@ import {
   formatCustomThemeSecondaryColor,
   getCanvasBackgroundColor,
   getCustomThemeCssVariables,
+  getThemeContrastCssVariables,
   MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
   MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
   defaultExecutorState,
@@ -68,6 +69,7 @@ test('themes include a custom color theme', () => {
     { label: 'Molten', value: 'molten' },
     { label: 'Grapefruit', value: 'grapefruit' },
     { label: 'Taffy', value: 'taffy' },
+    { label: 'Bright', value: 'bright' },
     { label: 'Custom', value: 'custom' },
   ]);
 });
@@ -208,6 +210,25 @@ test('custom theme color parsing produces safe rgba values and css variables', (
   assert.deepEqual(getCustomThemeCssVariables({ primaryColor: 'rgba(1,2,3,0.4)', secondaryColor: 'bad-color' }), {
     '--custom-theme-primary': 'rgba(1,2,3,0.4)',
     '--custom-theme-secondary': 'rgba(1,2,3,0.4)',
+  });
+});
+
+test('theme contrast css variables choose readable foregrounds for primary accents', () => {
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'molten', customThemePrimaryColor: undefined }), {
+    '--foreground-on-primary': '#000',
+    '--foreground-on-primary-light': '#000',
+  });
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'bright', customThemePrimaryColor: undefined }), {
+    '--foreground-on-primary': '#fff',
+    '--foreground-on-primary-light': '#000',
+  });
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'custom', customThemePrimaryColor: 'rgba(245,245,245,1)' }), {
+    '--foreground-on-primary': '#000',
+    '--foreground-on-primary-light': '#000',
+  });
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'custom', customThemePrimaryColor: 'rgba(20,20,20,1)' }), {
+    '--foreground-on-primary': '#fff',
+    '--foreground-on-primary-light': '#fff',
   });
 });
 

@@ -19,6 +19,7 @@ test('duplicate menu actions use the simple two-rectangle icon', () => {
   assert.equal([...duplicateIconSource.matchAll(/<rect\b/g)].length, 2);
   assert.match(duplicateIconSource, /width="13"/);
   assert.match(duplicateIconSource, /rx="1\.25"/);
-  assert.match(duplicateIconSource, /fill="var\(--foreground-on-primary\)"/);
+  assert.doesNotMatch(duplicateIconSource, /<rect\b[^>]*fill=/);
+  assert.doesNotMatch(duplicateIconSource, /foreground-on-primary/);
   assert.doesNotMatch(duplicateIconSource, /<path\b/);
 });

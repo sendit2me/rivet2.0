@@ -8,7 +8,12 @@ import { useNodePortLabelMinWidth } from '../hooks/useNodePortLabelMinWidth';
 import { type ProcessDataForNode, frozenNodeOutputsState, resolvedGraphSelectionState } from '../state/dataFlow.js';
 import { getNodeExecutionClassFlags, getSelectedProcessRun } from '../state/selectors/executionSelectors.js';
 import { getSplitStackGhostColors } from '../utils/nodeSplitStackColors.js';
-import { getNodeBorderReferenceColor, getNodeHeaderColor, isNodeBorderVisible } from '../utils/nodeColor.js';
+import {
+  getNodeBorderReferenceColor,
+  getNodeHeaderColor,
+  getNodeHeaderForegroundColor,
+  isNodeBorderVisible,
+} from '../utils/nodeColor.js';
 import { useCanvasHandlersContext, useCanvasViewContext } from './CanvasContext';
 import { ZoomedOutVisualNodeContent } from './visualNode/ZoomedOutVisualNodeContent';
 import { NormalVisualNodeContent } from './visualNode/NormalVisualNodeContent';
@@ -93,12 +98,7 @@ const VisualNodeImpl = memo(
         const bgColor = getNodeHeaderColor(nodeColor);
         const borderColor = getNodeBorderReferenceColor(nodeColor);
         const splitStackGhostColors = getSplitStackGhostColors(bgColor);
-        let fgColor = 'var(--foreground-bright)';
-
-        const colorMatch = bgColor.match(/node-color-(\d+)/);
-        if (colorMatch?.[1]) {
-          fgColor = `var(--node-color-${colorMatch[1]}-foreground)`;
-        }
+        const fgColor = getNodeHeaderForegroundColor(bgColor);
 
         return {
           opacity: isDragging ? '0' : '',

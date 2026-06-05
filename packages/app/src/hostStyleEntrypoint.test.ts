@@ -66,6 +66,7 @@ test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
     '--ds-font-heading-xxsmall:',
     '--ds-font-label:',
     '--ds-text: var(--foreground);',
+    '--ds-text-disabled: var(--foreground-disabled);',
     '--ds-surface: var(--grey-dark-colorish);',
     '--ds-surface-overlay: var(--grey-dark-colorish);',
     '--ds-border: var(--settings-collapsible-border);',
@@ -90,6 +91,7 @@ test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
   assert.match(postResetCss, /--ds-font-heading-xxsmall:[\s\S]*var\(--ds-font-family-heading, var\(--font-family\)\)/);
   assert.match(postResetCss, /--ds-font-label:[\s\S]*var\(--label-font-family,/);
   assert.match(postResetCss, /--ds-text: var\(--foreground\);/);
+  assert.match(postResetCss, /--ds-text-disabled: var\(--foreground-disabled\);/);
   assert.match(postResetCss, /--ds-surface: var\(--grey-dark-colorish\);/);
   assert.match(postResetCss, /--ds-surface-overlay: var\(--grey-dark-colorish\);/);
   assert.match(postResetCss, /--ds-border: var\(--settings-collapsible-border\);/);
@@ -116,6 +118,7 @@ test('native and react-select controls inherit tinted form-control surfaces', ()
     /input:not\(\.inputarea\):not\(\[type='checkbox'\]\)[\s\S]*border-width: var\(--form-control-border-width\) !important;/,
   );
   assert.match(indexCss, /select,[\s\S]*textarea:not\(\.inputarea\) \{[\s\S]*color: var\(--foreground\);/);
+  assert.match(indexCss, /select,[\s\S]*textarea:not\(\.inputarea\) \{[\s\S]*color-scheme: var\(--form-control-color-scheme\);/);
   assert.match(indexCss, /:hover,[\s\S]*select:hover,[\s\S]*background-color: var\(--form-control-bg-hover\);/);
   assert.match(indexCss, /:focus,[\s\S]*select:focus,[\s\S]*border-color: var\(--form-control-border-focus\);/);
   assert.match(
@@ -145,6 +148,10 @@ test('host entry reasserts one-pixel form-control borders after Atlaskit reset',
   );
   assert.match(
     postResetCss,
+    /input:not\(\.inputarea\):not\(\[type='checkbox'\]\)[\s\S]*color-scheme: var\(--form-control-color-scheme\);/,
+  );
+  assert.match(
+    postResetCss,
     /\[class\*='-control'\]:has\(input\[id\^='react-select-'\]\) \{[\s\S]*border-width: var\(--form-control-border-width\) !important;/,
   );
   assert.match(
@@ -152,6 +159,13 @@ test('host entry reasserts one-pixel form-control borders after Atlaskit reset',
     /\[data-ds--text-field--container\] \{[\s\S]*border-width: var\(--form-control-border-width\) !important;/,
   );
   assert.match(postResetCss, /\[data-ds--text-field--input\] \{[\s\S]*border: 0 !important;/);
+});
+
+test('Bright theme asks native form controls to render light built-in widgets', () => {
+  const colorsCss = readFileSync(join(srcDir, 'colors.css'), 'utf8');
+
+  assert.match(colorsCss, /--form-control-color-scheme: dark;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--form-control-color-scheme: light;/);
 });
 
 test('app rounded surfaces keep squircle geometry with plain-radius fallback', () => {

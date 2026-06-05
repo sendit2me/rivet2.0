@@ -68,7 +68,7 @@
   --ds-text: var(--foreground);
   --ds-text-subtle: var(--label-color);
   --ds-text-subtlest: var(--foreground-muted);
-  --ds-text-disabled: var(--foreground-muted);
+  --ds-text-disabled: var(--foreground-disabled);
   --ds-text-selected: var(--primary);
   --ds-surface: var(--grey-dark-colorish);
   --ds-surface-overlay: var(--grey-dark-colorish);
@@ -151,6 +151,7 @@ textarea:not(.inputarea) {
   border-width: var(--form-control-border-width) !important;
   background-color: var(--form-control-bg);
   color: var(--foreground);
+  color-scheme: var(--form-control-color-scheme);
 }
 
 input:not(.inputarea):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not(

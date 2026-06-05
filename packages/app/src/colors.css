@@ -28,7 +28,11 @@
   --foreground: #f0f0f0;
   --foreground-bright: #fff;
   --foreground-muted: #727272;
-  --foreground-on-primary: #1e1e1e;
+  --foreground-dim: #9fadbc;
+  --foreground-dimmed: #9fadbc;
+  --foreground-disabled: var(--foreground-muted);
+  --foreground-on-primary: #000;
+  --foreground-on-primary-light: #000;
 
   /* Shared collapsible settings surfaces. Keep body background opaque so it matches panels and modals. */
   --settings-collapsible-border: color-mix(in srgb, var(--secondary) 4%, var(--grey-darkish) 96%);
@@ -47,6 +51,29 @@
   --form-control-selected-bg: color-mix(in srgb, var(--primary) 14%, var(--grey-dark-colorish) 86%);
   --form-control-selected-bg-hover: color-mix(in srgb, var(--primary) 18%, var(--grey-dark-colorish) 82%);
   --form-control-selected-bg-pressed: color-mix(in srgb, var(--primary) 22%, var(--grey-dark-colorish) 78%);
+  --form-control-color-scheme: dark;
+  --segmented-choice-bg: rgba(0, 0, 0, 0.22);
+  --popup-menu-separator: var(--grey-dark);
+  --settings-range-track-bg: var(--form-control-neutral-bg);
+  --settings-range-track-bg-hover: var(--form-control-bg-hover);
+  --settings-range-fill-bg: var(--grey-lightish);
+  --settings-range-fill-bg-hover: var(--grey-light);
+  --settings-range-fill-bg-pressed: var(--grey-lighter);
+  --node-output-action-opacity: 0.2;
+  --node-output-action-node-hover-opacity: 0.35;
+  --node-output-error-bg: color-mix(in srgb, var(--error) 10%, var(--grey-darker) 90%);
+  --node-output-error-border: var(--error-light);
+  --node-color-picker-trigger-border: rgba(255, 255, 255, 0.1);
+  --node-color-picker-trigger-icon: rgba(255, 255, 255, 0.3);
+  --node-color-picker-swatch-body-bg: var(--node-body-bg);
+  --node-body-bg: var(--grey-darker-darker);
+  --node-resting-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --port-connected-label-color: var(--primary-text);
+  --port-connected-label-opacity: 0.5;
+  --node-stack-front-opacity: 0.35;
+  --node-stack-back-opacity: 0.15;
+  --rivet-logo-filter: none;
+  --rivet-logo-opacity: 0.95;
 
   /* Tertiary colors */
   --tertiary: #444;
@@ -84,35 +111,29 @@
   --custom-theme-primary: rgba(255, 153, 0, 1);
   --custom-theme-secondary: var(--custom-theme-primary);
 
-  /* Canvas background pattern hue. Keep this theme-independent; opacity is controlled by the UI setting. */
+  /* Canvas background pattern hue. Dark themes use pale pattern ink; Bright overrides this with dark ink. */
   --canvas-background-pattern-rgb: 255, 255, 255;
 
+  --node-color-0: var(--grey-darkish);
+  --node-color-0-foreground: var(--foreground-bright);
+
   --node-color-1: #ff9900;
-  --node-color-1-foreground: #1e1e1e;
 
   --node-color-2: #a55fff;
-  --node-color-2-foreground: #fff;
 
   --node-color-3: #30c9c3;
-  --node-color-3-foreground: #1e1e1e;
 
   --node-color-4: #00b74c;
-  --node-color-4-foreground: #1e1e1e;
 
   --node-color-5: #e74c3c;
-  --node-color-5-foreground: #1e1e1e;
 
   --node-color-6: #f1c40f;
-  --node-color-6-foreground: #1e1e1e;
 
   --node-color-7: #ff704d;
-  --node-color-7-foreground: #1e1e1e;
 
   --node-color-8: #222222;
-  --node-color-8-foreground: #fff;
 
   --node-color-9: #444444;
-  --node-color-9-foreground: #fff;
 
   --text-color-accent-1: #ff9900;
   --text-color-accent-2: #d0acff;
@@ -183,6 +204,92 @@
   /* Shadows */
   --shadow-primary: rgba(165, 95, 255, 0.5); /* darker shadow */
   --shadow-primary-bright: rgba(165, 95, 255, 0.8); /* lighter shadow */
+}
+
+:root.theme-bright,
+.app.theme-bright {
+  /* Theme colors */
+  --primary: #1769e0;
+  --secondary: #3978c4;
+  --primary-text: #0f5fcf;
+  --primary-dark: #0d4ea8;
+  --primary-light: #5b9cff;
+  --primary-5percent: rgba(23, 105, 224, 0.08);
+
+  /* Light neutral surfaces. The variable names are legacy, but they remain the shared surface scale. */
+  --black-seethrough: rgba(15, 23, 42, 0.12);
+  --neutral-grey-darkest: #ffffff;
+  --neutral-grey-darker-darker: #f5f7fb;
+  --neutral-grey-darker: #eef2f7;
+  --neutral-grey-darkerish: #f1f4f8;
+  --neutral-grey-dark: #e4eaf1;
+  --neutral-grey-darkish: #cfd8e3;
+  --grey-dark-seethrough: color-mix(in srgb, var(--secondary) 2%, rgba(228, 234, 241, 0.88) 98%);
+  --grey-dark-seethrougher: color-mix(in srgb, var(--secondary) 2%, rgba(228, 234, 241, 0.45) 98%);
+  --grey-dark-colorish: color-mix(in srgb, var(--secondary) 7%, #f0f4fa 93%);
+  --grey-dark-colorish-seethrough: color-mix(in srgb, var(--secondary) 7%, rgba(240, 244, 250, 0.95) 93%);
+  --grey-darkish-seethrough: color-mix(in srgb, var(--secondary) 2%, rgba(207, 216, 227, 0.55) 98%);
+  --grey: #9aa5b3;
+  --grey-lightish: #1d2733;
+  --grey-light: #1d2733;
+  --grey-light-seethrough: rgba(29, 39, 51, 0.5);
+  --grey-light-seethrougher: rgba(29, 39, 51, 0.08);
+  --grey-lighter: #1d2733;
+  --grey-lightest: #121a24;
+  --foreground: #1d2733;
+  --foreground-bright: #0f1722;
+  --foreground-muted: #1d2733;
+  --foreground-dim: #1d2733;
+  --foreground-dimmed: #1d2733;
+  --foreground-disabled: #708092;
+  --foreground-on-primary: #fff;
+  --foreground-on-primary-light: #000;
+  --label-color: #1d2733;
+  --canvas-background-pattern-rgb: 0, 0, 0;
+  --popup-menu-separator: color-mix(in srgb, var(--secondary) 8%, #bac5d2 92%);
+  --settings-range-track-bg: #8090a3;
+  --settings-range-track-bg-hover: #6f8094;
+  --settings-range-fill-bg: #1d2733;
+  --settings-range-fill-bg-hover: #0f1722;
+  --settings-range-fill-bg-pressed: #050a12;
+  --form-control-color-scheme: light;
+  --segmented-choice-bg: color-mix(in srgb, var(--secondary) 5%, #c7d0dc 95%);
+  --node-output-action-opacity: 0.42;
+  --node-output-action-node-hover-opacity: 0.62;
+  --node-output-error-bg: color-mix(in srgb, var(--error) 30%, var(--grey-darker) 70%);
+  --node-output-error-border: var(--error);
+  --node-color-picker-trigger-border: rgba(15, 23, 34, 0.1);
+  --node-color-picker-trigger-icon: rgba(15, 23, 34, 0.3);
+  --node-color-picker-swatch-body-bg: #ffffff;
+  --node-body-bg: color-mix(in srgb, var(--secondary) 3%, #e7edf5 97%);
+  --node-resting-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  --port-connected-label-color: #0d4ea8;
+  --port-connected-label-opacity: 0.86;
+  --node-stack-front-opacity: 0.72;
+  --node-stack-back-opacity: 0.46;
+  --rivet-logo-filter: brightness(0);
+  --rivet-logo-opacity: 1;
+  --node-color-0: color-mix(in srgb, var(--secondary) 3%, #b8c2cf 97%);
+  --node-color-0-foreground: #0f1722;
+
+  /* Tertiary colors */
+  --tertiary: #d8e0ea;
+  --tertiary-light: rgba(216, 224, 234, 0.72);
+
+  /* Accent colors */
+  --accent: #0f9f9a;
+  --accent-dark: #087c78;
+  --accent-light: #39bfba;
+
+  /* Highlighted Text */
+  --highlighted-text: #0f5fcf;
+  --highlighted-text-contrast: #ffffff;
+
+  /* Shadows */
+  --shadow: rgba(15, 23, 42, 0.14);
+  --shadow-dark: rgba(15, 23, 42, 0.24);
+  --shadow-primary: rgba(23, 105, 224, 0.24);
+  --shadow-primary-bright: rgba(23, 105, 224, 0.42);
 }
 
 :root.theme-custom,

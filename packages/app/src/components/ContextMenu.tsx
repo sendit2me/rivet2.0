@@ -57,7 +57,7 @@ export const menuStyles = css`
   .context-menu-search-section-header {
     padding: 10px 12px 6px;
     margin-top: 4px;
-    border-top: 1px solid var(--grey-dark);
+    border-top: 1px solid var(--popup-menu-separator);
     color: var(--grey-lightish);
     font-size: var(--ui-font-size-sm);
     line-height: 1;
@@ -412,7 +412,7 @@ export const ContextMenuItemDiv = styled.div<{
 
   &:hover,
   &.active {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--grey-darkish);
     color: var(--grey-lightest);
   }
 
@@ -434,7 +434,7 @@ export const ContextMenuItemDiv = styled.div<{
     css`
       &:hover,
       &.active {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: var(--grey-darkish);
         color: var(--error-light);
       }
     `}

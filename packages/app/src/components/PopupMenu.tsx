@@ -58,7 +58,7 @@ export const popupMenuSeparatorStyles = css`
   flex: 0 0 auto;
   height: 1px;
   margin: 0.35em 0.75em;
-  background-color: var(--grey-dark);
+  background-color: var(--popup-menu-separator);
 `;
 
 export const popupMenuSeparatedRowStyles = css`
@@ -71,7 +71,7 @@ export const popupMenuSeparatedRowStyles = css`
     right: 0.75em;
     top: -0.35em;
     height: 1px;
-    background-color: var(--grey-dark);
+    background-color: var(--popup-menu-separator);
     pointer-events: none;
   }
 `;
@@ -99,7 +99,7 @@ export const popupMenuRowStyles = css`
   &:hover,
   &:focus-visible,
   &.active {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--grey-darkish);
     outline: none;
   }
 
@@ -110,7 +110,7 @@ export const popupMenuRowStyles = css`
   &.danger:hover,
   &.danger:focus-visible,
   &.danger.active {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--grey-darkish);
     color: var(--error-light);
   }
 `;

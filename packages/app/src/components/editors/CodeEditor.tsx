@@ -10,7 +10,7 @@ import { projectState } from '../../state/savedGraphs.js';
 import { LazyCodeEditor } from '../LazyComponents';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { getHelperMessage, getPostEditorHelperMessage } from './editorUtils';
-import { resolveMonacoTheme } from '../codeEditorTheme.js';
+import { resolveMonacoDisplayTheme } from '../codeEditorTheme.js';
 import { ResizeHandle } from '../ResizeHandle.js';
 import { resizeCursorStyles } from '../../utils/resizeCursors.js';
 import {
@@ -148,7 +148,7 @@ export const CodeEditor: FC<CodeEditorProps> = ({
   const appTheme = useAtomValue(themeState);
   const graphMetadata = useAtomValue(graphMetadataState);
   const project = useAtomValue(projectState);
-  const resolvedTheme = resolveMonacoTheme(theme, appTheme);
+  const resolvedTheme = resolveMonacoDisplayTheme(theme, appTheme);
   const isResizable = language != null && RESIZABLE_LANGUAGES.has(language);
   const editorIdentityKey = name?.trim() || label;
   const modelCacheKey = buildCodeEditorModelCacheKey({

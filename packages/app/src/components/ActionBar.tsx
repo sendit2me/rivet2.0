@@ -34,19 +34,14 @@ const styles = css`
   position: fixed;
   top: calc(20px + var(--project-selector-height));
   right: 20px;
-  background: var(--grey-darker);
-  border-radius: 8px;
-  corner-shape: squircle;
-  @supports not (corner-shape: squircle) {
-    border-radius: 4px;
-  }
-  border: 1px solid var(--grey-dark);
+  background: transparent;
+  border: 0;
   height: var(--action-bar-height);
   z-index: 220;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   font-size: var(--ui-font-size-base);
-  box-shadow: 3px 1px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: none;
   justify-content: flex-end;
   gap: 8px;
 
@@ -68,6 +63,7 @@ const styles = css`
     height: var(--action-bar-height);
     border-radius: var(--ui-button-radius);
     corner-shape: squircle;
+    box-sizing: border-box;
   }
 
   .run-button button {
@@ -132,7 +128,10 @@ const styles = css`
   }
 
   .more-menu {
-    background-color: transparent;
+    background-color: var(--grey-darker);
+    border: 1px solid var(--grey-dark);
+    box-shadow: 2px 1px 8px var(--shadow);
+    color: var(--foreground);
     font-size: var(--ui-font-size-icon-xl);
     height: var(--action-bar-height);
     line-height: 0;
@@ -140,7 +139,11 @@ const styles = css`
     width: var(--action-bar-height);
 
     &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
+      background-color: var(--grey-darkish);
+    }
+
+    svg {
+      color: currentColor;
     }
   }
 

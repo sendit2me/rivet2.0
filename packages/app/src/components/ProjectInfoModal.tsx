@@ -73,7 +73,7 @@ const styles = css`
   }
 
   .project-info-label {
-    color: var(--grey);
+    color: var(--foreground-muted);
     font-weight: var(--font-weight-semibold);
     margin-bottom: 6px;
   }

@@ -59,6 +59,9 @@ test('node settings panel uses regular UI typography outside embedded code edito
   const metadataInputStyles = nodeEditorSource.match(
     /\.node-title-field input,\s+\.node-description-field textarea \{(?<styles>[\s\S]*?)\n  \}/,
   )?.groups?.styles;
+  const defaultFieldLabelStyles = defaultNodeEditorSource.match(
+    /\.row > :first-child label\[id\$='-label'\],\s+\.row \.editor-wrapper-wrapper > label \{(?<styles>[\s\S]*?)\n  \}/,
+  )?.groups?.styles;
   const editorStatusLineStyles = defaultNodeEditorSource.match(
     /\.editor-status-line \{(?<styles>[\s\S]*?)\n  \}/,
   )?.groups?.styles;
@@ -67,6 +70,7 @@ test('node settings panel uses regular UI typography outside embedded code edito
   assert.ok(sectionFooterStyles);
   assert.ok(titleReadContentStyles);
   assert.ok(metadataInputStyles);
+  assert.ok(defaultFieldLabelStyles);
   assert.ok(editorStatusLineStyles);
   assert.match(panelContainerStyles, /font-family: var\(--font-family\);/);
   assert.match(panelContainerStyles, /--ds-font-family-body: var\(--font-family\);/);
@@ -75,6 +79,8 @@ test('node settings panel uses regular UI typography outside embedded code edito
   assert.match(panelContainerStyles, /--label-font-family: var\(--font-family\);/);
   assert.match(panelContainerStyles, /border-left: 1px solid var\(--grey-darkish\);/);
   assert.match(panelContainerStyles, /box-shadow: none;/);
+  assert.match(titleReadContentStyles, /color: var\(--foreground\);/);
+  assert.match(defaultFieldLabelStyles, /color: var\(--label-color\);/);
   assert.doesNotMatch(sectionFooterStyles, /font-family: var\(--font-family-monospace\);/);
   assert.doesNotMatch(titleReadContentStyles, /font-family: var\(--font-family-monospace\);/);
   assert.doesNotMatch(metadataInputStyles, /font-family: var\(--font-family-monospace\);/);
@@ -120,6 +126,29 @@ test('node color picker is not split into a fragile dev lazy module', () => {
   assert.doesNotMatch(lazyComponentsSource, /TripleBarColorPicker/);
   assert.match(colorEditorSource, /import \{ TripleBarColorPicker \} from '\.\.\/TripleBarColorPicker';/);
   assert.doesNotMatch(colorEditorSource, /LazyTripleBarColorPicker|Suspense/);
+});
+
+test('default node color picker renders through color 0 without saving that token into projects', () => {
+  const nodeColorPickerSource = readFileSync(join(componentsDir, 'NodeColorPicker.tsx'), 'utf8');
+  const nodeEditorSource = readFileSync(join(componentsDir, 'NodeEditor.tsx'), 'utf8');
+  const colorsSource = readFileSync(join(componentsDir, '..', 'colors.css'), 'utf8');
+
+  assert.match(nodeColorPickerSource, /DEFAULT_NODE_HEADER_COLOR/);
+  assert.match(nodeColorPickerSource, /PROJECT_DEFAULT_NODE_HEADER_COLOR/);
+  assert.match(nodeColorPickerSource, /getNodeBorderReferenceColor\(currentColor\)/);
+  assert.match(
+    nodeColorPickerSource,
+    /createBorderAndHeaderNodeColor\(color\.isDefault \? PROJECT_DEFAULT_NODE_HEADER_COLOR : color\.color\)/,
+  );
+  assert.match(nodeColorPickerSource, /color: var\(--node-color-picker-trigger-icon\);/);
+  assert.match(nodeEditorSource, /border: 1px solid var\(--node-color-picker-trigger-border\);/);
+  assert.match(colorsSource, /--node-color-picker-trigger-border: rgba\(255, 255, 255, 0\.1\);/);
+  assert.match(colorsSource, /--node-color-picker-trigger-icon: rgba\(255, 255, 255, 0\.3\);/);
+  assert.match(colorsSource, /--node-color-picker-swatch-body-bg: var\(--node-body-bg\);/);
+  assert.match(nodeColorPickerSource, /background-color: var\(--node-color-picker-swatch-body-bg\);/);
+  assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-color-picker-trigger-border: rgba\(15, 23, 34, 0\.1\);/);
+  assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-color-picker-trigger-icon: rgba\(15, 23, 34, 0\.3\);/);
+  assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-color-picker-swatch-body-bg: #ffffff;/);
 });
 
 test('collapsible settings surfaces share opaque colors across panels and modals', () => {
@@ -234,6 +263,14 @@ test('node code editor text stats are editor-definition driven', () => {
   assert.doesNotMatch(codeEditorSource, /node\.type === 'text' && editorDef\.dataKey === 'text'/);
 });
 
+test('node settings code editors use the active app display theme', () => {
+  const codeEditorSource = readFileSync(join(componentsDir, 'editors', 'CodeEditor.tsx'), 'utf8');
+
+  assert.match(codeEditorSource, /import \{ resolveMonacoDisplayTheme \} from '\.\.\/codeEditorTheme\.js';/);
+  assert.match(codeEditorSource, /const resolvedTheme = resolveMonacoDisplayTheme\(theme, appTheme\);/);
+  assert.doesNotMatch(codeEditorSource, /const resolvedTheme = resolveMonacoTheme\(theme, appTheme\);/);
+});
+
 test('node code editor lets panel scrolling continue at editor scroll edges', () => {
   const codeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
 
@@ -256,10 +293,14 @@ test('node code editor popup widgets are allowed outside the rounded editor shel
 test('lazy Monaco editor chunk stays independent from app UI state', () => {
   const codeEditorSource = readFileSync(join(componentsDir, 'CodeEditor.tsx'), 'utf8');
   const lazyComponentsSource = readFileSync(join(componentsDir, 'LazyComponents.tsx'), 'utf8');
+  const legacyMonacoSource = readFileSync(join(componentsDir, '..', 'utils', 'monaco.ts'), 'utf8');
+  const codeEditorMonacoSource = readFileSync(join(componentsDir, '..', 'utils', 'monaco', 'codeEditorMonaco.ts'), 'utf8');
 
   assert.match(lazyComponentsSource, /useMultilineEditorFontSize/);
   assert.match(lazyComponentsSource, /useIsNodeEditorResizing/);
   assert.match(codeEditorSource, /codeEditorMonaco/);
+  assert.match(legacyMonacoSource, /definePITheme\('bright', \{ primary: '1769e0', base: 'vs' \}\);/);
+  assert.match(codeEditorMonacoSource, /bright: \{ foreground: '1769e0', base: 'vs' \}/);
   assert.doesNotMatch(codeEditorSource, /useMultilineEditorFontSize/);
   assert.doesNotMatch(codeEditorSource, /NodeEditorResizeContext/);
   assert.doesNotMatch(codeEditorSource, /codeEditorTheme/);
