@@ -262,7 +262,7 @@
   --node-color-picker-trigger-icon: rgba(15, 23, 34, 0.3);
   --node-color-picker-swatch-body-bg: #ffffff;
   --node-body-bg: color-mix(in srgb, var(--secondary) 3%, #e7edf5 97%);
-  --node-resting-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  --node-resting-shadow: 0 2px 4px rgba(30, 30, 30, 0.35);
   --port-connected-label-color: #0d4ea8;
   --port-connected-label-opacity: 0.86;
   --node-stack-front-opacity: 0.72;
