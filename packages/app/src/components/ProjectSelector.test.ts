@@ -10,6 +10,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   const projectSelectorTsx = readFileSync(join(srcDir, 'ProjectSelector.tsx'), 'utf8');
   const leftSidebarTsx = readFileSync(join(srcDir, 'LeftSidebar.tsx'), 'utf8');
   const overlayTabsTsx = readFileSync(join(srcDir, 'OverlayTabs.tsx'), 'utf8');
+  const rivetAppSource = readFileSync(join(srcDir, 'RivetApp.tsx'), 'utf8');
   const colorsCss = readFileSync(join(srcDir, '..', 'colors.css'), 'utf8');
 
   assert.match(
@@ -47,6 +48,15 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
     colorsCss,
     /--grey-dark-colorish-seethrough: color-mix\(in srgb, var\(--primary\) [^,]+, rgba\(35, 35, 35, 0\.95\) [^)]+\);/,
   );
+  assert.match(colorsCss, /--custom-theme-primary: rgba\(255, 153, 0, 1\);/);
+  assert.match(colorsCss, /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--primary: var\(--custom-theme-primary\);/);
+  assert.match(
+    colorsCss,
+    /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--primary-dark: color-mix\(in srgb, var\(--custom-theme-primary\) 80%, black 20%\);/,
+  );
+  assert.match(rivetAppSource, /customThemePrimaryColorState/);
+  assert.match(rivetAppSource, /theme === 'custom' \? getCustomThemeCssVariables\(customThemePrimaryColor\) : \{\}/);
+  assert.match(rivetAppSource, /rootStyle\.setProperty\(name, value\);/);
   assert.match(projectSelectorTsx, /background: var\(--project-selector-strip-bg\);/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*z-index: 2;/);

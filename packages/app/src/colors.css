@@ -69,6 +69,7 @@
   --shadow-dark: rgba(0, 0, 0, 0.4);
 
   --canvas-background-theme-color: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darker-darker) 91%);
+  --custom-theme-primary: rgba(255, 153, 0, 1);
 
   /* Canvas background pattern hue. Keep this theme-independent; opacity is controlled by the UI setting. */
   --canvas-background-pattern-rgb: 255, 255, 255;
@@ -198,4 +199,16 @@
   --shadow-primary: rgba(165, 95, 255, 0.5); /* darker shadow */
   --shadow-primary-bright: rgba(165, 95, 255, 0.8); /* lighter shadow */
 
+}
+
+:root.theme-custom,
+.app.theme-custom {
+  --primary: var(--custom-theme-primary);
+  --primary-text: var(--custom-theme-primary);
+  --primary-dark: color-mix(in srgb, var(--custom-theme-primary) 80%, black 20%);
+  --primary-light: color-mix(in srgb, var(--custom-theme-primary) 75%, white 25%);
+  --primary-5percent: color-mix(in srgb, var(--custom-theme-primary) 5%, transparent);
+
+  --shadow-primary: color-mix(in srgb, var(--custom-theme-primary) 45%, transparent);
+  --shadow-primary-bright: color-mix(in srgb, var(--custom-theme-primary) 75%, transparent);
 }

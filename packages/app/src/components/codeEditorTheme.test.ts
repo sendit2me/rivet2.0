@@ -9,6 +9,7 @@ import {
 
 test('resolveMonacoTheme expands prompt-interpolation themes with the active app theme', () => {
   assert.equal(resolveMonacoTheme('prompt-interpolation', 'molten'), 'prompt-interpolation-molten');
+  assert.equal(resolveMonacoTheme('prompt-interpolation', 'custom'), 'prompt-interpolation-custom');
   assert.equal(resolveMonacoTheme('vs-dark', 'molten'), 'vs-dark');
   assert.equal(resolveMonacoTheme(undefined, 'molten'), undefined);
 });
@@ -16,6 +17,7 @@ test('resolveMonacoTheme expands prompt-interpolation themes with the active app
 test('resolveMonacoDisplayTheme falls back to the default editor theme', () => {
   assert.equal(resolveMonacoDisplayTheme(undefined, 'molten'), DEFAULT_MONACO_THEME);
   assert.equal(resolveMonacoDisplayTheme('prompt-interpolation', 'molten'), 'prompt-interpolation-molten');
+  assert.equal(resolveMonacoDisplayTheme('prompt-interpolation', 'custom'), 'prompt-interpolation-custom');
 });
 
 test('resolveMonacoForeground matches the editor default foreground for dark Monaco themes', () => {

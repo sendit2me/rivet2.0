@@ -18,6 +18,7 @@ const PROMPT_INTERPOLATION_THEMES = {
   molten: 'ff9900',
   grapefruit: 'ff8862',
   taffy: 'd6c2ff',
+  custom: 'ff9900',
 } as const;
 
 function isLanguageRegistered(id: string): boolean {

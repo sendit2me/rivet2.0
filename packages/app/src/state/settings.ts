@@ -51,6 +51,10 @@ export const themes = [
     label: 'Taffy',
     value: 'taffy',
   },
+  {
+    label: 'Custom',
+    value: 'custom',
+  },
 ] as const;
 
 export type Theme = (typeof themes)[number]['value'];
@@ -133,15 +137,18 @@ export const canvasBackgroundColorOptions = [
 
 export type CanvasBackgroundColorMode = (typeof canvasBackgroundColorOptions)[number]['value'];
 
-export type CanvasBackgroundCustomColor = {
+export type RgbaColor = {
   r: number;
   g: number;
   b: number;
   a: number;
 };
 
+export type CanvasBackgroundCustomColor = RgbaColor;
+
 export const DEFAULT_CANVAS_BACKGROUND_CUSTOM_COLOR = 'rgba(40,44,52,1)';
-const CANVAS_BACKGROUND_COLOR_NUMBER_PATTERN = '-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)';
+export const DEFAULT_CUSTOM_THEME_PRIMARY_COLOR = 'rgba(255,153,0,1)';
+const CSS_RGBA_COLOR_NUMBER_PATTERN = '-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)';
 
 export function resolveCanvasBackgroundPattern(value: unknown): CanvasBackgroundPattern {
   return canvasBackgroundPatterns.some((pattern) => pattern.value === value) ? (value as CanvasBackgroundPattern) : 'grid';
@@ -158,33 +165,62 @@ export function resolveCanvasBackgroundColorMode(value: unknown): CanvasBackgrou
 }
 
 export function parseCanvasBackgroundCustomColor(value: unknown): CanvasBackgroundCustomColor {
+  return parseRgbaColor(value, { r: 40, g: 44, b: 52, a: 1 });
+}
+
+export function parseCustomThemePrimaryColor(value: unknown): RgbaColor {
+  return parseRgbaColor(value, { r: 255, g: 153, b: 0, a: 1 });
+}
+
+export function formatCustomThemePrimaryColor(color: RgbaColor): string {
+  return formatRgbaColor(color);
+}
+
+export function normalizeCustomThemePrimaryColor(value: unknown): string {
+  return formatCustomThemePrimaryColor(parseCustomThemePrimaryColor(value));
+}
+
+export function getCustomThemeCssVariables(value: unknown): Record<'--custom-theme-primary', string> {
+  return {
+    '--custom-theme-primary': normalizeCustomThemePrimaryColor(value),
+  };
+}
+
+function parseRgbaColor(
+  value: unknown,
+  fallback: RgbaColor,
+): RgbaColor {
   if (typeof value !== 'string') {
-    return { r: 40, g: 44, b: 52, a: 1 };
+    return fallback;
   }
 
   const match = new RegExp(
-    `^rgba\\(\\s*(?<r>${CANVAS_BACKGROUND_COLOR_NUMBER_PATTERN})\\s*,\\s*(?<g>${CANVAS_BACKGROUND_COLOR_NUMBER_PATTERN})\\s*,\\s*(?<b>${CANVAS_BACKGROUND_COLOR_NUMBER_PATTERN})\\s*,\\s*(?<a>${CANVAS_BACKGROUND_COLOR_NUMBER_PATTERN})\\s*\\)$`,
+    `^rgba\\(\\s*(?<r>${CSS_RGBA_COLOR_NUMBER_PATTERN})\\s*,\\s*(?<g>${CSS_RGBA_COLOR_NUMBER_PATTERN})\\s*,\\s*(?<b>${CSS_RGBA_COLOR_NUMBER_PATTERN})\\s*,\\s*(?<a>${CSS_RGBA_COLOR_NUMBER_PATTERN})\\s*\\)$`,
     'i',
   ).exec(value);
 
   if (!match?.groups) {
-    return { r: 40, g: 44, b: 52, a: 1 };
+    return fallback;
   }
 
   const groups = match.groups as { r: string; g: string; b: string; a: string };
 
   return {
-    r: clampCanvasBackgroundColorChannel(Number.parseFloat(groups.r)),
-    g: clampCanvasBackgroundColorChannel(Number.parseFloat(groups.g)),
-    b: clampCanvasBackgroundColorChannel(Number.parseFloat(groups.b)),
-    a: clampCanvasBackgroundAlpha(Number.parseFloat(groups.a)),
+    r: clampCssColorChannel(Number.parseFloat(groups.r)),
+    g: clampCssColorChannel(Number.parseFloat(groups.g)),
+    b: clampCssColorChannel(Number.parseFloat(groups.b)),
+    a: clampCssAlpha(Number.parseFloat(groups.a)),
   };
 }
 
 export function formatCanvasBackgroundCustomColor(color: CanvasBackgroundCustomColor): string {
-  return `rgba(${clampCanvasBackgroundColorChannel(color.r)},${clampCanvasBackgroundColorChannel(
-    color.g,
-  )},${clampCanvasBackgroundColorChannel(color.b)},${clampCanvasBackgroundAlpha(color.a)})`;
+  return formatRgbaColor(color);
+}
+
+function formatRgbaColor(color: RgbaColor): string {
+  return `rgba(${clampCssColorChannel(color.r)},${clampCssColorChannel(color.g)},${clampCssColorChannel(
+    color.b,
+  )},${clampCssAlpha(color.a)})`;
 }
 
 export function normalizeCanvasBackgroundCustomColor(value: unknown): string {
@@ -249,9 +285,15 @@ export const canvasBackgroundCustomColorState = atomWithStorage<string>(
   storage,
 );
 
+export const customThemePrimaryColorState = atomWithStorage<string>(
+  'customThemePrimaryColor',
+  DEFAULT_CUSTOM_THEME_PRIMARY_COLOR,
+  storage,
+);
+
 export const debuggerDefaultUrlState = atomWithStorage('debuggerDefaultUrl', 'ws://localhost:21888', storage);
 
-function clampCanvasBackgroundColorChannel(value: number): number {
+function clampCssColorChannel(value: number): number {
   if (!Number.isFinite(value)) {
     return 40;
   }
@@ -259,7 +301,7 @@ function clampCanvasBackgroundColorChannel(value: number): number {
   return Math.min(255, Math.max(0, Math.round(value)));
 }
 
-function clampCanvasBackgroundAlpha(value: number): number {
+function clampCssAlpha(value: number): number {
   if (!Number.isFinite(value)) {
     return 1;
   }

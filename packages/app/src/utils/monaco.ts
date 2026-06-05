@@ -78,3 +78,4 @@ const definePITheme = (name: string, colors: { primary: string }) =>
 definePITheme('molten', { primary: 'ff9900' });
 definePITheme('grapefruit', { primary: 'ff8862' });
 definePITheme('taffy', { primary: 'd6c2ff' });
+definePITheme('custom', { primary: 'ff9900' });

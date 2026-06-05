@@ -31,12 +31,24 @@ const modalBody = css`
   min-width: 0;
   overflow: hidden;
 
-  nav {
+  .settings-modal-sidebar {
+    --ds-background-selected: color-mix(in srgb, var(--primary) 12%, transparent);
+    --ds-background-selected-hovered: color-mix(in srgb, var(--primary) 16%, transparent);
+    --ds-background-selected-pressed: color-mix(in srgb, var(--primary) 20%, transparent);
+    --ds-border-selected: var(--primary);
+    --ds-surface: var(--grey-dark-colorish);
+    --ds-text-selected: var(--primary);
     align-self: stretch;
+    background-color: var(--grey-dark-colorish);
+    border-right: 1px solid var(--grey-darkish);
     max-height: 100%;
     min-height: 0;
     overflow: auto;
     padding-bottom: 20px;
+  }
+
+  .settings-modal-sidebar > nav {
+    background-color: var(--grey-dark-colorish);
   }
 
   main {
@@ -99,7 +111,7 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
           <AppModalHeader title="Settings" onClose={() => setIsOpen(false)} />
           <ModalBody>
             <div css={modalBody}>
-              <nav>
+              <aside className="settings-modal-sidebar">
                 <SideNavigation label="settings">
                   <NavigationContent>
                     <div css={buttonsContainer}>
@@ -132,7 +144,7 @@ export const SettingsModal: FC<SettingsModalProps> = () => {
                     </div>
                   </NavigationContent>
                 </SideNavigation>
-              </nav>
+              </aside>
               <main className={page === 'plugins' ? 'fill-page' : undefined}>
                 {match(page)
                   .with('general', () => <GeneralSettingsPage />)

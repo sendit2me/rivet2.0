@@ -4,21 +4,27 @@ import { createStore } from 'jotai/vanilla';
 import {
   canvasBackgroundColorOptions,
   clampCanvasBackgroundPatternOpacity,
+  DEFAULT_CUSTOM_THEME_PRIMARY_COLOR,
   DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY,
   DEFAULT_CANVAS_BACKGROUND_CUSTOM_COLOR,
   formatCanvasBackgroundCustomColor,
+  formatCustomThemePrimaryColor,
   getCanvasBackgroundColor,
+  getCustomThemeCssVariables,
   MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
   MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
   defaultExecutorState,
   getExecutorOptions,
   getStartupDefaultExecutor,
   normalizeCanvasBackgroundCustomColor,
+  normalizeCustomThemePrimaryColor,
   parseCanvasBackgroundCustomColor,
+  parseCustomThemePrimaryColor,
   resolveCanvasBackgroundColorMode,
   resolveCanvasBackgroundPattern,
   resolveEditorPreferences,
   selectedExecutorState,
+  themes,
 } from './settings.js';
 import { memoryStorage } from './storage.js';
 
@@ -52,6 +58,15 @@ test('resolveEditorPreferences respects explicit editor settings', () => {
       openNodeSettingsOnCreate: false,
     },
   );
+});
+
+test('themes include a custom primary-color theme', () => {
+  assert.deepEqual(themes, [
+    { label: 'Molten', value: 'molten' },
+    { label: 'Grapefruit', value: 'grapefruit' },
+    { label: 'Taffy', value: 'taffy' },
+    { label: 'Custom', value: 'custom' },
+  ]);
 });
 
 test('selectedExecutorState snapshots the startup default after it is set', () => {
@@ -152,6 +167,17 @@ test('canvas background custom color parsing produces safe rgba values', () => {
   assert.equal(normalizeCanvasBackgroundCustomColor('rgba(12.4,20.6,30,0.33333)'), 'rgba(12,21,30,0.333)');
   assert.equal(normalizeCanvasBackgroundCustomColor('bad-color'), DEFAULT_CANVAS_BACKGROUND_CUSTOM_COLOR);
   assert.equal(formatCanvasBackgroundCustomColor({ r: 260, g: -1, b: 12.4, a: 1.2 }), 'rgba(255,0,12,1)');
+});
+
+test('custom theme primary color parsing produces safe rgba values and css variables', () => {
+  assert.equal(DEFAULT_CUSTOM_THEME_PRIMARY_COLOR, 'rgba(255,153,0,1)');
+  assert.deepEqual(parseCustomThemePrimaryColor('rgba(120,80,40,0.75)'), { r: 120, g: 80, b: 40, a: 0.75 });
+  assert.equal(normalizeCustomThemePrimaryColor('rgba(12.4,20.6,30,0.33333)'), 'rgba(12,21,30,0.333)');
+  assert.equal(normalizeCustomThemePrimaryColor('bad-color'), DEFAULT_CUSTOM_THEME_PRIMARY_COLOR);
+  assert.equal(formatCustomThemePrimaryColor({ r: 260, g: -1, b: 12.4, a: 1.2 }), 'rgba(255,0,12,1)');
+  assert.deepEqual(getCustomThemeCssVariables('rgba(1,2,3,0.4)'), {
+    '--custom-theme-primary': 'rgba(1,2,3,0.4)',
+  });
 });
 
 test('getCanvasBackgroundColor resolves preset and custom canvas colors', () => {

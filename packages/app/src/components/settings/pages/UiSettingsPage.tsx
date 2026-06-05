@@ -19,10 +19,13 @@ import {
   canvasBackgroundPatterns,
   CANVAS_BACKGROUND_PATTERN_OPACITY_STEP,
   clampCanvasBackgroundPatternOpacity,
+  customThemePrimaryColorState,
   formatCanvasBackgroundCustomColor,
+  formatCustomThemePrimaryColor,
   MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
   MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
   parseCanvasBackgroundCustomColor,
+  parseCustomThemePrimaryColor,
   resolveCanvasBackgroundColorMode,
   type CanvasBackgroundPattern,
   type CanvasBackgroundColorMode,
@@ -43,7 +46,7 @@ import { SegmentedEditor } from '../../editors/SegmentedEditor.js';
 import { TripleBarColorPicker } from '../../TripleBarColorPicker.js';
 
 const uiSettingsPageStyles = css`
-  .canvas-color-picker {
+  .settings-color-picker {
     background: var(--grey-darker);
     border: 1px solid var(--grey-darkish);
     border-radius: 8px;
@@ -60,6 +63,7 @@ const uiSettingsPageStyles = css`
 export const UiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
   const [theme, setTheme] = useAtom(themeState);
+  const [customThemePrimaryColor, setCustomThemePrimaryColor] = useAtom(customThemePrimaryColorState);
   const [uiFontSize, setUiFontSize] = useAtom(uiFontSizeState);
   const [zoomSensitivity, setZoomSensitivity] = useAtom(zoomSensitivityState);
   const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
@@ -70,6 +74,7 @@ export const UiSettingsPage: FC = () => {
     canvasBackgroundPatternOpacityState,
   );
   const editorPreferences = resolveEditorPreferences(settings);
+  const normalizedCustomThemePrimaryColor = parseCustomThemePrimaryColor(customThemePrimaryColor);
   const normalizedUiFontSize = clampUiFontSize(uiFontSize);
   const normalizedCanvasBackgroundColorMode = resolveCanvasBackgroundColorMode(canvasBackgroundColorMode);
   const normalizedCanvasBackgroundCustomColor = parseCanvasBackgroundCustomColor(canvasBackgroundCustomColor);
@@ -93,6 +98,27 @@ export const UiSettingsPage: FC = () => {
             name="theme"
             options={themes}
           />
+          {theme === 'custom' && (
+            <Field name="customThemePrimaryColor" label="Custom primary color">
+              {() => (
+                <div className="settings-color-picker">
+                  <TripleBarColorPicker
+                    color={normalizedCustomThemePrimaryColor}
+                    onChange={(newColor) => {
+                      setCustomThemePrimaryColor(
+                        formatCustomThemePrimaryColor({
+                          r: newColor.rgb.r,
+                          g: newColor.rgb.g,
+                          b: newColor.rgb.b,
+                          a: newColor.rgb.a ?? 1,
+                        }),
+                      );
+                    }}
+                  />
+                </div>
+              )}
+            </Field>
+          )}
           <Field name="uiFontSize">
             {() => (
               <>
@@ -141,7 +167,7 @@ export const UiSettingsPage: FC = () => {
           {normalizedCanvasBackgroundColorMode === 'custom' && (
             <Field name="canvasCustomColor" label="Custom canvas color">
               {() => (
-                <div className="canvas-color-picker">
+                <div className="settings-color-picker">
                   <TripleBarColorPicker
                     color={normalizedCanvasBackgroundCustomColor}
                     onChange={(newColor) => {
