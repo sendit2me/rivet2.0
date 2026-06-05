@@ -211,9 +211,11 @@ const styles = css`
     min-width: 0;
     height: calc(20px * var(--ui-font-scale));
     padding: 0 24px 0 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
+    border: 0 !important;
+    border-width: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
     color: inherit;
     font-size: var(--ui-font-size-base) !important;
     line-height: calc(20px * var(--ui-font-scale));

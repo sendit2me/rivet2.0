@@ -13,7 +13,7 @@ const styles = css`
   top: var(--project-selector-height);
   left: 0;
   width: var(--left-sidebar-width);
-  background-color: var(--grey-dark-bluish-seethrough);
+  background-color: var(--grey-dark-colorish-seethrough);
   backdrop-filter: blur(2px);
   padding: 0;
   z-index: 50;

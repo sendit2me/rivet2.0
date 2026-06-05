@@ -53,7 +53,8 @@ export const styles = css`
   height: var(--project-selector-height);
   z-index: 250;
 
-  --project-selector-strip-bg: var(--grey-dark-bluish-seethrough);
+  --project-selector-strip-bg: var(--grey-dark-colorish);
+  --project-selector-divider-color: color-mix(in srgb, var(--grey-light) 18%, var(--project-selector-strip-bg) 82%);
 
   background: var(--project-selector-strip-bg);
 
@@ -157,7 +158,7 @@ export const styles = css`
   .file-menu:not(:hover):not(.open):has(
       + .projects-container .draggableProject:first-child .project:not(.active):not(:hover)
     )::after {
-    background: color-mix(in srgb, var(--grey-light) 18%, var(--project-selector-strip-bg) 82%);
+    background: var(--project-selector-divider-color);
     content: '';
     height: 18px;
     pointer-events: none;
@@ -176,6 +177,10 @@ export const styles = css`
     --project-tab-current-bg: var(--project-tab-hover-bg);
 
     color: var(--grey-lightest);
+  }
+
+  .file-menu.open {
+    z-index: 10;
   }
 
   .sidebar-toggle-button,
@@ -209,8 +214,9 @@ export const styles = css`
   .file-menu-logo {
     display: block;
     flex: 0 0 auto;
+    filter: var(--rivet-logo-filter);
     height: 14px;
-    opacity: 0.95;
+    opacity: var(--rivet-logo-opacity);
     width: 16px;
   }
 
@@ -264,7 +270,7 @@ export const styles = css`
     position: absolute;
     top: 100%;
     left: 0;
-    z-index: 300;
+    z-index: 1000;
   }
 
   .file-dropdown.open {
@@ -331,7 +337,7 @@ export const styles = css`
   }
 
   .draggableProject::after {
-    background: color-mix(in srgb, var(--grey-light) 18%, var(--project-selector-strip-bg) 82%);
+    background: var(--project-selector-divider-color);
     content: '';
     height: 18px;
     pointer-events: none;

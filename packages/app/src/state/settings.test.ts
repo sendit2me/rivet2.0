@@ -2,22 +2,33 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createStore } from 'jotai/vanilla';
 import {
+  canvasBackgroundColorOptions,
   clampCanvasBackgroundPatternOpacity,
+  DEFAULT_CUSTOM_THEME_PRIMARY_COLOR,
   DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY,
   DEFAULT_CANVAS_BACKGROUND_CUSTOM_COLOR,
   formatCanvasBackgroundCustomColor,
+  formatCustomThemePrimaryColor,
+  formatCustomThemeSecondaryColor,
   getCanvasBackgroundColor,
+  getCustomThemeCssVariables,
+  getThemeContrastCssVariables,
   MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
   MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
   defaultExecutorState,
   getExecutorOptions,
   getStartupDefaultExecutor,
   normalizeCanvasBackgroundCustomColor,
+  normalizeCustomThemePrimaryColor,
+  normalizeCustomThemeSecondaryColor,
   parseCanvasBackgroundCustomColor,
+  parseCustomThemePrimaryColor,
+  parseCustomThemeSecondaryColor,
   resolveCanvasBackgroundColorMode,
   resolveCanvasBackgroundPattern,
   resolveEditorPreferences,
   selectedExecutorState,
+  themes,
 } from './settings.js';
 import { memoryStorage } from './storage.js';
 
@@ -51,6 +62,16 @@ test('resolveEditorPreferences respects explicit editor settings', () => {
       openNodeSettingsOnCreate: false,
     },
   );
+});
+
+test('themes include a custom color theme', () => {
+  assert.deepEqual(themes, [
+    { label: 'Molten', value: 'molten' },
+    { label: 'Grapefruit', value: 'grapefruit' },
+    { label: 'Taffy', value: 'taffy' },
+    { label: 'Bright', value: 'bright' },
+    { label: 'Custom', value: 'custom' },
+  ]);
 });
 
 test('selectedExecutorState snapshots the startup default after it is set', () => {
@@ -130,12 +151,18 @@ test('resolveCanvasBackgroundPattern falls back to grid for invalid stored value
   assert.equal(resolveCanvasBackgroundPattern(undefined), 'grid');
 });
 
-test('resolveCanvasBackgroundColorMode falls back to grey for invalid stored values', () => {
-  assert.equal(resolveCanvasBackgroundColorMode('grey'), 'grey');
-  assert.equal(resolveCanvasBackgroundColorMode('black'), 'black');
+test('resolveCanvasBackgroundColorMode falls back to theme for invalid stored values', () => {
+  assert.deepEqual(canvasBackgroundColorOptions, [
+    { label: 'Theme', value: 'theme' },
+    { label: 'Custom', value: 'custom' },
+  ]);
+  assert.equal(resolveCanvasBackgroundColorMode('theme'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode('greyBlue'), 'theme');
   assert.equal(resolveCanvasBackgroundColorMode('custom'), 'custom');
-  assert.equal(resolveCanvasBackgroundColorMode('bad-color'), 'grey');
-  assert.equal(resolveCanvasBackgroundColorMode(undefined), 'grey');
+  assert.equal(resolveCanvasBackgroundColorMode('grey'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode('black'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode('bad-color'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode(undefined), 'theme');
 });
 
 test('canvas background custom color parsing produces safe rgba values', () => {
@@ -146,9 +173,70 @@ test('canvas background custom color parsing produces safe rgba values', () => {
   assert.equal(formatCanvasBackgroundCustomColor({ r: 260, g: -1, b: 12.4, a: 1.2 }), 'rgba(255,0,12,1)');
 });
 
+test('custom theme color parsing produces safe rgba values and css variables', () => {
+  assert.equal(DEFAULT_CUSTOM_THEME_PRIMARY_COLOR, 'rgba(255,153,0,1)');
+  assert.deepEqual(parseCustomThemePrimaryColor('rgba(120,80,40,0.75)'), { r: 120, g: 80, b: 40, a: 0.75 });
+  assert.deepEqual(parseCustomThemeSecondaryColor('rgba(30,60,90,0.5)', 'rgba(120,80,40,0.75)'), {
+    r: 30,
+    g: 60,
+    b: 90,
+    a: 0.5,
+  });
+  assert.deepEqual(parseCustomThemeSecondaryColor('bad-color', 'rgba(120,80,40,0.75)'), {
+    r: 120,
+    g: 80,
+    b: 40,
+    a: 0.75,
+  });
+  assert.equal(normalizeCustomThemePrimaryColor('rgba(12.4,20.6,30,0.33333)'), 'rgba(12,21,30,0.333)');
+  assert.equal(
+    normalizeCustomThemeSecondaryColor(undefined, 'rgba(12.4,20.6,30,0.33333)'),
+    'rgba(12,21,30,0.333)',
+  );
+  assert.equal(normalizeCustomThemePrimaryColor('bad-color'), DEFAULT_CUSTOM_THEME_PRIMARY_COLOR);
+  assert.equal(formatCustomThemePrimaryColor({ r: 260, g: -1, b: 12.4, a: 1.2 }), 'rgba(255,0,12,1)');
+  assert.equal(formatCustomThemeSecondaryColor({ r: 1, g: 2, b: 300, a: -1 }), 'rgba(1,2,255,0)');
+  assert.deepEqual(getCustomThemeCssVariables({ primaryColor: 'rgba(1,2,3,0.4)', secondaryColor: undefined }), {
+    '--custom-theme-primary': 'rgba(1,2,3,0.4)',
+    '--custom-theme-secondary': 'rgba(1,2,3,0.4)',
+  });
+  assert.deepEqual(
+    getCustomThemeCssVariables({ primaryColor: 'rgba(1,2,3,0.4)', secondaryColor: 'rgba(9,8,7,0.6)' }),
+    {
+      '--custom-theme-primary': 'rgba(1,2,3,0.4)',
+      '--custom-theme-secondary': 'rgba(9,8,7,0.6)',
+    },
+  );
+  assert.deepEqual(getCustomThemeCssVariables({ primaryColor: 'rgba(1,2,3,0.4)', secondaryColor: 'bad-color' }), {
+    '--custom-theme-primary': 'rgba(1,2,3,0.4)',
+    '--custom-theme-secondary': 'rgba(1,2,3,0.4)',
+  });
+});
+
+test('theme contrast css variables choose readable foregrounds for primary accents', () => {
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'molten', customThemePrimaryColor: undefined }), {
+    '--foreground-on-primary': '#000',
+    '--foreground-on-primary-light': '#000',
+  });
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'bright', customThemePrimaryColor: undefined }), {
+    '--foreground-on-primary': '#fff',
+    '--foreground-on-primary-light': '#000',
+  });
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'custom', customThemePrimaryColor: 'rgba(245,245,245,1)' }), {
+    '--foreground-on-primary': '#000',
+    '--foreground-on-primary-light': '#000',
+  });
+  assert.deepEqual(getThemeContrastCssVariables({ theme: 'custom', customThemePrimaryColor: 'rgba(20,20,20,1)' }), {
+    '--foreground-on-primary': '#fff',
+    '--foreground-on-primary-light': '#fff',
+  });
+});
+
 test('getCanvasBackgroundColor resolves preset and custom canvas colors', () => {
-  assert.equal(getCanvasBackgroundColor({ mode: 'grey', customColor: 'rgba(1,2,3,1)' }), 'var(--grey-darker)');
-  assert.equal(getCanvasBackgroundColor({ mode: 'black', customColor: 'rgba(1,2,3,1)' }), '#000000');
+  assert.equal(
+    getCanvasBackgroundColor({ mode: 'theme', customColor: 'rgba(1,2,3,1)' }),
+    'var(--canvas-background-theme-color)',
+  );
   assert.equal(getCanvasBackgroundColor({ mode: 'custom', customColor: 'rgba(1,2,3,0.4)' }), 'rgba(1,2,3,0.4)');
 });
 

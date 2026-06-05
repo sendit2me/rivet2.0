@@ -4,6 +4,7 @@ export type SplitStackGhostColors = {
 };
 
 const DARK_NODE_BACKGROUNDS = new Set([
+  'var(--node-color-0)',
   'var(--node-color-8)',
   'var(--node-color-9)',
   'var(--grey-darkish)',

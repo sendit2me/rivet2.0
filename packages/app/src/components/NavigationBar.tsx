@@ -133,9 +133,15 @@ const styles = css`
       align-items: center;
       justify-content: center;
       box-shadow: none;
+      color: var(--foreground);
 
       width: 32px;
       height: 32px;
+
+      &:hover {
+        background: var(--form-control-bg-hover);
+        color: var(--foreground-bright);
+      }
 
       svg {
         width: 24px;
@@ -222,7 +228,7 @@ const styles = css`
 
     .search-result-row {
       align-items: flex-start;
-      background: var(--grey-darker-darker);
+      background: var(--node-body-bg);
       border-radius: 12px;
       corner-shape: squircle;
       @supports not (corner-shape: squircle) {
@@ -255,7 +261,7 @@ const styles = css`
 
     .search-result-row-header {
       align-items: flex-start;
-      background: var(--grey-darkish);
+      background: var(--node-color-0);
       display: flex;
       gap: 8px;
       padding: 7px 12px;
@@ -263,13 +269,13 @@ const styles = css`
     }
 
     .search-result-node-title {
-      color: var(--foreground-bright);
+      color: var(--node-color-0-foreground);
       flex: 1;
       min-width: 0;
     }
 
     .search-result-node-type {
-      color: var(--foreground-bright);
+      color: var(--node-color-0-foreground);
       flex: 0 1 auto;
       font-size: var(--ui-font-size-xs);
       font-weight: 600;
@@ -282,7 +288,7 @@ const styles = css`
     }
 
     .search-result-content-snippets {
-      background: var(--grey-darker-darker);
+      background: var(--node-body-bg);
       border-radius: 0 0 12px 12px;
       corner-shape: squircle;
       @supports not (corner-shape: squircle) {

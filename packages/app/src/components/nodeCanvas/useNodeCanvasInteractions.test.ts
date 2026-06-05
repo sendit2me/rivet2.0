@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { getWheelZoomFactor, isCanvasPanSurface, shouldStartCanvasPan } from './useNodeCanvasInteractions.js';
+
+const testDir = dirname(fileURLToPath(import.meta.url));
+const componentsDir = join(testDir, '..');
 
 function assertAlmostEqual(actual: number, expected: number): void {
   assert.ok(Math.abs(actual - expected) < 1e-12, `expected ${actual} to equal ${expected}`);
@@ -135,4 +141,14 @@ test('shouldStartCanvasPan accepts eligible canvas surfaces when no node drag ge
     }),
     true,
   );
+});
+
+test('canvas panning uses the same closed-hand cursor treatment as node dragging', () => {
+  const nodeCanvasSource = readFileSync(join(componentsDir, 'NodeCanvas.tsx'), 'utf8');
+  const nodeCanvasStylesSource = readFileSync(join(testDir, 'nodeCanvasStyles.ts'), 'utf8');
+
+  assert.match(nodeCanvasSource, /className=\{clsx\('node-canvas', \{/);
+  assert.match(nodeCanvasSource, /'dragging-node': isDraggingNode/);
+  assert.match(nodeCanvasSource, /'dragging-canvas': isDraggingCanvas/);
+  assert.match(nodeCanvasStylesSource, /&\.dragging-node,[\s\S]*&\.dragging-canvas,[\s\S]*cursor: grabbing !important;/);
 });

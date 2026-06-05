@@ -4,6 +4,7 @@ import { type CanvasBackgroundPattern as CanvasBackgroundPatternKind } from '../
 import {
   getCanvasBackgroundPatternDots,
   getCanvasBackgroundPatternOpacity,
+  getCanvasBackgroundPatternScreenOrigin,
   getCanvasBackgroundPatternTileOffset,
   getCanvasBackgroundPatternTileSize,
 } from './canvasBackgroundPatternModel.js';
@@ -96,8 +97,14 @@ export const CanvasBackgroundPatternLayer: FC<CanvasBackgroundPatternProps> = ({
       return;
     }
 
-    const offsetX = getCanvasBackgroundPatternTileOffset(Math.round(canvasPosition.x * devicePixelRatio), tileSize);
-    const offsetY = getCanvasBackgroundPatternTileOffset(Math.round(canvasPosition.y * devicePixelRatio), tileSize);
+    const offsetX = getCanvasBackgroundPatternTileOffset(
+      Math.round(getCanvasBackgroundPatternScreenOrigin(canvasPosition.x, canvasPosition.zoom) * devicePixelRatio),
+      tileSize,
+    );
+    const offsetY = getCanvasBackgroundPatternTileOffset(
+      Math.round(getCanvasBackgroundPatternScreenOrigin(canvasPosition.y, canvasPosition.zoom) * devicePixelRatio),
+      tileSize,
+    );
 
     context.save();
     context.translate(offsetX, offsetY);

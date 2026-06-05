@@ -19,10 +19,16 @@ import {
   canvasBackgroundPatterns,
   CANVAS_BACKGROUND_PATTERN_OPACITY_STEP,
   clampCanvasBackgroundPatternOpacity,
+  customThemePrimaryColorState,
+  customThemeSecondaryColorState,
   formatCanvasBackgroundCustomColor,
+  formatCustomThemePrimaryColor,
+  formatCustomThemeSecondaryColor,
   MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
   MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
   parseCanvasBackgroundCustomColor,
+  parseCustomThemePrimaryColor,
+  parseCustomThemeSecondaryColor,
   resolveCanvasBackgroundColorMode,
   type CanvasBackgroundPattern,
   type CanvasBackgroundColorMode,
@@ -43,7 +49,7 @@ import { SegmentedEditor } from '../../editors/SegmentedEditor.js';
 import { TripleBarColorPicker } from '../../TripleBarColorPicker.js';
 
 const uiSettingsPageStyles = css`
-  .canvas-color-picker {
+  .settings-color-picker {
     background: var(--grey-darker);
     border: 1px solid var(--grey-darkish);
     border-radius: 8px;
@@ -55,11 +61,29 @@ const uiSettingsPageStyles = css`
       border-radius: 4px;
     }
   }
+
+  .custom-theme-color-pickers {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--settings-field-gap);
+  }
+
+  .custom-theme-color-pickers > * {
+    flex: 0 1 260px;
+    min-width: min(100%, 220px);
+  }
+
+  .custom-theme-color-pickers .settings-color-picker {
+    width: 100%;
+  }
 `;
 
 export const UiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
   const [theme, setTheme] = useAtom(themeState);
+  const [customThemePrimaryColor, setCustomThemePrimaryColor] = useAtom(customThemePrimaryColorState);
+  const [customThemeSecondaryColor, setCustomThemeSecondaryColor] = useAtom(customThemeSecondaryColorState);
   const [uiFontSize, setUiFontSize] = useAtom(uiFontSizeState);
   const [zoomSensitivity, setZoomSensitivity] = useAtom(zoomSensitivityState);
   const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
@@ -70,6 +94,11 @@ export const UiSettingsPage: FC = () => {
     canvasBackgroundPatternOpacityState,
   );
   const editorPreferences = resolveEditorPreferences(settings);
+  const normalizedCustomThemePrimaryColor = parseCustomThemePrimaryColor(customThemePrimaryColor);
+  const normalizedCustomThemeSecondaryColor = parseCustomThemeSecondaryColor(
+    customThemeSecondaryColor,
+    customThemePrimaryColor,
+  );
   const normalizedUiFontSize = clampUiFontSize(uiFontSize);
   const normalizedCanvasBackgroundColorMode = resolveCanvasBackgroundColorMode(canvasBackgroundColorMode);
   const normalizedCanvasBackgroundCustomColor = parseCanvasBackgroundCustomColor(canvasBackgroundCustomColor);
@@ -93,6 +122,48 @@ export const UiSettingsPage: FC = () => {
             name="theme"
             options={themes}
           />
+          {theme === 'custom' && (
+            <div className="custom-theme-color-pickers">
+              <Field name="customThemePrimaryColor" label="Custom primary color">
+                {() => (
+                  <div className="settings-color-picker">
+                    <TripleBarColorPicker
+                      color={normalizedCustomThemePrimaryColor}
+                      onChange={(newColor) => {
+                        setCustomThemePrimaryColor(
+                          formatCustomThemePrimaryColor({
+                            r: newColor.rgb.r,
+                            g: newColor.rgb.g,
+                            b: newColor.rgb.b,
+                            a: newColor.rgb.a ?? 1,
+                          }),
+                        );
+                      }}
+                    />
+                  </div>
+                )}
+              </Field>
+              <Field name="customThemeSecondaryColor" label="Custom secondary color">
+                {() => (
+                  <div className="settings-color-picker">
+                    <TripleBarColorPicker
+                      color={normalizedCustomThemeSecondaryColor}
+                      onChange={(newColor) => {
+                        setCustomThemeSecondaryColor(
+                          formatCustomThemeSecondaryColor({
+                            r: newColor.rgb.r,
+                            g: newColor.rgb.g,
+                            b: newColor.rgb.b,
+                            a: newColor.rgb.a ?? 1,
+                          }),
+                        );
+                      }}
+                    />
+                  </div>
+                )}
+              </Field>
+            </div>
+          )}
           <Field name="uiFontSize">
             {() => (
               <>
@@ -102,7 +173,7 @@ export const UiSettingsPage: FC = () => {
                 <FieldHelperMessage>
                   Scales Rivet UI text and icon glyphs. Code editor text uses its separate editor font-size controls.
                 </FieldHelperMessage>
-                <div className="toggle-field">
+                <div className="toggle-field settings-range-field">
                   <Range
                     min={MIN_UI_FONT_SIZE}
                     max={MAX_UI_FONT_SIZE}
@@ -141,7 +212,7 @@ export const UiSettingsPage: FC = () => {
           {normalizedCanvasBackgroundColorMode === 'custom' && (
             <Field name="canvasCustomColor" label="Custom canvas color">
               {() => (
-                <div className="canvas-color-picker">
+                <div className="settings-color-picker">
                   <TripleBarColorPicker
                     color={normalizedCanvasBackgroundCustomColor}
                     onChange={(newColor) => {
@@ -177,7 +248,7 @@ export const UiSettingsPage: FC = () => {
                 <FieldHelperMessage>
                   Controls the grid, dot, or cross pattern strength independently of the theme.
                 </FieldHelperMessage>
-                <div className="toggle-field">
+                <div className="toggle-field settings-range-field">
                   <Range
                     min={MIN_CANVAS_BACKGROUND_PATTERN_OPACITY}
                     max={MAX_CANVAS_BACKGROUND_PATTERN_OPACITY}
@@ -273,7 +344,7 @@ export const UiSettingsPage: FC = () => {
                 <FieldHelperMessage>
                   The sensitivity of the zoom when using the mouse wheel. Lower values will zoom slower.
                 </FieldHelperMessage>
-                <div className="toggle-field">
+                <div className="toggle-field settings-range-field">
                   <Range
                     min={0.01}
                     max={2}

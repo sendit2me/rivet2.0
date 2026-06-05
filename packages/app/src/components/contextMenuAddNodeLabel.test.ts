@@ -23,4 +23,18 @@ test('blank canvas context menu labels node creation affordances explicitly', ()
     /context\.type === 'blankArea' \? 'Type in node name\.\.\.' : 'Search\.\.\.'/,
   );
   assert.match(contextMenuComponentSource, /placeholder=\{searchPlaceholder\}/);
+  assert.match(
+    contextMenuComponentSource,
+    /\.context-menu-search \{[\s\S]*input \{[\s\S]*background-color: transparent !important;[\s\S]*border: 0 !important;[\s\S]*border-width: 0 !important;[\s\S]*box-shadow: none !important;/,
+  );
+});
+
+test('canvas context menu hover uses the shared graph-tree hover fill', () => {
+  const contextMenuComponentSource = readFileSync(join(componentsDir, 'ContextMenu.tsx'), 'utf8');
+
+  assert.match(
+    contextMenuComponentSource,
+    /&:hover,[\s\S]*&\.active \{[\s\S]*background-color: var\(--grey-darkish\);/,
+  );
+  assert.doesNotMatch(contextMenuComponentSource, /background-color: rgba\(255, 255, 255, 0\.1\);/);
 });

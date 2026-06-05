@@ -10,6 +10,9 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   const projectSelectorTsx = readFileSync(join(srcDir, 'ProjectSelector.tsx'), 'utf8');
   const leftSidebarTsx = readFileSync(join(srcDir, 'LeftSidebar.tsx'), 'utf8');
   const overlayTabsTsx = readFileSync(join(srcDir, 'OverlayTabs.tsx'), 'utf8');
+  const noProjectTsx = readFileSync(join(srcDir, 'NoProject.tsx'), 'utf8');
+  const rivetAppSource = readFileSync(join(srcDir, 'RivetApp.tsx'), 'utf8');
+  const colorsCss = readFileSync(join(srcDir, '..', 'colors.css'), 'utf8');
 
   assert.match(
     projectSelectorTsx,
@@ -23,8 +26,59 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
   assert.match(projectSelectorTsx, /import RivetLogo from '\.\.\/rivet-2-logo-no-background\.svg';/);
   assert.match(projectSelectorTsx, /className={clsx\(\{ 'graph-tree-open': reserveSidebarColumn \}\)}/);
-  assert.match(projectSelectorTsx, /--project-selector-strip-bg: var\(--grey-dark-bluish-seethrough\);/);
+  assert.match(projectSelectorTsx, /--project-selector-strip-bg: var\(--grey-dark-colorish\);/);
+  assert.doesNotMatch(colorsCss, new RegExp('blu' + 'ish'));
+  assert.match(colorsCss, /--neutral-grey-darker: #303030;/);
+  assert.match(
+    colorsCss,
+    /--grey-darker: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-darker\) [^)]+\);/,
+  );
+  assert.match(
+    colorsCss,
+    /--grey-dark: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-dark\) [^)]+\);/,
+  );
+  assert.match(
+    colorsCss,
+    /--grey-darkish: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-darkish\) [^)]+\);/,
+  );
+  assert.match(
+    colorsCss,
+    /--grey-dark-colorish: color-mix\(in srgb, var\(--secondary\) [^,]+, (?:var\(--neutral-grey-darker\)|rgb\(35, 35, 35\)) [^)]+\);/,
+  );
+  assert.match(
+    colorsCss,
+    /--grey-dark-colorish-seethrough: color-mix\(in srgb, var\(--secondary\) [^,]+, rgba\(35, 35, 35, 0\.95\) [^)]+\);/,
+  );
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*\.app\.theme-bright \{/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--neutral-grey-darkest: #ffffff;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--foreground: #1d2733;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--foreground-muted: #1d2733;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--foreground-disabled: #708092;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--label-color: #1d2733;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--canvas-background-pattern-rgb: 0, 0, 0;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--settings-range-track-bg: #8090a3;/);
+  assert.match(colorsCss, /--rivet-logo-filter: none;/);
+  assert.match(colorsCss, /--rivet-logo-opacity: 0\.95;/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--rivet-logo-filter: brightness\(0\);/);
+  assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--rivet-logo-opacity: 1;/);
+  assert.match(colorsCss, /--custom-theme-primary: rgba\(255, 153, 0, 1\);/);
+  assert.match(colorsCss, /--custom-theme-secondary: var\(--custom-theme-primary\);/);
+  assert.match(colorsCss, /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--primary: var\(--custom-theme-primary\);/);
+  assert.match(colorsCss, /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--secondary: var\(--custom-theme-secondary\);/);
+  assert.match(
+    colorsCss,
+    /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--primary-dark: color-mix\(in srgb, var\(--custom-theme-primary\) 80%, black 20%\);/,
+  );
+  assert.match(rivetAppSource, /customThemePrimaryColorState/);
+  assert.match(rivetAppSource, /customThemeSecondaryColorState/);
+  assert.match(rivetAppSource, /primaryColor: customThemePrimaryColor/);
+  assert.match(rivetAppSource, /secondaryColor: customThemeSecondaryColor/);
+  assert.match(rivetAppSource, /rootStyle\.setProperty\(name, value\);/);
   assert.match(projectSelectorTsx, /background: var\(--project-selector-strip-bg\);/);
+  assert.match(
+    projectSelectorTsx,
+    /--project-selector-divider-color: color-mix\(in srgb, var\(--grey-light\) 18%, var\(--project-selector-strip-bg\) 82%\);/,
+  );
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*z-index: 2;/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*background: var\(--grey-darkish\);/);
@@ -116,15 +170,21 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   );
   assert.match(projectSelectorTsx, /\.file-menu:hover,[\s\S]*\.file-menu\.open \{[\s\S]*--project-tab-current-bg: var\(--project-tab-hover-bg\);/);
   assert.match(projectSelectorTsx, /\.file-menu-button \{[\s\S]*padding: 0 10px;/);
-  assert.match(projectSelectorTsx, /\.file-menu-logo \{[\s\S]*height: 14px;[\s\S]*width: 16px;/);
+  assert.match(
+    projectSelectorTsx,
+    /\.file-menu-logo \{[\s\S]*filter: var\(--rivet-logo-filter\);[\s\S]*height: 14px;[\s\S]*opacity: var\(--rivet-logo-opacity\);[\s\S]*width: 16px;/,
+  );
+  assert.match(noProjectTsx, /\.logo \{[\s\S]*filter: var\(--rivet-logo-filter\);[\s\S]*width: 92px;/);
   assert.match(projectSelectorTsx, /\.projects \{[\s\S]*align-items: flex-end;/);
   assert.match(projectSelectorTsx, /\.projects \{[\s\S]*padding: 4px 10px 0 4px;/);
   assert.match(projectSelectorTsx, /\.projects-container \{[\s\S]*z-index: 3;/);
+  assert.match(projectSelectorTsx, /\.file-menu\.open \{[\s\S]*z-index: 10;/);
+  assert.match(projectSelectorTsx, /\.file-dropdown \{[\s\S]*z-index: 1000;/);
   assert.match(projectSelectorTsx, /\.draggableProject \{[\s\S]*align-items: flex-start;/);
   assert.match(projectSelectorTsx, /\.draggableProject \{[\s\S]*position: relative;/);
   assert.match(
     projectSelectorTsx,
-    /\.draggableProject::after \{[\s\S]*background: color-mix\(in srgb, var\(--grey-light\) 18%, var\(--project-selector-strip-bg\) 82%\);/,
+    /\.draggableProject::after \{[\s\S]*background: var\(--project-selector-divider-color\);/,
   );
   assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*height: 18px;/);
   assert.match(projectSelectorTsx, /\.draggableProject::after \{[\s\S]*right: -2px;/);
@@ -168,15 +228,15 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /className={clsx\('project', \{ active, unsaved \}\)}/);
   assert.match(projectSelectorTsx, /&:not\(\.active\) > \.actions \{[\s\S]*display: none;/);
   assert.match(projectSelectorTsx, /{active && \(\s*<div className="actions">/);
-  assert.match(overlayTabsTsx, /background: var\(--project-selector-strip-bg, var\(--grey-dark-bluish-seethrough\)\);/);
+  assert.match(overlayTabsTsx, /background: var\(--project-selector-strip-bg, var\(--grey-dark-colorish\)\);/);
   assert.match(projectSelectorTsx, /<img src={RivetLogo} alt="" aria-hidden="true" className="file-menu-logo" \/>/);
   assert.match(projectSelectorTsx, />\s*Menu\s*<\/button>/);
   assert.doesNotMatch(projectSelectorTsx, />\s*File\s*<\/button>/);
   assert.doesNotMatch(projectSelectorTsx, /\.project::after \{[\s\S]*width: 1px;/);
   assert.doesNotMatch(overlayTabsTsx, /\.menu-item[\s\S]*?border-bottom:/);
   assert.doesNotMatch(overlayTabsTsx, /z-index: 200;/);
-  assert.match(overlayTabsTsx, /border-left: 1px solid var\(--grey-darkest\);/);
-  assert.match(overlayTabsTsx, /\.menu-item \{[\s\S]*border-right: 1px solid var\(--grey-darkest\);/);
+  assert.match(overlayTabsTsx, /border-left: 1px solid var\(--project-selector-divider-color, var\(--grey-darkest\)\);/);
+  assert.match(overlayTabsTsx, /\.menu-item \{[\s\S]*border-right: 1px solid var\(--project-selector-divider-color, var\(--grey-darkest\)\);/);
   assert.match(leftSidebarTsx, /id="graph-tree-sidebar"/);
   assert.match(leftSidebarTsx, /border-right: 1px solid var\(--grey-darkish\);/);
   assert.match(leftSidebarTsx, /shouldCollapseLeftSidebarDrag\(rawWidth\)/);

@@ -13,3 +13,15 @@ test('settings section field spacing is bottom-owned', () => {
   assert.match(source, /\.settings-section-fields > \* \{[\s\S]*margin-top: 0 !important;[\s\S]*margin-bottom: var\(--settings-field-gap\);/);
   assert.match(source, /\.settings-section-fields > :last-child \{[\s\S]*margin-bottom: 0;/);
 });
+
+test('settings range fields use theme-owned dark range tokens', () => {
+  const source = readFileSync(join(settingsDir, 'settingsPageStyles.ts'), 'utf8');
+  const uiSettingsPageSource = readFileSync(join(settingsDir, 'pages', 'UiSettingsPage.tsx'), 'utf8');
+
+  assert.match(source, /\.settings-range-field \{[\s\S]*--ds-background-neutral: var\(--settings-range-track-bg\);/);
+  assert.match(
+    source,
+    /\.settings-range-field \{[\s\S]*--ds-background-neutral-bold: var\(--settings-range-fill-bg\);/,
+  );
+  assert.equal(uiSettingsPageSource.match(/className="toggle-field settings-range-field"/g)?.length, 3);
+});

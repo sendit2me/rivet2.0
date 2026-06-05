@@ -1,4 +1,5 @@
 import { DndContext, useDroppable } from '@dnd-kit/core';
+import clsx from 'clsx';
 import { useMergeRefs } from '@floating-ui/react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { produce } from 'immer';
@@ -848,7 +849,10 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     >
       <div
         ref={setCanvasRef}
-        className={isDraggingNode ? 'node-canvas dragging-node' : 'node-canvas'}
+        className={clsx('node-canvas', {
+          'dragging-node': isDraggingNode,
+          'dragging-canvas': isDraggingCanvas,
+        })}
         css={nodeCanvasStyles}
         style={{ '--canvas-background-color': canvasBackgroundColor } as CSSProperties}
         onContextMenu={handleCanvasContextMenu}

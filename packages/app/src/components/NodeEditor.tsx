@@ -115,7 +115,7 @@ const Container = styled.div`
     --ds-font-family-heading: var(--font-family);
     --ds-font-family-code: var(--font-family-monospace);
     --label-font-family: var(--font-family);
-    background-color: var(--grey-dark-bluish-seethrough);
+    background-color: var(--grey-dark-colorish-seethrough);
     backdrop-filter: blur(2px);
     font-family: var(--font-family);
     width: 100%;
@@ -318,6 +318,7 @@ const Container = styled.div`
     font-size: var(--ui-font-size-base);
     line-height: 38px;
     box-sizing: border-box;
+    color: var(--foreground);
     display: block;
     overflow: hidden;
     white-space: nowrap;
@@ -612,7 +613,7 @@ const Container = styled.div`
     justify-content: center;
     width: 100%;
     height: 56px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--node-color-picker-trigger-border);
     border-radius: 8px;
     corner-shape: squircle;
     @supports not (corner-shape: squircle) {

@@ -15,9 +15,11 @@ const PROMPT_INTERPOLATION_BRACE_CONFIGURATION: monaco.languages.LanguageConfigu
 };
 
 const PROMPT_INTERPOLATION_THEMES = {
-  molten: 'ff9900',
-  grapefruit: 'ff8862',
-  taffy: 'd6c2ff',
+  molten: { foreground: 'ff9900', base: 'vs-dark' },
+  grapefruit: { foreground: 'ff8862', base: 'vs-dark' },
+  taffy: { foreground: 'd6c2ff', base: 'vs-dark' },
+  bright: { foreground: '1769e0', base: 'vs' },
+  custom: { foreground: 'ff9900', base: 'vs-dark' },
 } as const;
 
 function isLanguageRegistered(id: string): boolean {
@@ -53,9 +55,9 @@ function registerPromptInterpolationMarkdownLanguage(): void {
 }
 
 function definePromptInterpolationThemes(): void {
-  for (const [name, foreground] of Object.entries(PROMPT_INTERPOLATION_THEMES)) {
+  for (const [name, { base, foreground }] of Object.entries(PROMPT_INTERPOLATION_THEMES)) {
     monaco.editor.defineTheme(`prompt-interpolation-${name}`, {
-      base: 'vs-dark',
+      base,
       inherit: true,
       rules: [{ token: 'prompt-replacement', foreground }],
       colors: {},

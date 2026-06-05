@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   getCanvasBackgroundPatternDots,
   getCanvasBackgroundPatternOpacity,
+  getCanvasBackgroundPatternScreenOrigin,
   getCanvasBackgroundPatternTileOffset,
   getCanvasBackgroundPatternTileSize,
 } from './canvasBackgroundPatternModel.js';
@@ -15,6 +16,9 @@ test('canvas background pattern opacity is shared by all pattern variants', () =
 test('canvas background pattern tile metrics follow panned and zoomed canvas coordinates', () => {
   assert.equal(getCanvasBackgroundPatternTileSize({ zoom: 1 }), 20);
   assert.equal(getCanvasBackgroundPatternTileSize({ zoom: 1.5 }), 30);
+  assert.equal(getCanvasBackgroundPatternScreenOrigin(7, 1), 7);
+  assert.equal(getCanvasBackgroundPatternScreenOrigin(7, 1.5), 10.5);
+  assert.equal(getCanvasBackgroundPatternScreenOrigin(Number.NaN, 1.5), 0);
   assert.equal(getCanvasBackgroundPatternTileOffset(7, 20), 7);
   assert.equal(getCanvasBackgroundPatternTileOffset(-3, 20), 17);
   assert.equal(getCanvasBackgroundPatternTileOffset(Number.NaN, 20), 0);

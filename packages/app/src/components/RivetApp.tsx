@@ -1,6 +1,6 @@
 import { useInAppMenuHotkeys } from '../hooks/useInAppMenuHotkeys';
 import { GraphBuilder } from './GraphBuilder.js';
-import { type FC, useEffect, useMemo } from 'react';
+import { type CSSProperties, type FC, useEffect, useMemo } from 'react';
 import { css } from '@emotion/react';
 import { SettingsModal } from './SettingsModal.js';
 import { setGlobalTheme } from '@atlaskit/tokens';
@@ -15,7 +15,15 @@ import { ActionBar } from './ActionBar';
 import { DebuggerPanelRenderer } from './DebuggerConnectPanel';
 import { ChatViewerRenderer } from './ChatViewer';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { selectedExecutorState, themeState, themes } from '../state/settings';
+import {
+  customThemePrimaryColorState,
+  customThemeSecondaryColorState,
+  getCustomThemeCssVariables,
+  getThemeContrastCssVariables,
+  selectedExecutorState,
+  themeState,
+  themes,
+} from '../state/settings';
 import clsx from 'clsx';
 import { useLoadStaticData } from '../hooks/useLoadStaticData';
 import { DataStudioRenderer } from './dataStudio/DataStudio';
@@ -67,10 +75,38 @@ export const RivetApp: FC = () => {
   useExecutorSessionCoordinator(selectedExecutor);
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
+  const customThemePrimaryColor = useAtomValue(customThemePrimaryColorState);
+  const customThemeSecondaryColor = useAtomValue(customThemeSecondaryColorState);
   const uiFontSize = useAtomValue(uiFontSizeState);
   const openOverlay = useAtomValue(overlayOpenState);
   const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
   const uiFontSizeCssVariables = useMemo(() => getUiFontSizeCssVariables(uiFontSize), [uiFontSize]);
+  const customThemeCssVariables = useMemo<Record<string, string>>(
+    () =>
+      theme === 'custom'
+        ? getCustomThemeCssVariables({
+            primaryColor: customThemePrimaryColor,
+            secondaryColor: customThemeSecondaryColor,
+          })
+        : {},
+    [customThemePrimaryColor, customThemeSecondaryColor, theme],
+  );
+  const themeContrastCssVariables = useMemo<Record<string, string>>(
+    () =>
+      getThemeContrastCssVariables({
+        theme,
+        customThemePrimaryColor,
+      }),
+    [customThemePrimaryColor, theme],
+  );
+  const rootThemeCssVariables = useMemo(
+    () => ({ ...customThemeCssVariables, ...themeContrastCssVariables }),
+    [customThemeCssVariables, themeContrastCssVariables],
+  );
+  const appCssVariables = useMemo(
+    () => ({ ...uiFontSizeCssVariables, ...rootThemeCssVariables }) as CSSProperties,
+    [rootThemeCssVariables, uiFontSizeCssVariables],
+  );
 
   const noProjectOpen = openedProjectIds.length === 0;
   const isCanvasMode = openOverlay === undefined;
@@ -139,6 +175,20 @@ export const RivetApp: FC = () => {
   }, [uiFontSizeCssVariables]);
 
   useEffect(() => {
+    const rootStyle = document.documentElement.style;
+
+    for (const [name, value] of Object.entries(rootThemeCssVariables)) {
+      rootStyle.setProperty(name, value);
+    }
+
+    return () => {
+      for (const name of Object.keys(rootThemeCssVariables)) {
+        rootStyle.removeProperty(name);
+      }
+    };
+  }, [rootThemeCssVariables]);
+
+  useEffect(() => {
     const rootElement = document.documentElement;
     const themeClasses = ['theme-default', ...themes.map(({ value }) => `theme-${value}`)];
     const themeClass = theme ? `theme-${theme}` : 'theme-default';
@@ -152,7 +202,7 @@ export const RivetApp: FC = () => {
   }, [theme]);
 
   return (
-    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles} style={uiFontSizeCssVariables}>
+    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles} style={appCssVariables}>
       {noProjectOpen ? (
         <>
           <ProjectSelector mode="workspace" />

@@ -34,7 +34,8 @@ const fullscreenOutputToolbarCss = css`
     width: var(--fullscreen-output-toolbar-icon-size);
     height: var(--fullscreen-output-toolbar-icon-size);
     font-size: var(--ui-font-size-2xl);
-    opacity: 0.2;
+    color: var(--foreground);
+    opacity: var(--node-output-action-opacity);
     cursor: pointer;
     transition: opacity 0.2s;
     z-index: 1;
@@ -45,7 +46,8 @@ const fullscreenOutputToolbarCss = css`
   }
 
   .copy-json-button {
-    opacity: 0.2;
+    color: var(--foreground);
+    opacity: var(--node-output-action-opacity);
     cursor: pointer;
     user-select: none;
     text-transform: uppercase;

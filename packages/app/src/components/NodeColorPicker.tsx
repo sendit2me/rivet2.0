@@ -8,8 +8,10 @@ import {
   DEFAULT_NODE_HEADER_COLOR,
   createBorderAndHeaderNodeColor,
   createHeaderOnlyNodeColor,
+  getNodeBorderReferenceColor,
   getNodeHeaderColor,
   isNodeBorderVisible,
+  PROJECT_DEFAULT_NODE_HEADER_COLOR,
   type NodeColor,
 } from '../utils/nodeColor.js';
 
@@ -38,7 +40,7 @@ const buttonStyles = css`
     position: absolute;
     inset: 0;
     display: flex;
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--node-color-picker-trigger-icon);
     pointer-events: none;
 
     svg {
@@ -102,7 +104,7 @@ const nodeSwatchStyles = css`
   position: relative;
   overflow: hidden;
   corner-shape: squircle;
-  background-color: var(--grey-darker-darker);
+  background-color: var(--node-color-picker-swatch-body-bg);
   border: var(--node-color-picker-border-width) solid var(--node-color-picker-border);
 
   &::before {
@@ -158,11 +160,13 @@ export const NodeColorPicker: FC<{
   const [isOpen, toggleIsOpen] = useToggle();
   const currentHeaderColor = getNodeHeaderColor(currentColor);
   const currentHasBorder = isNodeBorderVisible(currentColor);
-  const currentBorderColor = currentHasBorder ? (currentColor?.border ?? 'transparent') : 'transparent';
+  const currentBorderColor = currentHasBorder ? getNodeBorderReferenceColor(currentColor) : 'transparent';
   const currentSwatchStyle = getSwatchStyle(currentHeaderColor, currentBorderColor, currentHasBorder);
 
   const getHeaderOnlyColor = (color: (typeof colors)[number]) =>
     color.isDefault ? undefined : createHeaderOnlyNodeColor(color.color);
+  const getBorderAndHeaderColor = (color: (typeof colors)[number]) =>
+    createBorderAndHeaderNodeColor(color.isDefault ? PROJECT_DEFAULT_NODE_HEADER_COLOR : color.color);
 
   return (
     <Popup
@@ -189,7 +193,7 @@ export const NodeColorPicker: FC<{
                 type="button"
                 aria-label={`${color.label} border and header`}
                 onClick={() => {
-                  onChange(createBorderAndHeaderNodeColor(color.color));
+                  onChange(getBorderAndHeaderColor(color));
                   toggleIsOpen.toggle();
                 }}
               >

@@ -51,6 +51,10 @@ test('graph tree panel keeps the compact text-list layout source contract', () =
   assert.match(graphListSource, /<input\s+\{...GRAPH_FILTER_INPUT_MARKER\}/);
   assert.match(graphListSource, /aria-label="Filter graphs"/);
   assert.match(graphListSource, /placeholder="Filter graphs"/);
+  assert.match(
+    graphListSource,
+    /\.graph-list-filter input \{[\s\S]*border: 0 !important;[\s\S]*border-width: 0 !important;[\s\S]*box-shadow: none !important;[\s\S]*background: transparent !important;/,
+  );
   assert.match(nodeCanvasSource, /import \{ blurFocusedGraphFilterInput \} from '\.\/graphList\/graphFilterFocus\.js';/);
   assert.match(
     nodeCanvasSource,

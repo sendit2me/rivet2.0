@@ -47,7 +47,6 @@
 - Add mid points to connections so I can do neat wiring
 - Code node (and Expression node) should have a "Catch failures" switcher so I can safely fallback with coalesce
 
-- Light color theme
 
 - Check the AI workflow generation feature
 

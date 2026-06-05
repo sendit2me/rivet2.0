@@ -132,6 +132,7 @@ export const defaultEditorContainerStyles = css`
 
   .row > :first-child label[id$='-label'],
   .row .editor-wrapper-wrapper > label {
+    color: var(--label-color);
     margin-bottom: var(--node-editor-label-gap) !important;
   }
 

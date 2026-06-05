@@ -27,7 +27,7 @@ const styles = css`
   .plugin-info-button {
     cursor: pointer;
     font-size: var(--ui-font-size-lg);
-    color: var(--grey);
+    color: var(--foreground-muted);
     transition:
       color 0.2s ease,
       border-color 0.2s ease;

@@ -19,6 +19,7 @@ const scalableToggleStyles = css`
   --toggle-padding: calc(2px * var(--toggle-scale));
   --toggle-thumb-size: calc(12px * var(--toggle-scale));
   --toggle-icon-size: calc(10px * var(--toggle-scale));
+  --toggle-checked-icon-color: var(--foreground-on-primary);
 
   position: relative;
   width: var(--toggle-width);
@@ -71,6 +72,8 @@ const scalableToggleStyles = css`
   }
 
   &:not(.is-disabled):hover.is-checked .scalable-toggle-track {
+    --toggle-checked-icon-color: var(--foreground-on-primary-light);
+
     background-color: var(--primary-light);
   }
 
@@ -91,6 +94,7 @@ const scalableToggleStyles = css`
   }
 
   &.is-checked .scalable-toggle-thumb {
+    background-color: var(--toggle-checked-icon-color);
     transform: translateX(calc(var(--toggle-width) - var(--toggle-thumb-size) - (var(--toggle-padding) * 2)));
   }
 
@@ -127,6 +131,7 @@ const scalableToggleStyles = css`
   }
 
   &.is-checked .scalable-toggle-icon-check {
+    color: var(--toggle-checked-icon-color);
     opacity: 1;
   }
 
