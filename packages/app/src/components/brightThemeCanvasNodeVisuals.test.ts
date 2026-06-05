@@ -33,7 +33,7 @@ test('Bright theme tightens canvas node contrast through dedicated node visual t
   assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-output-error-bg: color-mix\(in srgb, var\(--error\) 30%, var\(--grey-darker\) 70%\);/);
   assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-output-error-border: var\(--error\);/);
   assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-body-bg: color-mix\(in srgb, var\(--secondary\) 3%, #e7edf5 97%\);/);
-  assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-resting-shadow: 0 1px 3px rgba\(15, 23, 42, 0\.16\);/);
+  assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-resting-shadow: 0 2px 4px rgba\(30, 30, 30, 0\.35\);/);
   assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--port-connected-label-color: #0d4ea8;/);
   assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--port-connected-label-opacity: 0\.86;/);
   assert.match(colorsSource, /:root\.theme-bright,[\s\S]*--node-stack-front-opacity: 0\.72;/);
