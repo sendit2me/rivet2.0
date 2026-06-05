@@ -18,7 +18,9 @@ export const nodeCanvasStyles = css`
   }
 
   &.dragging-node,
-  &.dragging-node * {
+  &.dragging-node *,
+  &.dragging-canvas,
+  &.dragging-canvas * {
     cursor: grabbing !important;
   }
 
