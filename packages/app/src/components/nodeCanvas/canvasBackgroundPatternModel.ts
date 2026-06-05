@@ -35,6 +35,14 @@ export function getCanvasBackgroundPatternTileSize(canvasPosition: Pick<CanvasPo
   return Math.max(1, CANVAS_BACKGROUND_PATTERN_SPACING * canvasPosition.zoom);
 }
 
+export function getCanvasBackgroundPatternScreenOrigin(origin: number, zoom: number): number {
+  if (!Number.isFinite(origin) || !Number.isFinite(zoom)) {
+    return 0;
+  }
+
+  return origin * zoom;
+}
+
 export function getCanvasBackgroundPatternTileOffset(origin: number, tileSize: number): number {
   if (!Number.isFinite(origin) || !Number.isFinite(tileSize) || tileSize <= 0) {
     return 0;
