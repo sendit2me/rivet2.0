@@ -14,8 +14,8 @@
   --grey-dark: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-dark) 98%);
   --grey-dark-seethrough: color-mix(in srgb, var(--secondary) 2%, #2e2e2eb8 98%);
   --grey-dark-seethrougher: color-mix(in srgb, var(--secondary) 2%, rgba(46, 46, 46, 0.35) 98%);
-  --grey-dark-colorish: color-mix(in srgb, var(--secondary) 4%, rgb(35, 35, 35) 96%);
-  --grey-dark-colorish-seethrough: color-mix(in srgb, var(--secondary) 4%, rgba(35, 35, 35, 0.95) 96%);
+  --grey-dark-colorish: color-mix(in srgb, var(--secondary) 6%, rgb(35, 35, 35) 94%);
+  --grey-dark-colorish-seethrough: color-mix(in srgb, var(--secondary) 6%, rgba(35, 35, 35, 0.95) 94%);
   --grey-darkish: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-darkish) 98%);
   --grey-darkish-seethrough: color-mix(in srgb, var(--secondary) 2%, rgba(61, 61, 61, 0.5) 98%);
   --grey: #5a5a5a;
@@ -141,7 +141,7 @@
 .app.theme-grapefruit {
   /* Theme colors */
   --primary: #ff8862;
-  --secondary: #ffcc00;
+  --secondary: #834100;
   --primary-text: #ff8862;
   --primary-dark: #cc6a4c;
   --primary-light: #ffa382;
@@ -165,7 +165,7 @@
 .app.theme-taffy {
   /* Theme colors */
   --primary: #a55fff;
-  --secondary: #a55fff;
+  --secondary: #7844bd;
   --primary-text: #d6c2ff;
   --primary-dark: #7a44cc;
   --primary-light: #b78aff;
