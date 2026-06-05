@@ -66,6 +66,8 @@
   --ds-text-inverse: #fff;
   --ds-surface-overlay: var(--grey-dark-colorish);
   --ds-border: var(--settings-collapsible-border);
+  --ds-shadow-overlay: 0 0 0 1px var(--settings-collapsible-border), 0 2px 1px var(--shadow),
+    0 0 20px -6px var(--shadow-dark);
   --ds-border-radius: var(--ui-button-radius);
   --ds-border-radius-050: var(--ui-button-radius-sm);
   --ds-border-radius-100: var(--ui-button-radius);
