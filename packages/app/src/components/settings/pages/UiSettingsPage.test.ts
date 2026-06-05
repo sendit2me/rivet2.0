@@ -12,9 +12,15 @@ test('UI settings group canvas color and pattern controls under Canvas', () => {
   assert.match(uiSettingsPageSource, /label="Theme"/);
   assert.match(uiSettingsPageSource, /options={themes}/);
   assert.match(uiSettingsPageSource, /theme === 'custom'/);
+  assert.match(uiSettingsPageSource, /className="custom-theme-color-pickers"/);
+  assert.match(uiSettingsPageSource, /\.custom-theme-color-pickers \{[\s\S]*display: flex;[\s\S]*flex-wrap: wrap;/);
   assert.match(uiSettingsPageSource, /label="Custom primary color"/);
+  assert.match(uiSettingsPageSource, /label="Custom secondary color"/);
   assert.match(uiSettingsPageSource, /customThemePrimaryColorState/);
+  assert.match(uiSettingsPageSource, /customThemeSecondaryColorState/);
   assert.match(uiSettingsPageSource, /formatCustomThemePrimaryColor/);
+  assert.match(uiSettingsPageSource, /formatCustomThemeSecondaryColor/);
+  assert.match(uiSettingsPageSource, /parseCustomThemeSecondaryColor\(\s*customThemeSecondaryColor,\s*customThemePrimaryColor,/);
   assert.match(uiSettingsPageSource, /<h2 id="ui-settings-canvas" className="settings-section-heading">\s+Canvas\s+<\/h2>/);
   assert.doesNotMatch(uiSettingsPageSource, />\s*Canvas pattern\s*<\/h2>/);
   assert.match(uiSettingsPageSource, /label="Canvas color"/);

@@ -178,6 +178,10 @@ export const styles = css`
     color: var(--grey-lightest);
   }
 
+  .file-menu.open {
+    z-index: 10;
+  }
+
   .sidebar-toggle-button,
   .graph-history-button,
   .file-menu-button {
@@ -264,7 +268,7 @@ export const styles = css`
     position: absolute;
     top: 100%;
     left: 0;
-    z-index: 300;
+    z-index: 1000;
   }
 
   .file-dropdown.open {

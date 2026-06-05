@@ -130,19 +130,31 @@ test('collapsible settings surfaces share opaque colors across panels and modals
 
   assert.match(
     colorsSource,
-    /--settings-collapsible-border: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
+    /--settings-collapsible-border: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
   );
   assert.match(
     colorsSource,
-    /--settings-collapsible-header-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darker-darker\) [^)]+\);/,
+    /--settings-collapsible-header-bg: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--grey-darker-darker\) [^)]+\);/,
   );
   assert.match(
     colorsSource,
-    /--settings-collapsible-body-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darker\) [^)]+\);/,
+    /--settings-collapsible-body-bg: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--grey-darker\) [^)]+\);/,
   );
   assert.match(
     colorsSource,
-    /--settings-collapsible-hover-bg: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
+    /--settings-collapsible-hover-bg: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
+  );
+  assert.match(
+    colorsSource,
+    /--form-control-bg: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--grey-darker-darker\) [^)]+\);/,
+  );
+  assert.match(
+    colorsSource,
+    /--form-control-border: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
+  );
+  assert.match(
+    colorsSource,
+    /--form-control-border-focus: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--grey-darkish\) [^)]+\);/,
   );
 
   for (const source of [editorGroupSource, projectInfoModalSource, aiAssistEditorSource]) {

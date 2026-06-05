@@ -7,17 +7,17 @@
   --neutral-grey-darkerish: #2b2b2b;
   --neutral-grey-dark: #2e2e2e;
   --neutral-grey-darkish: #3d3d3d;
-  --grey-darkest: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darkest) 99%);
-  --grey-darker-darker: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darker-darker) 99%);
-  --grey-darker: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darker) 99%);
-  --grey-darkerish: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darkerish) 99%);
-  --grey-dark: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-dark) 99%);
-  --grey-dark-seethrough: color-mix(in srgb, var(--primary) 1%, #2e2e2eb8 99%);
-  --grey-dark-seethrougher: color-mix(in srgb, var(--primary) 1%, rgba(46, 46, 46, 0.35) 99%);
-  --grey-dark-colorish: color-mix(in srgb, var(--primary) 2%, rgb(35, 35, 35) 98%);
-  --grey-dark-colorish-seethrough: color-mix(in srgb, var(--primary) 2%, rgba(35, 35, 35, 0.95) 98%);
-  --grey-darkish: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darkish) 99%);
-  --grey-darkish-seethrough: color-mix(in srgb, var(--primary) 1%, rgba(61, 61, 61, 0.5) 99%);
+  --grey-darkest: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-darkest) 98%);
+  --grey-darker-darker: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-darker-darker) 98%);
+  --grey-darker: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-darker) 98%);
+  --grey-darkerish: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-darkerish) 98%);
+  --grey-dark: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-dark) 98%);
+  --grey-dark-seethrough: color-mix(in srgb, var(--secondary) 2%, #2e2e2eb8 98%);
+  --grey-dark-seethrougher: color-mix(in srgb, var(--secondary) 2%, rgba(46, 46, 46, 0.35) 98%);
+  --grey-dark-colorish: color-mix(in srgb, var(--secondary) 4%, rgb(35, 35, 35) 96%);
+  --grey-dark-colorish-seethrough: color-mix(in srgb, var(--secondary) 4%, rgba(35, 35, 35, 0.95) 96%);
+  --grey-darkish: color-mix(in srgb, var(--secondary) 2%, var(--neutral-grey-darkish) 98%);
+  --grey-darkish-seethrough: color-mix(in srgb, var(--secondary) 2%, rgba(61, 61, 61, 0.5) 98%);
   --grey: #5a5a5a;
   --grey-lightish: #6e6e6e;
   --grey-light: #bbb;
@@ -31,10 +31,22 @@
   --foreground-on-primary: #1e1e1e;
 
   /* Shared collapsible settings surfaces. Keep body background opaque so it matches panels and modals. */
-  --settings-collapsible-border: color-mix(in srgb, var(--primary) 4%, var(--grey-darkish) 96%);
-  --settings-collapsible-header-bg: color-mix(in srgb, var(--primary) 2%, var(--grey-darker-darker) 98%);
-  --settings-collapsible-body-bg: color-mix(in srgb, var(--primary) 2%, var(--grey-darker) 98%);
-  --settings-collapsible-hover-bg: color-mix(in srgb, var(--primary) 8%, var(--grey-darkish) 92%);
+  --settings-collapsible-border: color-mix(in srgb, var(--secondary) 4%, var(--grey-darkish) 96%);
+  --settings-collapsible-header-bg: color-mix(in srgb, var(--secondary) 2%, var(--grey-darker-darker) 98%);
+  --settings-collapsible-body-bg: color-mix(in srgb, var(--secondary) 2%, var(--grey-darker) 98%);
+  --settings-collapsible-hover-bg: color-mix(in srgb, var(--secondary) 8%, var(--grey-darkish) 92%);
+
+  /* Shared form controls: Atlaskit TextField/Select plus native text-like inputs. */
+  --form-control-bg: color-mix(in srgb, var(--secondary) 2%, var(--grey-darker-darker) 98%);
+  --form-control-bg-hover: color-mix(in srgb, var(--secondary) 4%, var(--grey-darker) 96%);
+  --form-control-bg-focus: color-mix(in srgb, var(--secondary) 5%, var(--grey-darker) 95%);
+  --form-control-bg-disabled: color-mix(in srgb, var(--secondary) 1%, var(--grey-darkest) 99%);
+  --form-control-border: color-mix(in srgb, var(--secondary) 6%, var(--grey-darkish) 94%);
+  --form-control-border-focus: color-mix(in srgb, var(--primary) 55%, var(--grey-darkish) 45%);
+  --form-control-neutral-bg: color-mix(in srgb, var(--secondary) 5%, var(--grey-darkish) 95%);
+  --form-control-selected-bg: color-mix(in srgb, var(--primary) 14%, var(--grey-dark-colorish) 86%);
+  --form-control-selected-bg-hover: color-mix(in srgb, var(--primary) 18%, var(--grey-dark-colorish) 82%);
+  --form-control-selected-bg-pressed: color-mix(in srgb, var(--primary) 22%, var(--grey-dark-colorish) 78%);
 
   /* Tertiary colors */
   --tertiary: #444;
@@ -68,8 +80,9 @@
   --shadow: rgba(0, 0, 0, 0.2);
   --shadow-dark: rgba(0, 0, 0, 0.4);
 
-  --canvas-background-theme-color: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darker-darker) 91%);
+  --canvas-background-theme-color: color-mix(in srgb, var(--secondary) 7%, var(--neutral-grey-darker-darker) 93%);
   --custom-theme-primary: rgba(255, 153, 0, 1);
+  --custom-theme-secondary: var(--custom-theme-primary);
 
   /* Canvas background pattern hue. Keep this theme-independent; opacity is controlled by the UI setting. */
   --canvas-background-pattern-rgb: 255, 255, 255;
@@ -112,8 +125,9 @@
 :root.theme-molten,
 .app.theme-default,
 .app.theme-molten {
-  /* Primary colors */
+  /* Theme colors */
   --primary: #ff9900;
+  --secondary: #0059ff;
   --primary-text: #ff9900;
   --primary-dark: #cc6600;
   --primary-light: #ffb545;
@@ -125,8 +139,9 @@
 
 :root.theme-grapefruit,
 .app.theme-grapefruit {
-  /* Primary colors */
+  /* Theme colors */
   --primary: #ff8862;
+  --secondary: #ffcc00;
   --primary-text: #ff8862;
   --primary-dark: #cc6a4c;
   --primary-light: #ffa382;
@@ -141,31 +156,16 @@
   --accent-dark: #b24c33;
   --accent-light: #ff9980;
 
-  /* Success colors */
-  --success: #4caf50;
-  --success-dark: #388e3c;
-  --success-light: #81c784;
-
-  /* Error colors */
-  --error: #f44336;
-  --error-dark: #d32f2f;
-  --error-light: #e57373;
-
-  /* Warning colors */
-  --warning: #ff9800;
-  --warning-dark: #f57c00;
-  --warning-light: #ffb74d;
-
   /* Shadows */
   --shadow-primary: rgba(255, 136, 98, 0.5); /* darker shadow */
   --shadow-primary-bright: rgba(255, 136, 98, 0.8); /* lighter shadow */
-
 }
 
 :root.theme-taffy,
 .app.theme-taffy {
-  /* Primary colors */
+  /* Theme colors */
   --primary: #a55fff;
+  --secondary: #a55fff;
   --primary-text: #d6c2ff;
   --primary-dark: #7a44cc;
   --primary-light: #b78aff;
@@ -180,30 +180,15 @@
   --accent-dark: #9a58cc;
   --accent-light: #d4a1ff;
 
-  /* Success colors */
-  --success: #30c9c3;
-  --success-dark: #238f8d;
-  --success-light: #62d8d6;
-
-  /* Error colors */
-  --error: #f44336;
-  --error-dark: #d32f2f;
-  --error-light: #e57373;
-
-  /* Warning colors */
-  --warning: #ff9800;
-  --warning-dark: #f57c00;
-  --warning-light: #ffb74d;
-
   /* Shadows */
   --shadow-primary: rgba(165, 95, 255, 0.5); /* darker shadow */
   --shadow-primary-bright: rgba(165, 95, 255, 0.8); /* lighter shadow */
-
 }
 
 :root.theme-custom,
 .app.theme-custom {
   --primary: var(--custom-theme-primary);
+  --secondary: var(--custom-theme-secondary);
   --primary-text: var(--custom-theme-primary);
   --primary-dark: color-mix(in srgb, var(--custom-theme-primary) 80%, black 20%);
   --primary-light: color-mix(in srgb, var(--custom-theme-primary) 75%, white 25%);

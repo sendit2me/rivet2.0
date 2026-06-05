@@ -14,6 +14,7 @@
   --ui-font-size-icon-xl: 32px;
   --ui-button-radius: calc(10px * var(--ui-font-scale));
   --ui-button-radius-sm: calc(8px * var(--ui-font-scale));
+  --form-control-border-width: 1px;
   --resize-edge-horizontal-cursor: ew-resize;
   --resize-edge-vertical-cursor: ns-resize;
   --resize-edge-diagonal-down-cursor: nwse-resize;
@@ -64,10 +65,29 @@
   --ds-font-ui: normal 400 var(--ui-font-size-base) / 1 var(--ds-font-family-body, var(--font-family));
   --ds-font-ui-small: normal 400 var(--ui-font-size-xs) / 1 var(--ds-font-family-body, var(--font-family));
   --ds-text-inverse: #fff;
+  --ds-text: var(--foreground);
+  --ds-text-subtle: var(--label-color);
+  --ds-text-subtlest: var(--foreground-muted);
+  --ds-text-disabled: var(--foreground-muted);
+  --ds-text-selected: var(--primary);
+  --ds-surface: var(--grey-dark-colorish);
   --ds-surface-overlay: var(--grey-dark-colorish);
   --ds-border: var(--settings-collapsible-border);
   --ds-shadow-overlay: 0 0 0 1px var(--settings-collapsible-border), 0 2px 1px var(--shadow),
     0 0 20px -6px var(--shadow-dark);
+  --ds-background-input: var(--form-control-bg);
+  --ds-background-input-hovered: var(--form-control-bg-hover);
+  --ds-background-input-pressed: var(--form-control-bg-focus);
+  --ds-background-disabled: var(--form-control-bg-disabled);
+  --ds-border-input: var(--form-control-border);
+  --ds-border-focused: var(--form-control-border-focus);
+  --ds-background-neutral: var(--form-control-neutral-bg);
+  --ds-background-neutral-subtle-hovered: var(--form-control-bg-hover);
+  --ds-background-neutral-subtle-pressed: var(--form-control-bg-focus);
+  --ds-background-selected: var(--form-control-selected-bg);
+  --ds-background-selected-hovered: var(--form-control-selected-bg-hover);
+  --ds-background-selected-pressed: var(--form-control-selected-bg-pressed);
+  --ds-border-selected: var(--primary);
   --ds-border-radius: var(--ui-button-radius);
   --ds-border-radius-050: var(--ui-button-radius-sm);
   --ds-border-radius-100: var(--ui-button-radius);
@@ -120,6 +140,42 @@ textarea:not(.inputarea) {
   font-size: var(--ui-font-size-base) !important;
 }
 
+input:not(.inputarea):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not(
+    [type='file']
+  ):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not(
+    [type='image']
+  ),
+select,
+textarea:not(.inputarea) {
+  border: var(--form-control-border-width) solid var(--form-control-border);
+  border-width: var(--form-control-border-width) !important;
+  background-color: var(--form-control-bg);
+  color: var(--foreground);
+}
+
+input:not(.inputarea):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not(
+    [type='file']
+  ):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not(
+    [type='image']
+  ):hover,
+select:hover,
+textarea:not(.inputarea):hover {
+  border-color: var(--form-control-border);
+  background-color: var(--form-control-bg-hover);
+}
+
+input:not(.inputarea):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not(
+    [type='file']
+  ):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not(
+    [type='image']
+  ):focus,
+select:focus,
+textarea:not(.inputarea):focus {
+  border-color: var(--form-control-border-focus);
+  background-color: var(--form-control-bg-focus);
+  outline-color: var(--form-control-border-focus);
+}
+
 label[class],
 legend[class],
 [id$='-helper'],
@@ -137,7 +193,28 @@ legend[class],
 }
 
 [class*='-control']:has(input[id^='react-select-']) {
+  border-width: var(--form-control-border-width) !important;
   min-height: calc(40px * var(--ui-font-scale)) !important;
+}
+
+[data-ds--text-field--container] {
+  border-width: var(--form-control-border-width) !important;
+}
+
+[data-ds--text-field--input] {
+  border: 0 !important;
+  background-color: transparent !important;
+  color: inherit;
+}
+
+[class*='-control']:has(input[id^='react-select-']),
+[class*='-menu'] {
+  --ds-surface: var(--grey-dark-colorish);
+  --ds-background-input: var(--form-control-bg);
+  --ds-background-input-hovered: var(--form-control-bg-hover);
+  --ds-background-input-pressed: var(--form-control-bg-focus);
+  --ds-border-input: var(--form-control-border);
+  --ds-border-focused: var(--form-control-border-focus);
 }
 
 [class*='-singleValue'] {

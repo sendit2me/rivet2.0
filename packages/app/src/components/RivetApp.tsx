@@ -17,6 +17,7 @@ import { ChatViewerRenderer } from './ChatViewer';
 import { useAtomValue, useSetAtom } from 'jotai';
 import {
   customThemePrimaryColorState,
+  customThemeSecondaryColorState,
   getCustomThemeCssVariables,
   selectedExecutorState,
   themeState,
@@ -74,13 +75,20 @@ export const RivetApp: FC = () => {
   const { tryRunGraph, tryRunTests, tryAbortGraph, tryPauseGraph, tryResumeGraph } = useGraphExecutor();
   const theme = useAtomValue(themeState);
   const customThemePrimaryColor = useAtomValue(customThemePrimaryColorState);
+  const customThemeSecondaryColor = useAtomValue(customThemeSecondaryColorState);
   const uiFontSize = useAtomValue(uiFontSizeState);
   const openOverlay = useAtomValue(overlayOpenState);
   const openedProjectIds = useAtomValue(openedProjectsSortedIdsState);
   const uiFontSizeCssVariables = useMemo(() => getUiFontSizeCssVariables(uiFontSize), [uiFontSize]);
   const customThemeCssVariables = useMemo<Record<string, string>>(
-    () => (theme === 'custom' ? getCustomThemeCssVariables(customThemePrimaryColor) : {}),
-    [customThemePrimaryColor, theme],
+    () =>
+      theme === 'custom'
+        ? getCustomThemeCssVariables({
+            primaryColor: customThemePrimaryColor,
+            secondaryColor: customThemeSecondaryColor,
+          })
+        : {},
+    [customThemePrimaryColor, customThemeSecondaryColor, theme],
   );
   const appCssVariables = useMemo(
     () => ({ ...uiFontSizeCssVariables, ...customThemeCssVariables }) as CSSProperties,

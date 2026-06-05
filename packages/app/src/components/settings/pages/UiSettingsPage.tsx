@@ -20,12 +20,15 @@ import {
   CANVAS_BACKGROUND_PATTERN_OPACITY_STEP,
   clampCanvasBackgroundPatternOpacity,
   customThemePrimaryColorState,
+  customThemeSecondaryColorState,
   formatCanvasBackgroundCustomColor,
   formatCustomThemePrimaryColor,
+  formatCustomThemeSecondaryColor,
   MAX_CANVAS_BACKGROUND_PATTERN_OPACITY,
   MIN_CANVAS_BACKGROUND_PATTERN_OPACITY,
   parseCanvasBackgroundCustomColor,
   parseCustomThemePrimaryColor,
+  parseCustomThemeSecondaryColor,
   resolveCanvasBackgroundColorMode,
   type CanvasBackgroundPattern,
   type CanvasBackgroundColorMode,
@@ -58,12 +61,29 @@ const uiSettingsPageStyles = css`
       border-radius: 4px;
     }
   }
+
+  .custom-theme-color-pickers {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--settings-field-gap);
+  }
+
+  .custom-theme-color-pickers > * {
+    flex: 0 1 260px;
+    min-width: min(100%, 220px);
+  }
+
+  .custom-theme-color-pickers .settings-color-picker {
+    width: 100%;
+  }
 `;
 
 export const UiSettingsPage: FC = () => {
   const [settings, setSettings] = useAtom(settingsState);
   const [theme, setTheme] = useAtom(themeState);
   const [customThemePrimaryColor, setCustomThemePrimaryColor] = useAtom(customThemePrimaryColorState);
+  const [customThemeSecondaryColor, setCustomThemeSecondaryColor] = useAtom(customThemeSecondaryColorState);
   const [uiFontSize, setUiFontSize] = useAtom(uiFontSizeState);
   const [zoomSensitivity, setZoomSensitivity] = useAtom(zoomSensitivityState);
   const [preservePortTextCase, setPreservePortTextCase] = useAtom(preservePortTextCaseState);
@@ -75,6 +95,10 @@ export const UiSettingsPage: FC = () => {
   );
   const editorPreferences = resolveEditorPreferences(settings);
   const normalizedCustomThemePrimaryColor = parseCustomThemePrimaryColor(customThemePrimaryColor);
+  const normalizedCustomThemeSecondaryColor = parseCustomThemeSecondaryColor(
+    customThemeSecondaryColor,
+    customThemePrimaryColor,
+  );
   const normalizedUiFontSize = clampUiFontSize(uiFontSize);
   const normalizedCanvasBackgroundColorMode = resolveCanvasBackgroundColorMode(canvasBackgroundColorMode);
   const normalizedCanvasBackgroundCustomColor = parseCanvasBackgroundCustomColor(canvasBackgroundCustomColor);
@@ -99,25 +123,46 @@ export const UiSettingsPage: FC = () => {
             options={themes}
           />
           {theme === 'custom' && (
-            <Field name="customThemePrimaryColor" label="Custom primary color">
-              {() => (
-                <div className="settings-color-picker">
-                  <TripleBarColorPicker
-                    color={normalizedCustomThemePrimaryColor}
-                    onChange={(newColor) => {
-                      setCustomThemePrimaryColor(
-                        formatCustomThemePrimaryColor({
-                          r: newColor.rgb.r,
-                          g: newColor.rgb.g,
-                          b: newColor.rgb.b,
-                          a: newColor.rgb.a ?? 1,
-                        }),
-                      );
-                    }}
-                  />
-                </div>
-              )}
-            </Field>
+            <div className="custom-theme-color-pickers">
+              <Field name="customThemePrimaryColor" label="Custom primary color">
+                {() => (
+                  <div className="settings-color-picker">
+                    <TripleBarColorPicker
+                      color={normalizedCustomThemePrimaryColor}
+                      onChange={(newColor) => {
+                        setCustomThemePrimaryColor(
+                          formatCustomThemePrimaryColor({
+                            r: newColor.rgb.r,
+                            g: newColor.rgb.g,
+                            b: newColor.rgb.b,
+                            a: newColor.rgb.a ?? 1,
+                          }),
+                        );
+                      }}
+                    />
+                  </div>
+                )}
+              </Field>
+              <Field name="customThemeSecondaryColor" label="Custom secondary color">
+                {() => (
+                  <div className="settings-color-picker">
+                    <TripleBarColorPicker
+                      color={normalizedCustomThemeSecondaryColor}
+                      onChange={(newColor) => {
+                        setCustomThemeSecondaryColor(
+                          formatCustomThemeSecondaryColor({
+                            r: newColor.rgb.r,
+                            g: newColor.rgb.g,
+                            b: newColor.rgb.b,
+                            a: newColor.rgb.a ?? 1,
+                          }),
+                        );
+                      }}
+                    />
+                  </div>
+                )}
+              </Field>
+            </div>
           )}
           <Field name="uiFontSize">
             {() => (

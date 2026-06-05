@@ -126,10 +126,6 @@ export const canvasBackgroundColorOptions = [
     value: 'theme',
   },
   {
-    label: 'Grey-blue',
-    value: 'greyBlue',
-  },
-  {
     label: 'Custom',
     value: 'custom',
   },
@@ -155,7 +151,7 @@ export function resolveCanvasBackgroundPattern(value: unknown): CanvasBackground
 }
 
 export function resolveCanvasBackgroundColorMode(value: unknown): CanvasBackgroundColorMode {
-  if (value === 'grey') {
+  if (value === 'grey' || value === 'greyBlue') {
     return 'theme';
   }
 
@@ -172,7 +168,15 @@ export function parseCustomThemePrimaryColor(value: unknown): RgbaColor {
   return parseRgbaColor(value, { r: 255, g: 153, b: 0, a: 1 });
 }
 
+export function parseCustomThemeSecondaryColor(value: unknown, fallbackValue: unknown): RgbaColor {
+  return parseRgbaColor(value, parseCustomThemePrimaryColor(fallbackValue));
+}
+
 export function formatCustomThemePrimaryColor(color: RgbaColor): string {
+  return formatRgbaColor(color);
+}
+
+export function formatCustomThemeSecondaryColor(color: RgbaColor): string {
   return formatRgbaColor(color);
 }
 
@@ -180,9 +184,22 @@ export function normalizeCustomThemePrimaryColor(value: unknown): string {
   return formatCustomThemePrimaryColor(parseCustomThemePrimaryColor(value));
 }
 
-export function getCustomThemeCssVariables(value: unknown): Record<'--custom-theme-primary', string> {
+export function normalizeCustomThemeSecondaryColor(value: unknown, fallbackValue: unknown): string {
+  return formatCustomThemeSecondaryColor(parseCustomThemeSecondaryColor(value, fallbackValue));
+}
+
+export function getCustomThemeCssVariables({
+  primaryColor,
+  secondaryColor,
+}: {
+  primaryColor: unknown;
+  secondaryColor: unknown;
+}): Record<'--custom-theme-primary' | '--custom-theme-secondary', string> {
+  const normalizedPrimaryColor = normalizeCustomThemePrimaryColor(primaryColor);
+
   return {
-    '--custom-theme-primary': normalizeCustomThemePrimaryColor(value),
+    '--custom-theme-primary': normalizedPrimaryColor,
+    '--custom-theme-secondary': normalizeCustomThemeSecondaryColor(secondaryColor, normalizedPrimaryColor),
   };
 }
 
@@ -234,10 +251,6 @@ export function getCanvasBackgroundColor({
   mode: CanvasBackgroundColorMode;
   customColor: unknown;
 }): string {
-  if (mode === 'greyBlue') {
-    return '#282C34';
-  }
-
   if (mode === 'custom') {
     return normalizeCanvasBackgroundCustomColor(customColor);
   }
@@ -288,6 +301,12 @@ export const canvasBackgroundCustomColorState = atomWithStorage<string>(
 export const customThemePrimaryColorState = atomWithStorage<string>(
   'customThemePrimaryColor',
   DEFAULT_CUSTOM_THEME_PRIMARY_COLOR,
+  storage,
+);
+
+export const customThemeSecondaryColorState = atomWithStorage<string | undefined>(
+  'customThemeSecondaryColor',
+  undefined,
   storage,
 );
 

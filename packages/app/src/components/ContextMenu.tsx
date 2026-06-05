@@ -43,9 +43,11 @@ export const menuStyles = css`
 
   .context-menu-search {
     input {
-      background-color: transparent;
-      border: none;
-      outline: none;
+      background-color: transparent !important;
+      border: 0 !important;
+      border-width: 0 !important;
+      box-shadow: none !important;
+      outline: 0 !important;
       padding: 8px;
       font-size: var(--ui-font-size-base);
       line-height: 14px;

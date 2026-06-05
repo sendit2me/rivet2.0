@@ -30,32 +30,36 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(colorsCss, /--neutral-grey-darker: #303030;/);
   assert.match(
     colorsCss,
-    /--grey-darker: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--neutral-grey-darker\) [^)]+\);/,
+    /--grey-darker: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-darker\) [^)]+\);/,
   );
   assert.match(
     colorsCss,
-    /--grey-dark: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--neutral-grey-dark\) [^)]+\);/,
+    /--grey-dark: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-dark\) [^)]+\);/,
   );
   assert.match(
     colorsCss,
-    /--grey-darkish: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--neutral-grey-darkish\) [^)]+\);/,
+    /--grey-darkish: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-darkish\) [^)]+\);/,
   );
   assert.match(
     colorsCss,
-    /--grey-dark-colorish: color-mix\(in srgb, var\(--primary\) [^,]+, (?:var\(--neutral-grey-darker\)|rgb\(35, 35, 35\)) [^)]+\);/,
+    /--grey-dark-colorish: color-mix\(in srgb, var\(--secondary\) [^,]+, (?:var\(--neutral-grey-darker\)|rgb\(35, 35, 35\)) [^)]+\);/,
   );
   assert.match(
     colorsCss,
-    /--grey-dark-colorish-seethrough: color-mix\(in srgb, var\(--primary\) [^,]+, rgba\(35, 35, 35, 0\.95\) [^)]+\);/,
+    /--grey-dark-colorish-seethrough: color-mix\(in srgb, var\(--secondary\) [^,]+, rgba\(35, 35, 35, 0\.95\) [^)]+\);/,
   );
   assert.match(colorsCss, /--custom-theme-primary: rgba\(255, 153, 0, 1\);/);
+  assert.match(colorsCss, /--custom-theme-secondary: var\(--custom-theme-primary\);/);
   assert.match(colorsCss, /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--primary: var\(--custom-theme-primary\);/);
+  assert.match(colorsCss, /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--secondary: var\(--custom-theme-secondary\);/);
   assert.match(
     colorsCss,
     /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{[\s\S]*--primary-dark: color-mix\(in srgb, var\(--custom-theme-primary\) 80%, black 20%\);/,
   );
   assert.match(rivetAppSource, /customThemePrimaryColorState/);
-  assert.match(rivetAppSource, /theme === 'custom' \? getCustomThemeCssVariables\(customThemePrimaryColor\) : \{\}/);
+  assert.match(rivetAppSource, /customThemeSecondaryColorState/);
+  assert.match(rivetAppSource, /primaryColor: customThemePrimaryColor/);
+  assert.match(rivetAppSource, /secondaryColor: customThemeSecondaryColor/);
   assert.match(rivetAppSource, /rootStyle\.setProperty\(name, value\);/);
   assert.match(projectSelectorTsx, /background: var\(--project-selector-strip-bg\);/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
@@ -153,6 +157,8 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /\.projects \{[\s\S]*align-items: flex-end;/);
   assert.match(projectSelectorTsx, /\.projects \{[\s\S]*padding: 4px 10px 0 4px;/);
   assert.match(projectSelectorTsx, /\.projects-container \{[\s\S]*z-index: 3;/);
+  assert.match(projectSelectorTsx, /\.file-menu\.open \{[\s\S]*z-index: 10;/);
+  assert.match(projectSelectorTsx, /\.file-dropdown \{[\s\S]*z-index: 1000;/);
   assert.match(projectSelectorTsx, /\.draggableProject \{[\s\S]*align-items: flex-start;/);
   assert.match(projectSelectorTsx, /\.draggableProject \{[\s\S]*position: relative;/);
   assert.match(

@@ -15,7 +15,7 @@ test('canvas background pattern color is independent from theme changes', () => 
   assert.equal(colorsCss.match(/--canvas-background-theme-color:/g)?.length, 1);
   assert.match(
     colorsCss,
-    /--canvas-background-theme-color: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--neutral-grey-[^)]+\) [^)]+\);/,
+    /--canvas-background-theme-color: color-mix\(in srgb, var\(--secondary\) [^,]+, var\(--neutral-grey-[^)]+\) [^)]+\);/,
   );
   assert.doesNotMatch(colorsCss, /\.theme-[\s\S]*--canvas-background-pattern-rgb:/);
   assert.match(colorsCss, /:root\.theme-custom,[\s\S]*\.app\.theme-custom \{/);

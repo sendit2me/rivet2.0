@@ -23,4 +23,8 @@ test('blank canvas context menu labels node creation affordances explicitly', ()
     /context\.type === 'blankArea' \? 'Type in node name\.\.\.' : 'Search\.\.\.'/,
   );
   assert.match(contextMenuComponentSource, /placeholder=\{searchPlaceholder\}/);
+  assert.match(
+    contextMenuComponentSource,
+    /\.context-menu-search \{[\s\S]*input \{[\s\S]*background-color: transparent !important;[\s\S]*border: 0 !important;[\s\S]*border-width: 0 !important;[\s\S]*box-shadow: none !important;/,
+  );
 });
