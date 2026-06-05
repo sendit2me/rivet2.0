@@ -24,7 +24,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /const showWindowsWindowControls = isInTauri\(\) && isWindowsPlatform\(\);/);
   assert.match(projectSelectorTsx, /import RivetLogo from '\.\.\/rivet-2-logo-no-background\.svg';/);
   assert.match(projectSelectorTsx, /className={clsx\(\{ 'graph-tree-open': reserveSidebarColumn \}\)}/);
-  assert.match(projectSelectorTsx, /--project-selector-strip-bg: var\(--grey-dark-colorish-seethrough\);/);
+  assert.match(projectSelectorTsx, /--project-selector-strip-bg: var\(--grey-dark-colorish\);/);
   assert.doesNotMatch(colorsCss, new RegExp('blu' + 'ish'));
   assert.match(colorsCss, /--neutral-grey-darker: #303030;/);
   assert.match(
@@ -41,11 +41,11 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   );
   assert.match(
     colorsCss,
-    /--grey-dark-colorish: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--neutral-grey-darker\) [^)]+\);/,
+    /--grey-dark-colorish: color-mix\(in srgb, var\(--primary\) [^,]+, (?:var\(--neutral-grey-darker\)|rgb\(35, 35, 35\)) [^)]+\);/,
   );
   assert.match(
     colorsCss,
-    /--grey-dark-colorish-seethrough: color-mix\(in srgb, var\(--primary\) [^,]+, rgba\(35, 35, 45, 0\.95\) [^)]+\);/,
+    /--grey-dark-colorish-seethrough: color-mix\(in srgb, var\(--primary\) [^,]+, rgba\(35, 35, 35, 0\.95\) [^)]+\);/,
   );
   assert.match(projectSelectorTsx, /background: var\(--project-selector-strip-bg\);/);
   assert.match(projectSelectorTsx, /&::after \{[\s\S]*left: 0;[\s\S]*right: 0;/);
@@ -191,7 +191,7 @@ test('project top bar owns the graph tree sidebar toggle for the active project 
   assert.match(projectSelectorTsx, /className={clsx\('project', \{ active, unsaved \}\)}/);
   assert.match(projectSelectorTsx, /&:not\(\.active\) > \.actions \{[\s\S]*display: none;/);
   assert.match(projectSelectorTsx, /{active && \(\s*<div className="actions">/);
-  assert.match(overlayTabsTsx, /background: var\(--project-selector-strip-bg, var\(--grey-dark-colorish-seethrough\)\);/);
+  assert.match(overlayTabsTsx, /background: var\(--project-selector-strip-bg, var\(--grey-dark-colorish\)\);/);
   assert.match(projectSelectorTsx, /<img src={RivetLogo} alt="" aria-hidden="true" className="file-menu-logo" \/>/);
   assert.match(projectSelectorTsx, />\s*Menu\s*<\/button>/);
   assert.doesNotMatch(projectSelectorTsx, />\s*File\s*<\/button>/);

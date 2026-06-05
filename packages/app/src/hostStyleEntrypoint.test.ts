@@ -65,7 +65,7 @@ test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
     '--ds-font-family-monospace: var(--font-family-monospace);',
     '--ds-font-heading-xxsmall:',
     '--ds-font-label:',
-    '--ds-surface-overlay: var(--grey-dark-colorish-seethrough);',
+    '--ds-surface-overlay: var(--grey-dark-colorish);',
     '--ds-border: var(--grey-darkish);',
     '--toastify-font-family: var(--font-family);',
   ]) {
@@ -79,7 +79,7 @@ test('portal typography tokens keep popup surfaces on Rivet fonts', () => {
   assert.match(postResetCss, /--ds-font-family-heading: var\(--font-family\);/);
   assert.match(postResetCss, /--ds-font-heading-xxsmall:[\s\S]*var\(--ds-font-family-heading, var\(--font-family\)\)/);
   assert.match(postResetCss, /--ds-font-label:[\s\S]*var\(--label-font-family,/);
-  assert.match(postResetCss, /--ds-surface-overlay: var\(--grey-dark-colorish-seethrough\);/);
+  assert.match(postResetCss, /--ds-surface-overlay: var\(--grey-dark-colorish\);/);
   assert.match(postResetCss, /--ds-border: var\(--grey-darkish\);/);
   assert.match(postResetCss, /--toastify-font-family: var\(--font-family\);/);
 });

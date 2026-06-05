@@ -118,12 +118,12 @@ export type CanvasBackgroundPattern = (typeof canvasBackgroundPatterns)[number][
 
 export const canvasBackgroundColorOptions = [
   {
-    label: 'Grey',
-    value: 'grey',
+    label: 'Theme',
+    value: 'theme',
   },
   {
-    label: 'Black',
-    value: 'black',
+    label: 'Grey-blue',
+    value: 'greyBlue',
   },
   {
     label: 'Custom',
@@ -148,9 +148,13 @@ export function resolveCanvasBackgroundPattern(value: unknown): CanvasBackground
 }
 
 export function resolveCanvasBackgroundColorMode(value: unknown): CanvasBackgroundColorMode {
+  if (value === 'grey') {
+    return 'theme';
+  }
+
   return canvasBackgroundColorOptions.some((option) => option.value === value)
     ? (value as CanvasBackgroundColorMode)
-    : 'grey';
+    : 'theme';
 }
 
 export function parseCanvasBackgroundCustomColor(value: unknown): CanvasBackgroundCustomColor {
@@ -194,15 +198,15 @@ export function getCanvasBackgroundColor({
   mode: CanvasBackgroundColorMode;
   customColor: unknown;
 }): string {
-  if (mode === 'black') {
-    return '#000000';
+  if (mode === 'greyBlue') {
+    return '#282C34';
   }
 
   if (mode === 'custom') {
     return normalizeCanvasBackgroundCustomColor(customColor);
   }
 
-  return 'var(--grey-darker)';
+  return 'var(--canvas-background-theme-color)';
 }
 
 export const DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY = 0.02;
@@ -235,7 +239,7 @@ export const canvasBackgroundPatternOpacityState = atomWithStorage<number>(
 
 export const canvasBackgroundColorModeState = atomWithStorage<CanvasBackgroundColorMode>(
   'canvasBackgroundColorMode',
-  'grey',
+  'theme',
   storage,
 );
 

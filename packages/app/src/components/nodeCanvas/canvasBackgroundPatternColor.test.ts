@@ -12,6 +12,11 @@ test('canvas background pattern color is independent from theme changes', () => 
   const canvasBackgroundPatternSource = readFileSync(join(nodeCanvasDir, 'CanvasBackgroundPattern.tsx'), 'utf8');
 
   assert.equal(colorsCss.match(/--canvas-background-pattern-rgb:/g)?.length, 1);
+  assert.equal(colorsCss.match(/--canvas-background-theme-color:/g)?.length, 1);
+  assert.match(
+    colorsCss,
+    /--canvas-background-theme-color: color-mix\(in srgb, var\(--primary\) [^,]+, var\(--neutral-grey-[^)]+\) [^)]+\);/,
+  );
   assert.doesNotMatch(colorsCss, /\.theme-[\s\S]*--canvas-background-pattern-rgb:/);
   assert.doesNotMatch(canvasBackgroundPatternSource, /themeState/);
   assert.doesNotMatch(canvasBackgroundPatternSource, /useAtomValue/);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createStore } from 'jotai/vanilla';
 import {
+  canvasBackgroundColorOptions,
   clampCanvasBackgroundPatternOpacity,
   DEFAULT_CANVAS_BACKGROUND_PATTERN_OPACITY,
   DEFAULT_CANVAS_BACKGROUND_CUSTOM_COLOR,
@@ -130,12 +131,19 @@ test('resolveCanvasBackgroundPattern falls back to grid for invalid stored value
   assert.equal(resolveCanvasBackgroundPattern(undefined), 'grid');
 });
 
-test('resolveCanvasBackgroundColorMode falls back to grey for invalid stored values', () => {
-  assert.equal(resolveCanvasBackgroundColorMode('grey'), 'grey');
-  assert.equal(resolveCanvasBackgroundColorMode('black'), 'black');
+test('resolveCanvasBackgroundColorMode falls back to theme for invalid stored values', () => {
+  assert.deepEqual(canvasBackgroundColorOptions, [
+    { label: 'Theme', value: 'theme' },
+    { label: 'Grey-blue', value: 'greyBlue' },
+    { label: 'Custom', value: 'custom' },
+  ]);
+  assert.equal(resolveCanvasBackgroundColorMode('theme'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode('greyBlue'), 'greyBlue');
   assert.equal(resolveCanvasBackgroundColorMode('custom'), 'custom');
-  assert.equal(resolveCanvasBackgroundColorMode('bad-color'), 'grey');
-  assert.equal(resolveCanvasBackgroundColorMode(undefined), 'grey');
+  assert.equal(resolveCanvasBackgroundColorMode('grey'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode('black'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode('bad-color'), 'theme');
+  assert.equal(resolveCanvasBackgroundColorMode(undefined), 'theme');
 });
 
 test('canvas background custom color parsing produces safe rgba values', () => {
@@ -147,8 +155,11 @@ test('canvas background custom color parsing produces safe rgba values', () => {
 });
 
 test('getCanvasBackgroundColor resolves preset and custom canvas colors', () => {
-  assert.equal(getCanvasBackgroundColor({ mode: 'grey', customColor: 'rgba(1,2,3,1)' }), 'var(--grey-darker)');
-  assert.equal(getCanvasBackgroundColor({ mode: 'black', customColor: 'rgba(1,2,3,1)' }), '#000000');
+  assert.equal(
+    getCanvasBackgroundColor({ mode: 'theme', customColor: 'rgba(1,2,3,1)' }),
+    'var(--canvas-background-theme-color)',
+  );
+  assert.equal(getCanvasBackgroundColor({ mode: 'greyBlue', customColor: 'rgba(1,2,3,1)' }), '#282C34');
   assert.equal(getCanvasBackgroundColor({ mode: 'custom', customColor: 'rgba(1,2,3,0.4)' }), 'rgba(1,2,3,0.4)');
 });
 

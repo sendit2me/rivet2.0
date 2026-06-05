@@ -14,8 +14,8 @@
   --grey-dark: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-dark) 99%);
   --grey-dark-seethrough: color-mix(in srgb, var(--primary) 1%, #2e2e2eb8 99%);
   --grey-dark-seethrougher: color-mix(in srgb, var(--primary) 1%, rgba(46, 46, 46, 0.35) 99%);
-  --grey-dark-colorish: color-mix(in srgb, var(--primary) 4%, var(--neutral-grey-darker) 96%);
-  --grey-dark-colorish-seethrough: color-mix(in srgb, var(--primary) 4%, rgba(35, 35, 45, 0.95) 96%);
+  --grey-dark-colorish: color-mix(in srgb, var(--primary) 2%, rgb(35, 35, 35) 98%);
+  --grey-dark-colorish-seethrough: color-mix(in srgb, var(--primary) 2%, rgba(35, 35, 35, 0.95) 98%);
   --grey-darkish: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darkish) 99%);
   --grey-darkish-seethrough: color-mix(in srgb, var(--primary) 1%, rgba(61, 61, 61, 0.5) 99%);
   --grey: #5a5a5a;
@@ -32,8 +32,8 @@
 
   /* Shared collapsible settings surfaces. Keep body background opaque so it matches panels and modals. */
   --settings-collapsible-border: color-mix(in srgb, var(--primary) 4%, var(--grey-darkish) 96%);
-  --settings-collapsible-header-bg: color-mix(in srgb, var(--primary) 2%, var(--grey-darkest) 98%);
-  --settings-collapsible-body-bg: color-mix(in srgb, var(--primary) 5%, var(--grey-darker) 95%);
+  --settings-collapsible-header-bg: color-mix(in srgb, var(--primary) 2%, var(--grey-darker-darker) 98%);
+  --settings-collapsible-body-bg: color-mix(in srgb, var(--primary) 2%, var(--grey-darker) 98%);
   --settings-collapsible-hover-bg: color-mix(in srgb, var(--primary) 8%, var(--grey-darkish) 92%);
 
   /* Tertiary colors */
@@ -67,6 +67,8 @@
   /* Shadows */
   --shadow: rgba(0, 0, 0, 0.2);
   --shadow-dark: rgba(0, 0, 0, 0.4);
+
+  --canvas-background-theme-color: color-mix(in srgb, var(--primary) 1%, var(--neutral-grey-darker-darker) 91%);
 
   /* Canvas background pattern hue. Keep this theme-independent; opacity is controlled by the UI setting. */
   --canvas-background-pattern-rgb: 255, 255, 255;
