@@ -1,8 +1,10 @@
 
 
+- Rework ChatViewer workspace into an actual chat interface that is connected to a specific graph with cpecific inputs and outputs so the user can test their graph in a chat-like interface.
+
+
 - After graph or project running (in the editor or via remote debugger) highlight the input nodes that got no input. Like, it can indicate that the subgraph node hasn't passed all the needed inputs to the subgraph.
 
-- Rework ChatViewer workspace
 
 
 - In the full output modal show word and character counters

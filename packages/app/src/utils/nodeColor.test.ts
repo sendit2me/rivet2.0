@@ -80,8 +80,12 @@ test('explicit neutral header-only color keeps the neutral header', () => {
 
 test('node header foregrounds use black or white contrast for literal header colors', () => {
   assert.equal(getNodeHeaderForegroundColor('var(--node-color-1)'), '#000');
-  assert.equal(getNodeHeaderForegroundColor('var(--node-color-2)'), '#000');
+  assert.equal(getNodeHeaderForegroundColor('var(--node-color-2)'), '#fff');
+  assert.equal(getNodeHeaderForegroundColor('var(--node-color-4)'), '#000');
+  assert.equal(getNodeHeaderForegroundColor('var(--node-color-5)'), '#fff');
   assert.equal(getNodeHeaderForegroundColor('var(--node-color-8)'), '#fff');
+  assert.equal(getNodeHeaderForegroundColor('#a55fff'), '#fff');
+  assert.equal(getNodeHeaderForegroundColor('#808080'), '#000');
   assert.equal(getNodeHeaderForegroundColor('#ffffff'), '#000');
   assert.equal(getNodeHeaderForegroundColor('#000000'), '#fff');
 });
