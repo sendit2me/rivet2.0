@@ -53,7 +53,7 @@ export function parseCssColorLiteral(color: string): RgbColor | undefined {
   return undefined;
 }
 
-function getContrastRatio(foreground: RgbColor, background: RgbColor): number {
+export function getContrastRatio(foreground: RgbColor, background: RgbColor): number {
   const foregroundLuminance = getRelativeLuminance(foreground);
   const backgroundLuminance = getRelativeLuminance(background);
   const lighter = Math.max(foregroundLuminance, backgroundLuminance);

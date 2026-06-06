@@ -1,8 +1,11 @@
 import type { ChartNode } from '@valerypopoff/rivet2-core';
 import {
   type RgbColor,
+  CONTRAST_FOREGROUND_DARK,
+  CONTRAST_FOREGROUND_LIGHT,
+  getContrastRatio,
   getContrastingMonochromeColor,
-  getContrastingMonochromeColorForCssColor,
+  parseCssColorLiteral,
 } from './colorContrast.js';
 
 export type NodeColor = NonNullable<ChartNode['visualData']['color']>;
@@ -22,6 +25,9 @@ const NODE_HEADER_COLOR_RGB_BY_TOKEN = new Map<string, RgbColor>([
   ['var(--node-color-8)', { r: 34, g: 34, b: 34 }],
   ['var(--node-color-9)', { r: 68, g: 68, b: 68 }],
 ]);
+const NODE_HEADER_WHITE_READABLE_CONTRAST = 3.5;
+const NODE_HEADER_MID_DARK_BRIGHTNESS_THRESHOLD = 145;
+const NODE_HEADER_SATURATED_CHROMA_THRESHOLD = 80;
 
 export function createHeaderOnlyNodeColor(color: string): NodeColor {
   return {
@@ -69,10 +75,38 @@ export function getNodeHeaderForegroundColor(headerColor: string): string {
   const knownColor = NODE_HEADER_COLOR_RGB_BY_TOKEN.get(normalizedHeaderColor);
 
   if (knownColor) {
-    return getContrastingMonochromeColor(knownColor);
+    return getReadableNodeHeaderForegroundColor(knownColor);
   }
 
-  return getContrastingMonochromeColorForCssColor(normalizedHeaderColor, 'var(--foreground-bright)');
+  const parsedColor = parseCssColorLiteral(normalizedHeaderColor);
+
+  return parsedColor ? getReadableNodeHeaderForegroundColor(parsedColor) : 'var(--foreground-bright)';
+}
+
+function getReadableNodeHeaderForegroundColor(color: RgbColor): typeof CONTRAST_FOREGROUND_DARK | typeof CONTRAST_FOREGROUND_LIGHT {
+  const contrastForeground = getContrastingMonochromeColor(color);
+
+  if (contrastForeground === CONTRAST_FOREGROUND_LIGHT) {
+    return contrastForeground;
+  }
+
+  const whiteContrast = getContrastRatio({ r: 255, g: 255, b: 255 }, color);
+  const perceivedBrightness = getPerceivedBrightness(color);
+  const chroma = getChroma(color);
+
+  return whiteContrast >= NODE_HEADER_WHITE_READABLE_CONTRAST &&
+    perceivedBrightness < NODE_HEADER_MID_DARK_BRIGHTNESS_THRESHOLD &&
+    chroma >= NODE_HEADER_SATURATED_CHROMA_THRESHOLD
+    ? CONTRAST_FOREGROUND_LIGHT
+    : CONTRAST_FOREGROUND_DARK;
+}
+
+function getPerceivedBrightness(color: RgbColor): number {
+  return color.r * 0.299 + color.g * 0.587 + color.b * 0.114;
+}
+
+function getChroma(color: RgbColor): number {
+  return Math.max(color.r, color.g, color.b) - Math.min(color.r, color.g, color.b);
 }
 
 function isLegacyBorderOnlyNodeColor(color: NodeColor | undefined): boolean {
