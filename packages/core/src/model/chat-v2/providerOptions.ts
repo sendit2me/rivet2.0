@@ -106,6 +106,10 @@ export type CreateChatV2ModelOptions = {
   headers?: Record<string, string> | undefined;
 };
 
+type StructuredOutputCapableChatModel = ChatV2Model & {
+  supportsStructuredOutputs?: boolean;
+};
+
 export type ResolveChatV2ProviderConfigContext = Pick<
   InternalProcessContext,
   'getChatNodeEndpoint' | 'getPluginConfig' | 'settings'
@@ -258,8 +262,12 @@ export function createChatV2Model(
         headers: options.headers,
         includeUsage: true,
       });
+      const model = providerInstance.chatModel(modelId) as StructuredOutputCapableChatModel;
+      // The installed OpenAI-compatible provider reads this from the model instance,
+      // but its factory options do not forward the flag.
+      model.supportsStructuredOutputs = true;
 
-      return providerInstance.chatModel(modelId);
+      return model;
     }
   }
 }

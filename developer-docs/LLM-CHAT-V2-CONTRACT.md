@@ -44,7 +44,8 @@ paths and should not be used as the primary target for new provider refactors.
   custom-provider env lookup.
 - Undefined SDK request fields should be omitted rather than serialized as
   explicit `undefined` provider options.
-- Custom-provider `response_format` override behavior must remain intact.
+- Custom-provider model creation must keep AI SDK structured-output support enabled,
+  and the raw `response_format` override behavior must remain intact.
 - Tool calling and structured output stay mutually exclusive where the current
   runtime enforces that restriction.
 - Structured-output fallback, deduping, and schema validation must stay covered
