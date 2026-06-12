@@ -109,6 +109,47 @@ body {
   font-family: var(--font-family);
 }
 
+html,
+body,
+.app,
+.atlaskit-portal,
+.atlaskit-portal-container {
+  color-scheme: var(--form-control-color-scheme);
+}
+
+.app,
+.app *,
+.atlaskit-portal,
+.atlaskit-portal *,
+.atlaskit-portal-container,
+.atlaskit-portal-container * {
+  scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-track-bg);
+}
+
+.app ::-webkit-scrollbar-track,
+.atlaskit-portal ::-webkit-scrollbar-track,
+.atlaskit-portal-container ::-webkit-scrollbar-track {
+  background-color: var(--scrollbar-track-bg);
+}
+
+.app ::-webkit-scrollbar-corner,
+.atlaskit-portal ::-webkit-scrollbar-corner,
+.atlaskit-portal-container ::-webkit-scrollbar-corner {
+  background-color: var(--scrollbar-track-bg);
+}
+
+.app ::-webkit-scrollbar-thumb,
+.atlaskit-portal ::-webkit-scrollbar-thumb,
+.atlaskit-portal-container ::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-bg);
+}
+
+.app ::-webkit-scrollbar-thumb:hover,
+.atlaskit-portal ::-webkit-scrollbar-thumb:hover,
+.atlaskit-portal-container ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-bg-hover);
+}
+
 body {
   margin: 0;
 

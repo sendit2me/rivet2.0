@@ -52,6 +52,9 @@
   --form-control-selected-bg-hover: color-mix(in srgb, var(--primary) 18%, var(--grey-dark-colorish) 82%);
   --form-control-selected-bg-pressed: color-mix(in srgb, var(--primary) 22%, var(--grey-dark-colorish) 78%);
   --form-control-color-scheme: dark;
+  --scrollbar-track-bg: var(--grey-dark-colorish);
+  --scrollbar-thumb-bg: color-mix(in srgb, var(--foreground) 28%, var(--grey-dark-colorish) 72%);
+  --scrollbar-thumb-bg-hover: color-mix(in srgb, var(--foreground) 42%, var(--grey-dark-colorish) 58%);
   --segmented-choice-bg: rgba(0, 0, 0, 0.22);
   --popup-menu-separator: var(--grey-dark);
   --settings-range-track-bg: var(--form-control-neutral-bg);
