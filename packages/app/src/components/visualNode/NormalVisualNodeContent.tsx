@@ -8,8 +8,14 @@ import {
   useState,
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useAtomValue, useSetAtom } from 'jotai';
-import { type ChartNode, type CommentNode, IF_PORT, type NodeConnection, type PortId } from '@valerypopoff/rivet2-core';
+import { useSetAtom } from 'jotai';
+import {
+  type ChartNode,
+  type CommentNode,
+  type GraphId,
+  type NodeConnection,
+  type ProjectComparisonChangeKind,
+} from '@valerypopoff/rivet2-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
@@ -20,9 +26,7 @@ import { NodePortsRenderer } from '../NodePorts.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
 import { viewingNodeChangesState } from '../../state/graphBuilder';
 import { Tooltip } from '../Tooltip';
-import { Port } from '../Port';
-import { preservePortTextCaseState } from '../../state/settings';
-import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
+import { useCanvasHandlersContext } from '../CanvasContext';
 import { NodeBody } from '../NodeBody.js';
 import { NodeOutput } from '../NodeOutput.js';
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
@@ -39,6 +43,8 @@ import {
 import { getCanvasCommentHeight, getCanvasNodeWidth } from '../../hooks/canvasVisibilityBounds.js';
 import { getBoxResizeCursor } from '../../utils/resizeCursors.js';
 import { NodeHeaderWarningIcon } from './NodeHeaderWarningIcon.js';
+import { ConditionalIfPort } from './ConditionalIfPort.js';
+import { viewingProjectComparisonNodeState } from '../../state/projectComparison.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -53,6 +59,8 @@ export const NormalVisualNodeContent: FC<{
   renderHeavyContent: boolean;
   minimumNodeWidth: number;
   headerWarning?: string;
+  compareChangeKind?: ProjectComparisonChangeKind;
+  graphId?: GraphId;
 }> = memo(
   ({
     heightCache,
@@ -67,22 +75,19 @@ export const NormalVisualNodeContent: FC<{
     renderHeavyContent,
     minimumNodeWidth,
     headerWarning,
+    compareChangeKind,
+    graphId,
   }) => {
     useDependsOnPlugins();
-    const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
     const {
       onNodeSelected,
       onNodeSizeChanged,
       onNodeStartEditing,
-      onPortMouseOut,
-      onPortMouseOver,
       onResizeFinish,
-      onWireEndDrag,
-      onWireStartDrag,
     } = useCanvasHandlersContext();
     const { clientToCanvasPosition } = useCanvasPositioning();
     const setViewingNodeChanges = useSetAtom(viewingNodeChangesState);
-    const preservePortTextCase = useAtomValue(preservePortTextCaseState);
+    const setViewingProjectComparisonNode = useSetAtom(viewingProjectComparisonNodeState);
 
     const [resizeState, setResizeState] = useState<{
       direction: BoxNodeResizeDirection;
@@ -237,22 +242,12 @@ export const NormalVisualNodeContent: FC<{
         setViewingNodeChanges(node.id);
       }
     };
+    const viewProjectCompareChanges = () => {
+      if (graphId && compareChangeKind === 'changed') {
+        setViewingProjectComparisonNode({ graphId, nodeId: node.id });
+      }
+    };
 
-    const handleIfPortMouseDown = useStableCallback(
-      (event: ReactMouseEvent<HTMLDivElement>, port: PortId, isInput: boolean) => {
-        event.stopPropagation();
-        event.preventDefault();
-        onWireStartDrag?.(event, node.id, port, isInput);
-      },
-    );
-
-    const handleIfPortMouseUp = useStableCallback((event: ReactMouseEvent<HTMLDivElement>, port: PortId) => {
-      onWireEndDrag?.(event, node.id, port);
-    });
-
-    const ifConnected =
-      connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
-      (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
     const nodeDescription = node.description?.trim();
     const resizeDirections: BoxNodeResizeDirection[] = isComment
       ? ['top', 'right', 'bottom', 'left', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
@@ -291,6 +286,22 @@ export const NormalVisualNodeContent: FC<{
                 </Tooltip>
               </button>
             )}
+            {graphId && compareChangeKind === 'changed' && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  viewProjectCompareChanges();
+                }}
+                onPointerDown={handleEditPointerDown}
+                onMouseDown={handleEditMouseDown}
+                className="changed-button project-compare-changes-button"
+              >
+                <Tooltip content="View project comparison changes">
+                  <BookIcon />
+                </Tooltip>
+              </button>
+            )}
             <NodeRunningIndicator isRunning={showRunningIndicator} delayMs={0} />
             {headerWarning && (
               <Tooltip className="node-header-warning-tooltip" content={headerWarning} tag="span" wrap width={260}>
@@ -317,26 +328,7 @@ export const NormalVisualNodeContent: FC<{
           </div>
         </div>
 
-        {node.isConditional && (
-          <div className="node-title-ports input-ports">
-            <Port
-              connected={ifConnected}
-              canDragTo={draggingWire ? !draggingWire.startPortIsInput : false}
-              closest={closestPortToDraggingWire?.nodeId === node.id && closestPortToDraggingWire.portId === IF_PORT.id}
-              id={'$if' as PortId}
-              definition={IF_PORT}
-              nodeId={node.id}
-              title="if"
-              hideLabel
-              input
-              preservePortCase={preservePortTextCase}
-              onMouseOver={onPortMouseOver}
-              onMouseOut={onPortMouseOut}
-              onMouseDown={handleIfPortMouseDown}
-              onMouseUp={handleIfPortMouseUp}
-            />
-          </div>
-        )}
+        {node.isConditional && <ConditionalIfPort node={node} connections={connections} />}
 
         <ErrorBoundary fallback={<div>Error rendering node body</div>}>
           {isKnownNodeType ? (

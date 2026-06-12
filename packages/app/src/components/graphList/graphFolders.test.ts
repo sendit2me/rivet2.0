@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import type { GraphId } from '@valerypopoff/rivet2-core';
 import {
+  addComparisonRemovedGraphsToFolderTree,
   countGraphsInFolder,
   createFoldersFromGraphs,
   getFolderNames,
@@ -81,6 +83,29 @@ describe('graphFolders', () => {
 
     if (rootFolder?.type === 'folder') {
       assert.equal(countGraphsInFolder(rootFolder), 2);
+    }
+  });
+
+  it('adds removed comparison graphs as inert ghost rows in their original folders', () => {
+    const items = createFoldersFromGraphs(
+      [{ metadata: { id: 'current' as GraphId, name: 'root/current' }, nodes: [], connections: [] }],
+      [],
+    );
+
+    const withRemovedGraphs = addComparisonRemovedGraphsToFolderTree(items, [
+      { metadata: { id: 'removed' as GraphId, name: 'root/removed' }, nodes: [], connections: [] },
+    ]);
+
+    assert.equal(withRemovedGraphs[0]?.type, 'folder');
+
+    if (withRemovedGraphs[0]?.type === 'folder') {
+      const removedGraph = withRemovedGraphs[0].children.find((item) => item.name === 'removed');
+
+      assert.equal(removedGraph?.type, 'graph');
+      if (removedGraph?.type === 'graph') {
+        assert.equal(removedGraph.compareChangeKind, 'removed');
+        assert.equal(removedGraph.isComparisonGhost, true);
+      }
     }
   });
 

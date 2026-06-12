@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { type CSSProperties, type HTMLAttributes, type MouseEvent, forwardRef, memo, useMemo } from 'react';
-import { type ChartNode, type CommentNode, type NodeConnection } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type CommentNode, type NodeConnection, type ProjectComparisonChangeKind } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import { useDependsOnPlugins } from '../hooks/useDependsOnPlugins';
 import { useHistoricalNodeChangeInfo } from '../hooks/useHistoricalNodeChangeInfo';
@@ -28,6 +28,7 @@ import { duplicateGraphOutputIdsState } from '../state/selectors/graphOutputs.js
 
 export type VisualNodeProps = {
   node: ChartNode;
+  compareChangeKind?: ProjectComparisonChangeKind;
   connections?: NodeConnection[];
   xDelta?: number;
   yDelta?: number;
@@ -56,6 +57,7 @@ const VisualNodeImpl = memo(
     (
       {
         node,
+        compareChangeKind,
         connections = [],
         handleAttributes,
         nodeAttributes,
@@ -169,6 +171,8 @@ const VisualNodeImpl = memo(
               disabled: node.disabled,
               conditional: !!node.isConditional,
               hasHeaderWarning: Boolean(headerWarning),
+              hasCompareChange: compareChangeKind === 'changed',
+              [`compare-${compareChangeKind}`]: compareChangeKind && compareChangeKind !== 'unchanged',
             },
             changedClass,
           )}
@@ -214,6 +218,8 @@ const VisualNodeImpl = memo(
               renderHeavyContent={renderHeavyContent}
               minimumNodeWidth={minimumNodeWidth}
               headerWarning={headerWarning}
+              compareChangeKind={compareChangeKind}
+              graphId={graphId}
             />
           )}
           <div className="node-border-overlay" aria-hidden="true" />

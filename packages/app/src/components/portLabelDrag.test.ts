@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canStartWireDragFromPortLabel } from './Port.js';
+import { canStartWireDragFromPortLabel, isPrimaryPortMouseButton } from './Port.js';
 
 const componentsDir = dirname(fileURLToPath(import.meta.url));
 
@@ -12,17 +12,38 @@ test('canStartWireDragFromPortLabel only allows wire starts from output labels',
   assert.equal(canStartWireDragFromPortLabel(true), false);
 });
 
-test('conditional node ports render without the redundant if label', () => {
+test('port mouse gestures only use the primary mouse button', () => {
+  assert.equal(isPrimaryPortMouseButton(0), true);
+  assert.equal(isPrimaryPortMouseButton(1), false);
+  assert.equal(isPrimaryPortMouseButton(2), false);
+});
+
+test('conditional node ports render the if label outside the port and over connected wires', () => {
   const portSource = readFileSync(join(componentsDir, 'Port.tsx'), 'utf8');
   const nodeStylesSource = readFileSync(join(componentsDir, 'nodeStyles.ts'), 'utf8');
+  const conditionalIfPortSource = readFileSync(join(componentsDir, 'visualNode', 'ConditionalIfPort.tsx'), 'utf8');
   const normalNodeSource = readFileSync(join(componentsDir, 'visualNode', 'NormalVisualNodeContent.tsx'), 'utf8');
   const zoomedOutNodeSource = readFileSync(join(componentsDir, 'visualNode', 'ZoomedOutVisualNodeContent.tsx'), 'utf8');
+  const connectedLabelStyleBlock = nodeStylesSource.match(/\.conditional-if-port-label\.connected \{(?<body>[\s\S]*?)\n  \}/)
+    ?.groups?.body;
 
   assert.match(portSource, /hideLabel = false/);
   assert.match(portSource, /!\s*hideLabel && \(/);
-  assert.match(normalNodeSource, /title="if"[\s\S]*hideLabel[\s\S]*input/);
-  assert.match(zoomedOutNodeSource, /title="if"[\s\S]*hideLabel[\s\S]*input/);
-  assert.doesNotMatch(nodeStylesSource, /\.node\.conditional \.node-title/);
+  assert.match(normalNodeSource, /\{node\.isConditional && <ConditionalIfPort node=\{node\} connections=\{connections\} \/>}/);
+  assert.match(
+    zoomedOutNodeSource,
+    /\{node\.isConditional && <ConditionalIfPort node=\{node\} connections=\{connections\} \/>}/,
+  );
+  assert.match(conditionalIfPortSource, /className="node-title-ports conditional-if-port input-ports"/);
+  assert.match(conditionalIfPortSource, /className=\{clsx\('conditional-if-port-label', \{ connected: ifConnected \}\)\}/);
+  assert.match(conditionalIfPortSource, /title="if"[\s\S]*hideLabel[\s\S]*input/);
+  assert.match(nodeStylesSource, /\.conditional-if-port-label \{[\s\S]*?position: absolute;/);
+  assert.match(nodeStylesSource, /\.conditional-if-port-label \{[\s\S]*?left: -32px;/);
+  assert.match(nodeStylesSource, /\.conditional-if-port-label \{[\s\S]*?padding: 0 3px;/);
+  assert.match(nodeStylesSource, /\.conditional-if-port-label\.connected \{[\s\S]*?background:/);
+  assert.ok(connectedLabelStyleBlock, 'expected connected conditional label style block');
+  assert.doesNotMatch(connectedLabelStyleBlock, /left:/);
+  assert.doesNotMatch(connectedLabelStyleBlock, /padding:/);
 });
 
 test('subgraph port labels expose reorder drag only in explicit rearrange mode', () => {
@@ -43,7 +64,14 @@ test('subgraph port labels expose reorder drag only in explicit rearrange mode',
   assert.match(portSource, /onReorderMouseDown\?\.\(event, id, input, title\)/);
   assert.match(portSource, /data-reorder-nodeid=\{reorderable \? nodeId : undefined\}/);
   assert.match(portSource, /className=\{clsx\('port-circle'/);
-  assert.match(portSource, /onMouseDown=\{\(e\) => \{\s*return onMouseDown\?\.\(e, id, input\);/);
+  assert.match(
+    portSource,
+    /onMouseDown=\{\(e\) => \{[\s\S]*!isPrimaryPortMouseButton\(e\.button\)[\s\S]*return onMouseDown\?\.\(e, id, input\);/,
+  );
+  assert.match(
+    portSource,
+    /onMouseUp=\{\(e\) => \{[\s\S]*!isPrimaryPortMouseButton\(e\.button\)[\s\S]*onMouseUp\?\.\(e, id\);/,
+  );
   assert.match(nodePortsSource, /const isSubGraphNode = node\.type === 'subGraph';/);
   assert.match(nodePortsSource, /subGraphPortRearrangeTargetState/);
   assert.match(nodePortsSource, /const isRearrangingSubGraphPorts =/);

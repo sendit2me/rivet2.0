@@ -1,20 +1,18 @@
 import clsx from 'clsx';
 import { type FC, type HTMLAttributes, type MouseEvent, type PointerEvent, memo } from 'react';
-import { useAtomValue } from 'jotai';
-import { type ChartNode, IF_PORT, type NodeConnection, type PortId } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type NodeConnection } from '@valerypopoff/rivet2-core';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { NodePortsRenderer } from '../NodePorts.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins';
-import { Port } from '../Port';
-import { preservePortTextCaseState } from '../../state/settings';
-import { useCanvasHandlersContext, useCanvasViewContext } from '../CanvasContext';
+import { useCanvasHandlersContext } from '../CanvasContext';
 import { SubGraphHeaderLink } from './SubGraphHeaderLink.js';
 import { SplitRunSummary } from './SplitRunSummary.js';
 import { NodeRunningIndicator } from './NodeRunningIndicator.js';
 import { NodeTitleLabel } from './NodeTitleLabel.js';
 import { Tooltip } from '../Tooltip.js';
 import { NodeHeaderWarningIcon } from './NodeHeaderWarningIcon.js';
+import { ConditionalIfPort } from './ConditionalIfPort.js';
 
 export const ZoomedOutVisualNodeContent: FC<{
   node: ChartNode;
@@ -35,10 +33,7 @@ export const ZoomedOutVisualNodeContent: FC<{
     headerWarning,
   }) => {
     useDependsOnPlugins();
-    const { draggingWire, closestPortToDraggingWire } = useCanvasViewContext();
-    const { onNodeSelected, onNodeStartEditing, onPortMouseOut, onPortMouseOver, onWireEndDrag, onWireStartDrag } =
-      useCanvasHandlersContext();
-    const preservePortTextCase = useAtomValue(preservePortTextCaseState);
+    const { onNodeSelected, onNodeStartEditing } = useCanvasHandlersContext();
 
     const handleEditClick = useStableCallback((event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
@@ -60,21 +55,6 @@ export const ZoomedOutVisualNodeContent: FC<{
       onNodeSelected?.(node, event.shiftKey);
     });
 
-    const handleIfPortMouseDown = useStableCallback(
-      (event: MouseEvent<HTMLDivElement>, port: PortId, isInput: boolean) => {
-        event.stopPropagation();
-        event.preventDefault();
-        onWireStartDrag?.(event, node.id, port, isInput);
-      },
-    );
-
-    const handleIfPortMouseUp = useStableCallback((event: MouseEvent<HTMLDivElement>, port: PortId) => {
-      onWireEndDrag?.(event, node.id, port);
-    });
-
-    const ifConnected =
-      connections.some((connection) => connection.inputNodeId === node.id && connection.inputId === IF_PORT.id) ||
-      (draggingWire?.endNodeId === node.id && draggingWire?.endPortId === IF_PORT.id);
     const nodeDescription = node.description?.trim();
 
     return (
@@ -118,28 +98,7 @@ export const ZoomedOutVisualNodeContent: FC<{
           )}
         </div>
 
-        {node.isConditional && (
-          <div className="node-title-ports input-ports">
-            <Port
-              connected={ifConnected}
-              canDragTo={draggingWire ? !draggingWire.startPortIsInput : false}
-              closest={
-                closestPortToDraggingWire?.nodeId === node.id && closestPortToDraggingWire.portId === IF_PORT.id
-              }
-              id={'$if' as PortId}
-              definition={IF_PORT}
-              nodeId={node.id}
-              title="if"
-              hideLabel
-              input
-              preservePortCase={preservePortTextCase}
-              onMouseOver={onPortMouseOver}
-              onMouseOut={onPortMouseOut}
-              onMouseDown={handleIfPortMouseDown}
-              onMouseUp={handleIfPortMouseUp}
-            />
-          </div>
-        )}
+        {node.isConditional && <ConditionalIfPort node={node} connections={connections} />}
 
         {isKnownNodeType && <NodePortsRenderer node={node} connections={connections} zoomedOut />}
       </>

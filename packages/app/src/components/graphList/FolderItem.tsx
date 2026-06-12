@@ -14,12 +14,12 @@ import {
 import { useAtom, useAtomValue } from 'jotai';
 import { projectMetadataState } from '../../state/savedGraphs.js';
 import clsx from 'clsx';
-import { type GraphId, type NodeGraph } from '@valerypopoff/rivet2-core';
+import { type GraphId, type NodeGraph, type ProjectComparisonChangeKind } from '@valerypopoff/rivet2-core';
 import FolderIcon from 'majesticons/line/folder-line.svg?react';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import TextField from '@atlaskit/textfield';
 import { expandedFoldersState } from '../../state/ui';
-import { getGraphFolderExpansionStorageKey, type NodeGraphFolderItem } from './graphFolders';
+import { getGraphFolderExpansionStorageKey, type NodeGraphFolder, type NodeGraphFolderItem } from './graphFolders';
 import { type GraphReachabilityBucket } from '../../utils/graphReachability.js';
 import { MainGraphIcon } from './MainGraphIcon';
 import { NodeRunningIndicator } from '../visualNode/NodeRunningIndicator.js';
@@ -31,6 +31,7 @@ export const FolderItem: FC<{
   renamingItemFullPath: string | undefined;
   graph: NodeGraph;
   graphReachabilityByGraphId: Record<GraphId, GraphReachabilityBucket>;
+  graphCompareKindByGraphId: Record<GraphId, ProjectComparisonChangeKind | undefined>;
   referencingSelectedGraphIds: ReadonlySet<GraphId>;
   depth: number;
   dragOverFolderName: string | undefined;
@@ -46,6 +47,7 @@ export const FolderItem: FC<{
     renamingItemFullPath,
     graph,
     graphReachabilityByGraphId,
+    graphCompareKindByGraphId,
     referencingSelectedGraphIds,
     draggingItemFolder,
     onGraphSelected,
@@ -93,20 +95,23 @@ export const FolderItem: FC<{
       onRenameItem(fullPath, fullPath.replace(/[^/]+$/, newName));
     });
 
+    const isComparisonRemovedGraph = item.type === 'graph' && item.isComparisonGhost && item.compareChangeKind === 'removed';
+
     const {
       attributes,
       listeners,
       setNodeRef: setDraggableNodeRef,
       transform,
       isDragging,
-    } = useDraggable({ id: fullPath });
+    } = useDraggable({ id: fullPath, disabled: isComparisonRemovedGraph });
     const suppressNextClickRef = useRef(false);
-    const draggableRowProps = isRenaming ? {} : { ...listeners, ...attributes };
+    const draggableRowProps = isRenaming || isComparisonRemovedGraph ? {} : { ...listeners, ...attributes };
     const dragStyle: CSSProperties = transform
       ? { position: 'relative', transform: `translate3d(0, ${transform.y}px, 0)`, zIndex: 100 }
       : {};
     const { setNodeRef: setDroppableNodeRef } = useDroppable({
       id: item.type === 'folder' ? fullPath + '/' : fullPath,
+      disabled: isComparisonRemovedGraph,
     });
 
     const virtualDepth = useMemo(
@@ -119,6 +124,15 @@ export const FolderItem: FC<{
     const itemDepthStyle = { '--graph-item-indent': `${virtualDepth * 20}px` } as CSSProperties;
     const folderItemStyle = { ...itemDepthStyle, ...dragStyle };
     const showChildGuideLine = item.type === 'folder' && isExpanded && item.children.length > 0;
+    const graphCompareKind = savedGraph?.metadata?.id ? graphCompareKindByGraphId[savedGraph.metadata.id] : undefined;
+    const folderCompareKind =
+      item.type === 'folder' ? getFolderCompareKind(item, graphCompareKindByGraphId) : undefined;
+    const visibleCompareKind =
+      item.type === 'graph'
+        ? item.compareChangeKind ?? graphCompareKind
+        : item.type === 'folder' && !isExpanded
+          ? folderCompareKind
+          : undefined;
 
     const setExpanded = useStableCallback((expanded: boolean) => {
       setExpandedFolders((prev) => ({
@@ -136,6 +150,10 @@ export const FolderItem: FC<{
     const handleItemClick = useStableCallback(() => {
       if (suppressNextClickRef.current) {
         suppressNextClickRef.current = false;
+        return;
+      }
+
+      if (isComparisonRemovedGraph) {
         return;
       }
 
@@ -158,8 +176,9 @@ export const FolderItem: FC<{
               selected: isSelected,
               'folder-graph-item': item.type === 'folder',
               'contains-open-graph': isCollapsedOpenGraphFolder,
+              'compare-removed-graph': isComparisonRemovedGraph,
             })}
-            data-contextmenutype={item.type === 'folder' ? 'graph-folder' : 'graph-item'}
+            data-contextmenutype={isComparisonRemovedGraph ? undefined : item.type === 'folder' ? 'graph-folder' : 'graph-item'}
             data-graphid={savedGraph?.metadata?.id}
             data-folderpath={item.type === 'folder' ? item.fullPath : item.graph.metadata?.name}
           >
@@ -203,6 +222,9 @@ export const FolderItem: FC<{
                 </>
               )}
               {shouldShowUnreachableBadge && <span className="unreachable-badge">unreachable</span>}
+              {visibleCompareKind && (
+                <span className={`graph-compare-badge compare-${visibleCompareKind}`}>{visibleCompareKind}</span>
+              )}
             </div>
           </div>
           {item.type === 'folder' && (
@@ -220,6 +242,7 @@ export const FolderItem: FC<{
                   renamingItemFullPath={renamingItemFullPath}
                   graph={graph}
                   graphReachabilityByGraphId={graphReachabilityByGraphId}
+                  graphCompareKindByGraphId={graphCompareKindByGraphId}
                   referencingSelectedGraphIds={referencingSelectedGraphIds}
                   onGraphSelected={onGraphSelected}
                   onRenameItem={onRenameItem}
@@ -239,6 +262,38 @@ export const FolderItem: FC<{
 );
 
 FolderItem.displayName = 'FolderItem';
+
+function getFolderCompareKind(
+  item: NodeGraphFolder,
+  graphCompareKindByGraphId: Record<GraphId, ProjectComparisonChangeKind | undefined>,
+): ProjectComparisonChangeKind | undefined {
+  let hasAdded = false;
+  let hasRemoved = false;
+
+  for (const child of item.children) {
+    const childKind =
+      child.type === 'graph'
+        ? child.compareChangeKind ??
+          (child.graph.metadata?.id
+            ? graphCompareKindByGraphId[child.graph.metadata.id]
+            : undefined)
+        : getFolderCompareKind(child, graphCompareKindByGraphId);
+
+    if (childKind === 'changed') {
+      return 'changed';
+    }
+
+    if (childKind === 'removed') {
+      hasRemoved = true;
+    }
+
+    if (childKind === 'added') {
+      hasAdded = true;
+    }
+  }
+
+  return hasRemoved ? 'removed' : hasAdded ? 'added' : undefined;
+}
 
 const OpenFolderIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg viewBox="0 0 24 24" fill="none" {...props}>

@@ -26,13 +26,15 @@ Right click on a node and select **Delete** to delete it. **Warning: There is no
 
 ## Connecting Nodes
 
-Nodes are connected by clicking and dragging from a port on one node to a port on another node. Ports are the connection points on the node. Ports can be inputs or outputs. Inputs are on the left side of the node and outputs are on the right side of the node.
+Nodes are connected by left-clicking and dragging from a port on one node to a port on another node. Ports are the connection points on the node. Ports can be inputs or outputs. Inputs are on the left side of the node and outputs are on the right side of the node. Right-clicking a port opens the normal context menu behavior and does not remove or rewire existing connections.
 
 ![connecting a node](../getting-started/assets/chat-to-text-node.gif)
 
 The output port of a node can connect to multiple input ports on other nodes.
 
 The input port of a node can only connect to one output port on another node.
+
+For nodes that are far apart, you can start a connection from an output port and release it on empty canvas. Rivet keeps the connection line attached to your mouse while you pan or zoom the canvas, so you can move across the graph and finish by dropping it on an input port. Press **Esc**, right click the canvas, or click outside the canvas to cancel the pending connection. Dragging an already connected input port to empty canvas still disconnects that existing connection.
 
 The data type of every port is available in the documentation for each node in the [Node Reference](../node-reference).
 

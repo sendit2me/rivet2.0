@@ -1,7 +1,7 @@
 import { DragOverlay } from '@dnd-kit/core';
 import clsx from 'clsx';
 import { type FC, type ContextType, memo, useMemo } from 'react';
-import type { ChartNode, NodeConnection, NodeId } from '@valerypopoff/rivet2-core';
+import type { ChartNode, NodeConnection, NodeId, ProjectComparisonChangeKind } from '@valerypopoff/rivet2-core';
 import { CanvasHandlersContext, CanvasViewContext } from '../CanvasContext.js';
 import { DraggableNode } from '../DraggableNode.js';
 import { VisualNode } from '../VisualNode.js';
@@ -39,6 +39,8 @@ export interface NodeCanvasViewportProps {
   lastRunPerNode: Record<NodeId, ProcessDataForNode[] | undefined>;
   layer: NodeCanvasLayer;
   nodeTypes: NodeTypes;
+  nodeCompareKindsById: Record<NodeId, ProjectComparisonChangeKind | undefined>;
+  compareRemovedNodes: ChartNode[];
   nodesWithConnections: Array<{ node: ChartNode; nodeConnections: NodeConnection[] }>;
   onNodeDragActivatorPointerDown: (modifierState: DragActivatorModifierState) => void;
   expandedOutputNodeIds: NodeId[];
@@ -84,6 +86,8 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
     lastRunPerNode,
     layer,
     nodeTypes,
+    nodeCompareKindsById,
+    compareRemovedNodes,
     nodesWithConnections,
     onNodeDragActivatorPointerDown,
     expandedOutputNodeIds,
@@ -123,6 +127,19 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
       <CanvasViewContext.Provider value={canvasViewContextValue}>
         <CanvasHandlersContext.Provider value={canvasHandlersContextValue}>
           <div className="nodes">
+            {compareRemovedNodes
+              .filter((node) => (layer === 'comments' ? node.type === 'comment' : node.type !== 'comment'))
+              .map((node) => (
+                <VisualNode
+                  key={`compare-removed-${node.id}`}
+                  node={node}
+                  compareChangeKind="removed"
+                  isKnownNodeType={node.type in nodeTypes}
+                  isOutputExpanded={false}
+                  processPage={0}
+                  renderHeavyContent={false}
+                />
+              ))}
             {backgroundCommentDragEntries.map(({ node, index }) => {
               const { isOutputExpanded, lastRun, processPage, executionSourceNodeId } =
                 resolveDraggingExecutionContext({
@@ -145,6 +162,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
                   isKnownNodeType={node.type in nodeTypes}
                   isOutputExpanded={isOutputExpanded}
                   isSelected={selectedNodeIdSet.has(executionSourceNodeId)}
+                  compareChangeKind={nodeCompareKindsById[node.id]}
                   lastRun={lastRun}
                   processPage={processPage}
                   renderHeavyContent
@@ -170,6 +188,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
                   dragMode={dragMode}
                   node={node}
                   connections={nodeConnections}
+                  compareChangeKind={nodeCompareKindsById[node.id]}
                   isHovered={hoveredNodeId === node.id}
                   isSelected={selectedNodeIdSet.has(node.id)}
                   isSearchMatch={searchMatchingNodeIdSet.has(node.id)}
@@ -218,6 +237,7 @@ const NodeCanvasScene: FC<Omit<NodeCanvasViewportProps, 'canvasPositionX' | 'can
                     key={node.id}
                     node={node}
                     connections={draggingNodeConnections}
+                    compareChangeKind={nodeCompareKindsById[node.id]}
                     isOverlay
                     isKnownNodeType={node.type in nodeTypes}
                     isOutputExpanded={isOutputExpanded}

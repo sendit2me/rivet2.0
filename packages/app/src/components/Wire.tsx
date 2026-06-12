@@ -1,5 +1,5 @@
 import { type FC, memo } from 'react';
-import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type NodeConnection, type NodeId, type PortId, type ProjectComparisonChangeKind } from '@valerypopoff/rivet2-core';
 import { useAtomValue } from 'jotai';
 import clsx from 'clsx';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -11,6 +11,7 @@ type WireProps = {
   selected: boolean;
   highlighted: boolean;
   isNotRan: boolean;
+  compareChangeKind?: ProjectComparisonChangeKind;
   nodesById: Record<NodeId, ChartNode>;
   portPositions: PortPositions;
 };
@@ -27,6 +28,7 @@ export const ConditionallyRenderWire: FC<WireProps> = ({
   selected,
   highlighted,
   isNotRan,
+  compareChangeKind,
   nodesById,
   portPositions,
 }) => {
@@ -52,6 +54,7 @@ export const ConditionallyRenderWire: FC<WireProps> = ({
         selected={selected}
         highlighted={highlighted}
         isNotRan={isNotRan}
+        compareChangeKind={compareChangeKind}
       />
       ;
     </ErrorBoundary>
@@ -88,7 +91,8 @@ export const Wire: FC<{
   selected: boolean;
   highlighted: boolean;
   isNotRan: boolean;
-}> = memo(({ sx, sy, ex, ey, selected, highlighted, isNotRan }) => {
+  compareChangeKind?: ProjectComparisonChangeKind;
+}> = memo(({ sx, sy, ex, ey, selected, highlighted, isNotRan, compareChangeKind }) => {
   const deltaX = Math.abs(ex - sx);
   const handleDistance = sx <= ex ? deltaX * 0.5 : Math.abs(ey - sy) * 0.6;
 
@@ -107,7 +111,18 @@ export const Wire: FC<{
       : `M${sx},${sy} C${curveX1},${curveY1} ${curveX1},${middleY} ${sx},${middleY} ` +
         `L${ex},${middleY} C${curveX2},${middleY} ${curveX2},${curveY2} ${ex},${ey}`;
 
-  return <path className={clsx('wire', { selected, highlighted, backwards: isBackwards, isNotRan })} d={wirePath} />;
+  return (
+    <path
+      className={clsx('wire', {
+        selected,
+        highlighted,
+        backwards: isBackwards,
+        isNotRan,
+        [`compare-${compareChangeKind}`]: compareChangeKind && compareChangeKind !== 'unchanged',
+      })}
+      d={wirePath}
+    />
+  );
 });
 
 Wire.displayName = 'Wire';

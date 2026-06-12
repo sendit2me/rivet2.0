@@ -5,6 +5,8 @@ import {
   getCanvasPreviewConnections,
   resolveWireDragAction,
   shouldContinueDraggingAfterWireAction,
+  shouldFinalizeWireDragFromGlobalMouseUp,
+  shouldKeepWireConnectionModeAfterAction,
 } from './wireDragActions.js';
 
 function makeConnection(connection: Partial<NodeConnection>): NodeConnection {
@@ -213,4 +215,125 @@ test('shouldContinueDraggingAfterWireAction cancels sticky drag when rewiring ba
   });
 
   assert.equal(shouldContinueDraggingAfterWireAction(action, true), false);
+});
+
+test('shouldKeepWireConnectionModeAfterAction keeps empty-canvas output releases pending', () => {
+  const draggingWire = {
+    startNodeId: 'output-a' as any,
+    startPortId: 'out-a' as any,
+    startPortIsInput: false,
+  };
+  const action = resolveWireDragAction({ draggingWire });
+
+  assert.equal(
+    shouldKeepWireConnectionModeAfterAction({
+      action,
+      draggingWire,
+      keepDragging: false,
+    }),
+    true,
+  );
+});
+
+test('shouldKeepWireConnectionModeAfterAction does not keep input-origin empty releases pending', () => {
+  const draggingWire = {
+    startNodeId: 'input-a' as any,
+    startPortId: 'in-a' as any,
+    startPortIsInput: true,
+  };
+  const action = resolveWireDragAction({ draggingWire });
+
+  assert.equal(
+    shouldKeepWireConnectionModeAfterAction({
+      action,
+      draggingWire,
+      keepDragging: false,
+    }),
+    false,
+  );
+});
+
+test('shouldKeepWireConnectionModeAfterAction preserves connected-input empty release disconnects', () => {
+  const originalConnection = makeConnection({
+    inputNodeId: 'input-a' as any,
+    inputId: 'in-a' as any,
+  });
+  const draggingWire = {
+    startNodeId: 'output-a' as any,
+    startPortId: 'out-a' as any,
+    startPortIsInput: false,
+    originalConnection,
+    rewireSourceInput: {
+      nodeId: 'input-a' as any,
+      portId: 'in-a' as any,
+    },
+  };
+  const action = resolveWireDragAction({ draggingWire });
+
+  assert.deepEqual(action, {
+    type: 'breakConnection',
+    connection: originalConnection,
+  });
+  assert.equal(
+    shouldKeepWireConnectionModeAfterAction({
+      action,
+      draggingWire,
+      keepDragging: false,
+    }),
+    false,
+  );
+});
+
+test('shouldKeepWireConnectionModeAfterAction still honors explicit repeat-connect modifiers', () => {
+  const draggingWire = {
+    startNodeId: 'output-a' as any,
+    startPortId: 'out-a' as any,
+    startPortIsInput: false,
+  };
+  const action = resolveWireDragAction({
+    draggingWire,
+    dropTarget: {
+      nodeId: 'input-a' as any,
+      portId: 'in-a' as any,
+    },
+  });
+
+  assert.equal(
+    shouldKeepWireConnectionModeAfterAction({
+      action,
+      draggingWire,
+      keepDragging: true,
+    }),
+    true,
+  );
+});
+
+test('shouldFinalizeWireDragFromGlobalMouseUp finalizes active pointer drags even without a target', () => {
+  assert.equal(
+    shouldFinalizeWireDragFromGlobalMouseUp({
+      hasActivePointerGesture: true,
+      hasDropTarget: false,
+    }),
+    true,
+  );
+});
+
+test('shouldFinalizeWireDragFromGlobalMouseUp ignores sticky pending canvas mouseups without a target', () => {
+  assert.equal(
+    shouldFinalizeWireDragFromGlobalMouseUp({
+      hasActivePointerGesture: false,
+      hasDropTarget: false,
+    }),
+    false,
+  );
+});
+
+test('shouldFinalizeWireDragFromGlobalMouseUp lets sticky pending wires finish on a valid target', () => {
+  assert.equal(
+    shouldFinalizeWireDragFromGlobalMouseUp({
+      hasActivePointerGesture: false,
+      hasDropTarget: true,
+    }),
+    true,
+  );
 });

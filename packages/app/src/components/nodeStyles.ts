@@ -61,6 +61,41 @@ export const nodeStyles = css`
     opacity: 0.5;
   }
 
+  .node.compare-added {
+    --node-frame-border-color: var(--success);
+    box-shadow:
+      0 0 0 2px var(--success),
+      var(--node-resting-shadow);
+  }
+
+  .node.compare-changed {
+    --node-frame-border-color: var(--warning-light);
+    box-shadow:
+      0 0 0 2px var(--warning-light),
+      var(--node-resting-shadow);
+  }
+
+  .node.compare-removed {
+    --node-frame-border-color: var(--error);
+    filter: grayscale(0.45);
+    opacity: 0.58;
+    pointer-events: none;
+  }
+
+  .node.compare-removed .node-title {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--error) 22%, transparent) 0 8px,
+      transparent 8px 16px
+    );
+  }
+
+  .node.compare-removed .node-output,
+  .node.compare-removed .node-resize-handles,
+  .node.compare-removed .title-controls {
+    display: none;
+  }
+
   .node-skeleton {
     background: var(--grey-light);
     height: 100px;
@@ -123,6 +158,21 @@ export const nodeStyles = css`
 
   .node.hasCustomBorderColor .node-border-overlay {
     border-color: var(--node-frame-border-color, var(--node-border));
+  }
+
+  .node.compare-added .node-border-overlay,
+  .node.compare-changed .node-border-overlay {
+    inset: -12px;
+    border-width: 4px;
+    border-radius: calc(var(--node-card-radius) + 12px);
+  }
+
+  .node.compare-added .node-border-overlay {
+    border-color: var(--success);
+  }
+
+  .node.compare-changed .node-border-overlay {
+    border-color: var(--warning-light);
   }
 
   .node-title {
@@ -240,6 +290,14 @@ export const nodeStyles = css`
 
   .node.hasHeaderWarning:not(.isComment) .grab-area {
     padding-right: calc(108px * var(--ui-font-scale));
+  }
+
+  .node.hasCompareChange:not(.isComment) .grab-area {
+    padding-right: calc(108px * var(--ui-font-scale));
+  }
+
+  .node.hasHeaderWarning.hasCompareChange:not(.isComment) .grab-area {
+    padding-right: calc(138px * var(--ui-font-scale));
   }
 
   .split-run-mode-icon {
@@ -468,6 +526,11 @@ export const nodeStyles = css`
     width: max-content;
   }
 
+  .node.hasCompareChange:not(.isComment) .title-controls {
+    min-width: calc(66px * var(--ui-font-scale));
+    width: max-content;
+  }
+
   .node.hasHeaderWarning:not(.isComment):not(:hover):not(.hovered):not(.showHoverControls):not(:focus-within)
     .title-controls {
     right: calc(11px * var(--ui-font-scale));
@@ -566,6 +629,43 @@ export const nodeStyles = css`
     justify-content: space-between;
     margin: 0 0 0 -12px;
     z-index: 3;
+  }
+
+  .node-title-ports.conditional-if-port {
+    pointer-events: none;
+  }
+
+  .node-title-ports.conditional-if-port .port {
+    pointer-events: auto;
+  }
+
+  .conditional-if-port-label {
+    color: var(--grey-lighter);
+    font-size: var(--ui-font-size-2xs);
+    left: -32px;
+    line-height: 16px;
+    opacity: 0.5;
+    padding: 0 3px;
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    user-select: none;
+    white-space: nowrap;
+    z-index: 4;
+  }
+
+  .conditional-if-port-label.connected {
+    background: color-mix(in srgb, var(--canvas-background-color, var(--grey-darker)) 82%, transparent);
+    border-radius: calc(4px * var(--ui-font-scale));
+    color: var(--port-connected-label-color);
+    opacity: var(--port-connected-label-opacity);
+  }
+
+  .node.selected .conditional-if-port-label.connected,
+  .node.overlayNode .conditional-if-port-label.connected,
+  .node.hovered .conditional-if-port-label.connected {
+    opacity: 1;
   }
 
   .node-ports {
