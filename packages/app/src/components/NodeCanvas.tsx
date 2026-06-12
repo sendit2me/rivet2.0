@@ -323,7 +323,12 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     onNodeStartDrag,
     onNodeDragged,
   } = useDraggingNode();
-  const { draggingWire, onWireStartDrag, onWireEndDrag } = useDraggingWire(onConnectionsChanged);
+  const {
+    clearDraggingWire: cancelWireDrag,
+    draggingWire,
+    onWireStartDrag,
+    onWireEndDrag,
+  } = useDraggingWire(onConnectionsChanged);
   const isDraggingNode = draggingNodes.length > 0;
   const isDraggingWire = !!draggingWire;
 
@@ -403,6 +408,18 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     },
   );
 
+  const handleCanvasContextMenuRequest = useStableCallback(
+    (event: { clientX: number; clientY: number; target: EventTarget }) => {
+      if (draggingWire) {
+        cancelWireDrag();
+        setShowContextMenu(false);
+        return;
+      }
+
+      handleContextMenu(event);
+    },
+  );
+
   const {
     canvasMouseDown,
     canvasMouseMove,
@@ -417,7 +434,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     endSelectionBox,
     isDraggingCanvas,
     nodes,
-    onCanvasContextMenu: handleContextMenu,
+    onCanvasContextMenu: handleCanvasContextMenuRequest,
     selectedGraphId: selectedGraphMetadata?.id,
     selectedNodeIds,
     selectionBox,
@@ -723,6 +740,41 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
     },
     { notWhenInputFocused: true },
   );
+
+  useEffect(() => {
+    if (!draggingWire) {
+      return;
+    }
+
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      cancelWireDrag();
+    };
+
+    const handleDocumentMouseDown = (event: globalThis.MouseEvent) => {
+      const target = event.target;
+
+      if (target instanceof Node && canvasRootRef.current?.contains(target)) {
+        return;
+      }
+
+      cancelWireDrag();
+    };
+
+    window.addEventListener('keydown', handleWindowKeyDown, true);
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleWindowKeyDown, true);
+      document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+    };
+  }, [cancelWireDrag, draggingWire]);
 
   const hydratedContextMenuData = useMemo(
     (): ContextMenuContext =>

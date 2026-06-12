@@ -7,6 +7,7 @@ import { getWheelZoomFactor, isCanvasPanSurface, shouldStartCanvasPan } from './
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const componentsDir = join(testDir, '..');
+const hooksDir = join(componentsDir, '..', 'hooks');
 
 function assertAlmostEqual(actual: number, expected: number): void {
   assert.ok(Math.abs(actual - expected) < 1e-12, `expected ${actual} to equal ${expected}`);
@@ -151,4 +152,36 @@ test('canvas panning uses the same closed-hand cursor treatment as node dragging
   assert.match(nodeCanvasSource, /'dragging-node': isDraggingNode/);
   assert.match(nodeCanvasSource, /'dragging-canvas': isDraggingCanvas/);
   assert.match(nodeCanvasStylesSource, /&\.dragging-node,[\s\S]*&\.dragging-canvas,[\s\S]*cursor: grabbing !important;/);
+});
+
+test('connection mode has explicit keyboard, context-menu, and outside-click exits', () => {
+  const nodeCanvasSource = readFileSync(join(componentsDir, 'NodeCanvas.tsx'), 'utf8');
+
+  assert.match(nodeCanvasSource, /handleCanvasContextMenuRequest[\s\S]*if \(draggingWire\)[\s\S]*cancelWireDrag\(\)/);
+  assert.match(
+    nodeCanvasSource,
+    /handleWindowKeyDown[\s\S]*event\.code !== 'Escape'[\s\S]*event\.preventDefault\(\)[\s\S]*event\.stopPropagation\(\)[\s\S]*event\.stopImmediatePropagation\(\)[\s\S]*cancelWireDrag\(\)/,
+  );
+  assert.match(
+    nodeCanvasSource,
+    /window\.addEventListener\('keydown', handleWindowKeyDown, true\)[\s\S]*window\.removeEventListener\('keydown', handleWindowKeyDown, true\)/,
+  );
+  assert.match(nodeCanvasSource, /canvasRootRef\.current\?\.contains\(target\)[\s\S]*return;[\s\S]*cancelWireDrag\(\)/);
+  assert.match(
+    nodeCanvasSource,
+    /document\.addEventListener\('mousedown', handleDocumentMouseDown, true\)[\s\S]*document\.removeEventListener\('mousedown', handleDocumentMouseDown, true\)/,
+  );
+});
+
+test('sticky connection mode does not let a port mousedown replace the pending output wire', () => {
+  const useDraggingWireSource = readFileSync(join(hooksDir, 'useDraggingWire.ts'), 'utf8');
+
+  assert.match(
+    useDraggingWireSource,
+    /const isStickyConnectionModePending = useCallback\([\s\S]*latestDraggingWire\.current[\s\S]*!wireGestureStartRef\.current/,
+  );
+  assert.match(
+    useDraggingWireSource,
+    /onWireStartDrag[\s\S]*if \(isStickyConnectionModePending\(\)\) \{[\s\S]*event\.preventDefault\(\);[\s\S]*return;[\s\S]*if \(isInput\)/,
+  );
 });

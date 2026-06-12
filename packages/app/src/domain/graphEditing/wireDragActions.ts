@@ -4,6 +4,7 @@ import { removeMatchingConnection } from './connectionActions.js';
 export type DraggingWireActionState = {
   startNodeId: NodeId;
   startPortId: PortId;
+  startPortIsInput?: boolean;
   originalConnection?: NodeConnection;
   rewireSourceInput?: {
     nodeId: NodeId;
@@ -126,6 +127,30 @@ export function shouldContinueDraggingAfterWireAction(
   }
 
   return !(action.type === 'none' && action.reason === 'sameEndpoint');
+}
+
+export function shouldKeepWireConnectionModeAfterAction(options: {
+  action: ResolvedWireDragAction;
+  draggingWire: DraggingWireActionState;
+  keepDragging: boolean;
+}): boolean {
+  if (shouldContinueDraggingAfterWireAction(options.action, options.keepDragging)) {
+    return true;
+  }
+
+  return (
+    options.action.type === 'none' &&
+    options.action.reason === 'emptyCanvas' &&
+    options.draggingWire.startPortIsInput !== true &&
+    options.draggingWire.originalConnection == null
+  );
+}
+
+export function shouldFinalizeWireDragFromGlobalMouseUp(options: {
+  hasActivePointerGesture: boolean;
+  hasDropTarget: boolean;
+}): boolean {
+  return options.hasActivePointerGesture || options.hasDropTarget;
 }
 
 export function getCanvasPreviewConnections(

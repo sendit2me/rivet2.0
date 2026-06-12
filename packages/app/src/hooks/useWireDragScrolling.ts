@@ -13,9 +13,15 @@ export function useWireDragScrolling() {
   const draggingWireLatest = useLatest(draggingWire);
 
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isMouseDown, setIsMouseDown] = useState(false);
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
+      setIsMouseDown(true);
       setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
+    const onMouseUp = () => {
+      setIsMouseDown(false);
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -26,9 +32,13 @@ export function useWireDragScrolling() {
     };
 
     window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('blur', onMouseUp);
     window.addEventListener('mousemove', onMouseMove);
     return () => {
       window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('blur', onMouseUp);
       window.removeEventListener('mousemove', onMouseMove);
     };
   }, [draggingWireLatest]);
@@ -62,7 +72,7 @@ export function useWireDragScrolling() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>();
 
   useEffect(() => {
-    if (!isMouseNearEdge || draggingWire == null) {
+    if (!isMouseNearEdge || draggingWire == null || !isMouseDown) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = undefined;
@@ -90,6 +100,7 @@ export function useWireDragScrolling() {
     }, 25);
   }, [
     isMouseNearEdge,
+    isMouseDown,
     draggingWire,
     isMouseNearLeftEdge,
     isMouseNearBottomEdge,
