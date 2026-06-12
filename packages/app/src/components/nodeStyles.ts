@@ -568,6 +568,43 @@ export const nodeStyles = css`
     z-index: 3;
   }
 
+  .node-title-ports.conditional-if-port {
+    pointer-events: none;
+  }
+
+  .node-title-ports.conditional-if-port .port {
+    pointer-events: auto;
+  }
+
+  .conditional-if-port-label {
+    color: var(--grey-lighter);
+    font-size: var(--ui-font-size-2xs);
+    left: -32px;
+    line-height: 16px;
+    opacity: 0.5;
+    padding: 0 3px;
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    user-select: none;
+    white-space: nowrap;
+    z-index: 4;
+  }
+
+  .conditional-if-port-label.connected {
+    background: color-mix(in srgb, var(--canvas-background-color, var(--grey-darker)) 82%, transparent);
+    border-radius: calc(4px * var(--ui-font-scale));
+    color: var(--port-connected-label-color);
+    opacity: var(--port-connected-label-opacity);
+  }
+
+  .node.selected .conditional-if-port-label.connected,
+  .node.overlayNode .conditional-if-port-label.connected,
+  .node.hovered .conditional-if-port-label.connected {
+    opacity: 1;
+  }
+
   .node-ports {
     display: flex;
     justify-content: space-between;

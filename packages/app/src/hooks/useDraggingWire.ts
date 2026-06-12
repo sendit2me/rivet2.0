@@ -215,6 +215,10 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
 
   const onWireStartDrag = useCallback(
     (event: React.MouseEvent<HTMLElement>, startNodeId: NodeId, startPortId: PortId, isInput: boolean) => {
+      if (event.button !== 0) {
+        return;
+      }
+
       event.stopPropagation();
 
       if (isStickyConnectionModePending()) {
@@ -265,6 +269,10 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
 
   const onWireEndDrag = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+
       if (!latestDraggingWire.current) {
         return;
       }
@@ -283,6 +291,10 @@ export const useDraggingWire = (onConnectionsChanged: (connections: NodeConnecti
 
   useEffect(() => {
     const handleWindowMouseUp = (event: MouseEvent) => {
+      if (event.button !== 0) {
+        return;
+      }
+
       if (!latestDraggingWire.current || !shouldHandleGlobalWireMouseUpTarget(event.target)) {
         return;
       }

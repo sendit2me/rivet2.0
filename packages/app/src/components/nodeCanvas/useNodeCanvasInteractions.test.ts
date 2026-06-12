@@ -185,3 +185,25 @@ test('sticky connection mode does not let a port mousedown replace the pending o
     /onWireStartDrag[\s\S]*if \(isStickyConnectionModePending\(\)\) \{[\s\S]*event\.preventDefault\(\);[\s\S]*return;[\s\S]*if \(isInput\)/,
   );
 });
+
+test('wire drag ignores non-primary port mousedowns before mutating drag state', () => {
+  const useDraggingWireSource = readFileSync(join(hooksDir, 'useDraggingWire.ts'), 'utf8');
+
+  assert.match(
+    useDraggingWireSource,
+    /onWireStartDrag[\s\S]*if \(event\.button !== 0\) \{[\s\S]*return;[\s\S]*event\.stopPropagation\(\);/,
+  );
+});
+
+test('wire drag ignores non-primary mouseups before finalizing connections', () => {
+  const useDraggingWireSource = readFileSync(join(hooksDir, 'useDraggingWire.ts'), 'utf8');
+
+  assert.match(
+    useDraggingWireSource,
+    /onWireEndDrag[\s\S]*if \(event\.button !== 0\) \{[\s\S]*return;[\s\S]*if \(!latestDraggingWire\.current\)/,
+  );
+  assert.match(
+    useDraggingWireSource,
+    /const handleWindowMouseUp = \(event: MouseEvent\) => \{[\s\S]*if \(event\.button !== 0\) \{[\s\S]*return;[\s\S]*if \(!latestDraggingWire\.current/,
+  );
+});

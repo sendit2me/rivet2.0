@@ -1,9 +1,7 @@
 
 
 
-- Get back the "If" label for conditional node ports
-
-- Aply a style where there's a straignt line and there's anither line in parallel close to it, just like in the Rivet logo
+- Apply a style where there's a straight line and another line in parallel close to it, just like in the Rivet logo
 
 - Show diffs between versions of a project
 

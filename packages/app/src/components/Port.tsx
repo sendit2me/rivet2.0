@@ -14,6 +14,10 @@ export function canStartWireDragFromPortLabel(input: boolean): boolean {
   return !input;
 }
 
+export function isPrimaryPortMouseButton(button: number): boolean {
+  return button === 0;
+}
+
 export const Port: FC<{
   input?: boolean;
   title: string;
@@ -83,6 +87,10 @@ export const Port: FC<{
     });
 
     const handleLabelMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
+      if (!isPrimaryPortMouseButton(event.button)) {
+        return;
+      }
+
       if (reorderable) {
         event.stopPropagation();
         event.preventDefault();
@@ -134,9 +142,19 @@ export const Port: FC<{
           ref={ref}
           className={clsx('port-circle', { 'input-port': input, 'output-port': !input })}
           onMouseDown={(e) => {
+            if (!isPrimaryPortMouseButton(e.button)) {
+              return;
+            }
+
             return onMouseDown?.(e, id, input);
           }}
-          onMouseUp={(e) => onMouseUp?.(e, id)}
+          onMouseUp={(e) => {
+            if (!isPrimaryPortMouseButton(e.button)) {
+              return;
+            }
+
+            onMouseUp?.(e, id);
+          }}
           onMouseOver={handleMouseOver}
           onMouseOut={handleMouseOut}
           data-portid={id}
