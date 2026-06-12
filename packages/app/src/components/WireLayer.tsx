@@ -1,5 +1,12 @@
 import { type FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { type ChartNode, type NodeConnection, type NodeId, type PortId } from '@valerypopoff/rivet2-core';
+import {
+  getProjectConnectionComparisonKey,
+  type ChartNode,
+  type NodeConnection,
+  type NodeId,
+  type PortId,
+  type ProjectComparisonChangeKind,
+} from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import { ConditionallyRenderWire, PartialWire } from './Wire.js';
 import { useCanvasPositioning } from '../hooks/useCanvasPositioning.js';
@@ -44,6 +51,23 @@ const wiresStyles = css`
     stroke: var(--primary);
     transition: stroke 0.2s ease-out;
   }
+
+  .wire.compare-added {
+    stroke: var(--success);
+    stroke-width: 3px;
+  }
+
+  .wire.compare-changed {
+    stroke: var(--warning);
+    stroke-width: 3px;
+  }
+
+  .wire.compare-removed {
+    stroke: var(--error);
+    stroke-width: 3px;
+    stroke-dasharray: 8 5;
+    opacity: 0.75;
+  }
 `;
 
 export type WireDef = {
@@ -56,6 +80,9 @@ export type WireDef = {
 
 type WireLayerProps = {
   connections: NodeConnection[];
+  compareNodesById?: Record<NodeId, ChartNode>;
+  compareRemovedConnections?: NodeConnection[];
+  connectionCompareKindsByKey?: Record<string, ProjectComparisonChangeKind | undefined>;
   draggingWire?: WireDef;
   draggingNode: boolean;
   highlightedNodes?: NodeId[];
@@ -72,6 +99,9 @@ type WireLayerProps = {
 
 export const WireLayer: FC<WireLayerProps> = ({
   connections,
+  compareNodesById = {},
+  compareRemovedConnections = [],
+  connectionCompareKindsByKey = {},
   draggingWire,
   draggingNode,
   highlightedNodes,
@@ -149,6 +179,7 @@ export const WireLayer: FC<WireLayerProps> = ({
   const { canvasPosition, clientToCanvasPosition, canvasToClientPosition } = useCanvasPositioning();
   const mousePositionCanvas = clientToCanvasPosition(mousePosition.x, mousePosition.y);
   const nodesById = useAtomValue(nodesByIdState);
+  const renderNodesById = useMemo(() => ({ ...compareNodesById, ...nodesById }), [compareNodesById, nodesById]);
 
   const runningNodeIdSet = useMemo(() => {
     const nextRunningNodeIdSet = new Set<NodeId>();
@@ -176,7 +207,7 @@ export const WireLayer: FC<WireLayerProps> = ({
     highlightedNodes,
     highlightedPort,
     nearViewportNodeIdSet,
-    nodesById,
+    nodesById: renderNodesById,
     portPositions,
     runningNodeIdSet,
     visibleNodeIdSet,
@@ -198,7 +229,7 @@ export const WireLayer: FC<WireLayerProps> = ({
                 }}
                 selected={false}
                 highlighted={!!(draggingWire.endNodeId && draggingWire.endPortId)}
-                nodesById={nodesById}
+                nodesById={renderNodesById}
                 portPositions={portPositions}
                 isNotRan={false}
               />
@@ -220,7 +251,9 @@ export const WireLayer: FC<WireLayerProps> = ({
           highlightedNodes={highlightedNodes}
           highlightedPort={highlightedPort}
           lastRunDataByNode={lastRunDataByNode}
-          nodesById={nodesById}
+          compareRemovedConnections={compareRemovedConnections}
+          connectionCompareKindsByKey={connectionCompareKindsByKey}
+          nodesById={renderNodesById}
           portPositions={portPositions}
           renderableWires={renderableWires}
           runningNodeIdSet={runningNodeIdSet}
@@ -233,6 +266,8 @@ export const WireLayer: FC<WireLayerProps> = ({
 
 const StaticWireContents = memo(
   ({
+    compareRemovedConnections,
+    connectionCompareKindsByKey,
     graphSelectionOptions,
     highlightedNodes,
     highlightedPort,
@@ -243,6 +278,8 @@ const StaticWireContents = memo(
     runningNodeIdSet,
     selectedProcessPageNodes,
   }: {
+    compareRemovedConnections: NodeConnection[];
+    connectionCompareKindsByKey: Record<string, ProjectComparisonChangeKind | undefined>;
     graphSelectionOptions: Parameters<typeof getSelectedProcessData>[2];
     highlightedNodes: NodeId[] | undefined;
     highlightedPort:
@@ -264,34 +301,53 @@ const StaticWireContents = memo(
       [highlightedNodes],
     );
 
-    return renderableWires.map((connection) => {
-      const isHighlightedNode =
-        highlightedNodeIdSet?.has(connection.inputNodeId) || highlightedNodeIdSet?.has(connection.outputNodeId);
+    return (
+      <>
+        {compareRemovedConnections.map((connection) => (
+          <ErrorBoundary fallback={<></>} key={`compare-removed-wire-${getProjectConnectionComparisonKey(connection)}`}>
+            <ConditionallyRenderWire
+              connection={connection}
+              selected={false}
+              highlighted={false}
+              nodesById={nodesById}
+              portPositions={portPositions}
+              isNotRan={false}
+              compareChangeKind="removed"
+            />
+          </ErrorBoundary>
+        ))}
+        {renderableWires.map((connection) => {
+          const compareChangeKind = connectionCompareKindsByKey[getProjectConnectionComparisonKey(connection)];
+          const isHighlightedNode =
+            highlightedNodeIdSet?.has(connection.inputNodeId) || highlightedNodeIdSet?.has(connection.outputNodeId);
 
-      const isCurrentlyRunning =
-        runningNodeIdSet.has(connection.inputNodeId) || runningNodeIdSet.has(connection.outputNodeId);
+          const isCurrentlyRunning =
+            runningNodeIdSet.has(connection.inputNodeId) || runningNodeIdSet.has(connection.outputNodeId);
 
-      const isHighlightedPort =
-        highlightedPort &&
-        (highlightedPort.isInput ? connection.inputId : connection.outputId) === highlightedPort.portId &&
-        (highlightedPort.isInput ? connection.inputNodeId : connection.outputNodeId) === highlightedPort.nodeId;
+          const isHighlightedPort =
+            highlightedPort &&
+            (highlightedPort.isInput ? connection.inputId : connection.outputId) === highlightedPort.portId &&
+            (highlightedPort.isInput ? connection.inputNodeId : connection.outputNodeId) === highlightedPort.nodeId;
 
-      const isNotRan = getIsNotRan(connection, selectedProcessPageNodes, lastRunDataByNode, graphSelectionOptions);
+          const isNotRan = getIsNotRan(connection, selectedProcessPageNodes, lastRunDataByNode, graphSelectionOptions);
 
-      const highlighted = isHighlightedNode || isCurrentlyRunning || isHighlightedPort;
-      return (
-        <ErrorBoundary fallback={<></>} key={`wire-${connection.inputId}-${connection.inputNodeId}`}>
-          <ConditionallyRenderWire
-            connection={connection}
-            selected={false}
-            highlighted={!!highlighted}
-            nodesById={nodesById}
-            portPositions={portPositions}
-            isNotRan={isNotRan}
-          />
-        </ErrorBoundary>
-      );
-    });
+          const highlighted = isHighlightedNode || isCurrentlyRunning || isHighlightedPort;
+          return (
+            <ErrorBoundary fallback={<></>} key={`wire-${connection.inputId}-${connection.inputNodeId}`}>
+              <ConditionallyRenderWire
+                connection={connection}
+                selected={false}
+                highlighted={!!highlighted}
+                nodesById={nodesById}
+                portPositions={portPositions}
+                isNotRan={isNotRan}
+                compareChangeKind={compareChangeKind}
+              />
+            </ErrorBoundary>
+          );
+        })}
+      </>
+    );
   },
 );
 

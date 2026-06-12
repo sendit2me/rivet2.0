@@ -167,5 +167,16 @@ export {
   isInTauri,
 } from './utils/tauri.js';
 export { getLLMChatV2CustomProviderApiKeyEnvVarNames } from './utils/chatV2CustomProviderEnv.js';
+export {
+  compareProjects,
+  getProjectConnectionComparisonKey,
+  getProjectNodeFieldComparisons,
+  type ProjectComparison,
+  type ProjectComparisonChangeKind,
+  type ProjectConnectionComparison,
+  type ProjectGraphComparison,
+  type ProjectNodeFieldComparison,
+  type ProjectNodeComparison,
+} from '@valerypopoff/rivet2-core';
 export { configureHybridStorageBackend, IndexedDBStorage, type AsyncStorageBackend } from './state/storage.js';
 export type { IOProvider, PathBasedIOProvider } from './io/IOProvider.js';

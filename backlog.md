@@ -1,9 +1,8 @@
 
-
+- Node from rivet project. Should be compatible with rivet wrappers
 
 - Apply a style where there's a straight line and another line in parallel close to it, just like in the Rivet logo
 
-- Show diffs between versions of a project
 
 - Rework ChatViewer workspace into an actual chat interface that is connected to a specific graph with cpecific inputs and outputs so the user can test their graph in a chat-like interface.
 

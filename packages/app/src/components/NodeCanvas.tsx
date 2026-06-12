@@ -12,6 +12,7 @@ import {
   type NodeInputDefinition,
   type NodeOutputDefinition,
   type PortId,
+  type ProjectComparisonChangeKind,
 } from '@valerypopoff/rivet2-core';
 import { useDeleteNodesCommand } from '../commands/deleteNodeCommand';
 import { useResizeNodesCommand, type NodeResizeChange } from '../commands/resizeNodesCommand';
@@ -104,6 +105,8 @@ import { subGraphPortRearrangeTargetState, uiFontSizeState } from '../state/ui.j
 import { getMinimumNodeWidthForPortLabels } from '../utils/nodePortLabelWidth.js';
 import { getUiFontScale } from '../utils/uiFontSize.js';
 import { blurFocusedGraphFilterInput } from './graphList/graphFilterFocus.js';
+import { selectedGraphProjectComparisonState } from '../state/projectComparison.js';
+import { getCanvasNodeCompareKindsById } from './nodeCanvas/projectComparisonCanvas.js';
 
 const EMPTY_NODE_CONNECTIONS: NodeConnection[] = [];
 
@@ -202,6 +205,7 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   const nodesById = useAtomValue(nodesByIdState);
   const project = useAtomValue(projectState);
   const referencedProjects = useAtomValue(referencedProjectsState);
+  const selectedGraphComparison = useAtomValue(selectedGraphProjectComparisonState);
   const executorSession = useExecutorSessionState();
   const canStartEditorGraphRun = canRunGraphFromEditor({
     hasLoadedRecording: loadedRecording != null,
@@ -384,6 +388,44 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
   } = useContextMenu();
 
   const connectionsByNodeId = useMemo(() => groupConnectionsByNode(previewConnections), [previewConnections]);
+  const nodeCompareKindsById = useMemo(
+    () => getCanvasNodeCompareKindsById(selectedGraphComparison),
+    [selectedGraphComparison],
+  );
+  const compareRemovedNodes = useMemo(
+    () =>
+      selectedGraphComparison
+        ? Object.values(selectedGraphComparison.nodes)
+            .filter((comparison) => comparison.kind === 'removed' && comparison.before)
+            .map((comparison) => comparison.before!)
+        : [],
+    [selectedGraphComparison],
+  );
+  const connectionCompareKindsByKey = useMemo(() => {
+    if (!selectedGraphComparison) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(selectedGraphComparison.connections)
+        .filter(([, comparison]) => comparison.kind !== 'unchanged' && comparison.after)
+        .map(([key, comparison]) => [key, comparison.kind]),
+    ) as Record<string, ProjectComparisonChangeKind>;
+  }, [selectedGraphComparison]);
+  const compareRemovedConnections = useMemo(
+    () =>
+      selectedGraphComparison
+        ? Object.values(selectedGraphComparison.connections)
+            .filter((comparison) => comparison.before && (comparison.kind === 'removed' || comparison.kind === 'changed'))
+            .map((comparison) => comparison.before!)
+        : [],
+    [selectedGraphComparison],
+  );
+  const compareNodesById = useMemo(
+    () =>
+      Object.fromEntries(compareRemovedNodes.map((node) => [node.id, node])) as Record<NodeId, ChartNode>,
+    [compareRemovedNodes],
+  );
   const nodesWithConnections = useMemo(
     () =>
       nodes.map((node) => ({
@@ -941,6 +983,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           lastRunPerNode={lastRunPerNode}
           layer="comments"
           nodeTypes={nodeTypes}
+          nodeCompareKindsById={nodeCompareKindsById}
+          compareRemovedNodes={compareRemovedNodes}
           nodesWithConnections={nodesWithConnections}
           onNodeDragActivatorPointerDown={handleNodeDragActivatorPointerDown}
           expandedOutputNodeIds={expandedOutputNodeIds}
@@ -953,6 +997,9 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           <WireLayer
             connections={previewConnections}
             draggingWire={draggingWire}
+            compareNodesById={compareNodesById}
+            compareRemovedConnections={compareRemovedConnections}
+            connectionCompareKindsByKey={connectionCompareKindsByKey}
             highlightedNodes={highlightedNodes}
             highlightedPort={hoveringPort}
             nearViewportNodeIdSet={nearViewportNodeIdSet}
@@ -980,6 +1027,8 @@ export const NodeCanvas: FC<NodeCanvasProps> = ({
           lastRunPerNode={lastRunPerNode}
           layer="nodes"
           nodeTypes={nodeTypes}
+          nodeCompareKindsById={nodeCompareKindsById}
+          compareRemovedNodes={compareRemovedNodes}
           nodesWithConnections={nodesWithConnections}
           onNodeDragActivatorPointerDown={handleNodeDragActivatorPointerDown}
           expandedOutputNodeIds={expandedOutputNodeIds}

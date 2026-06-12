@@ -4,7 +4,7 @@ import { type FC, type MouseEvent, type KeyboardEvent, memo, useMemo, useRef, us
 import { useAtomValue, useSetAtom } from 'jotai';
 import Button from '@atlaskit/button';
 import Modal, { ModalBody, ModalFooter, ModalTransition } from '@atlaskit/modal-dialog';
-import { type NodeGraph } from '@valerypopoff/rivet2-core';
+import { type GraphId, type NodeGraph, type ProjectComparisonChangeKind } from '@valerypopoff/rivet2-core';
 import clsx from 'clsx';
 import { runningGraphsState } from '../state/dataFlow.js';
 import { graphState } from '../state/graph.js';
@@ -45,10 +45,15 @@ import {
   type GraphListContextMenuItem,
 } from './graphList/graphListContextMenu.js';
 import { useGraphListPresentation } from './graphList/useGraphListPresentation.js';
-import { setAllGraphFolderExpansionStates } from './graphList/graphFolders.js';
+import {
+  addComparisonRemovedGraphsToFolderTree,
+  getFolderNames,
+  setAllGraphFolderExpansionStates,
+} from './graphList/graphFolders.js';
 import { GRAPH_FILTER_INPUT_MARKER } from './graphList/graphFilterFocus.js';
 import { PopupMenuItem, popupMenuListStyles } from './PopupMenu.js';
 import { Tooltip } from './Tooltip.js';
+import { activeProjectComparisonState } from '../state/projectComparison.js';
 
 const styles = css`
   --collapsed-open-graph-folder-color: color-mix(in srgb, var(--primary) 28%, transparent);
@@ -508,6 +513,46 @@ const styles = css`
     background: color-mix(in srgb, currentColor 10%, transparent);
     color: color-mix(in srgb, currentColor 72%, transparent);
   }
+
+  .graph-compare-badge {
+    margin-right: 6px;
+    padding: 4px 6px;
+    border: 1px solid color-mix(in srgb, currentColor 46%, transparent);
+    border-radius: 40px;
+    corner-shape: superellipse(1.15);
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: currentColor;
+    flex-shrink: 0;
+    font-size: var(--ui-font-size-2xs);
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .graph-compare-badge.compare-added {
+    color: var(--success);
+  }
+
+  .graph-compare-badge.compare-changed {
+    color: var(--warning);
+  }
+
+  .graph-compare-badge.compare-removed {
+    color: var(--error);
+  }
+
+  .graph-item.compare-removed-graph {
+    opacity: 0.68;
+  }
+
+  .graph-item.compare-removed-graph .graph-item-select {
+    cursor: default;
+  }
+
+  .graph-item.compare-removed-graph:hover .graph-item-select {
+    background-color: transparent;
+  }
 `;
 
 const contextMenuStyles = css`
@@ -592,6 +637,25 @@ export const GraphList: FC = memo(() => {
   const [isProjectInfoOpen, setIsProjectInfoOpen] = useState(false);
   const showUnreachableGraphTags = useAtomValue(showUnreachableGraphTagsState);
   const showGraphReferenceIndicators = useAtomValue(showGraphReferenceIndicatorsState);
+  const activeComparison = useAtomValue(activeProjectComparisonState);
+  const removedComparisonGraphs = useMemo(
+    () =>
+      activeComparison
+        ? Object.values(activeComparison.comparison.graphs)
+            .filter((comparison) => comparison.kind === 'removed' && comparison.before)
+            .map((comparison) => comparison.before!)
+            .filter((removedGraph) => graphMatchesFilter(removedGraph, searchText))
+        : [],
+    [activeComparison, searchText],
+  );
+  const visibleFolderedGraphs = useMemo(
+    () => addComparisonRemovedGraphsToFolderTree(folderedGraphs, removedComparisonGraphs),
+    [folderedGraphs, removedComparisonGraphs],
+  );
+  const visibleFolderPaths = useMemo(
+    () => [...new Set([...allFolderPaths, ...getFolderNames(visibleFolderedGraphs)])],
+    [allFolderPaths, visibleFolderedGraphs],
+  );
 
   const { setShowContextMenu, showContextMenu, contextMenuData, handleContextMenu, floatingStyles, refs } =
     useContextMenu();
@@ -600,8 +664,8 @@ export const GraphList: FC = memo(() => {
     handleContextMenu(e);
   });
 
-  const hasFolders = allFolderPaths.length > 0;
-  const folderPathsForContextMenu = useMemo(() => new Set(allFolderPaths), [allFolderPaths]);
+  const hasFolders = visibleFolderPaths.length > 0;
+  const folderPathsForContextMenu = useMemo(() => new Set(visibleFolderPaths), [visibleFolderPaths]);
   const contextMenuTarget = useMemo(
     () =>
       getGraphListContextMenuTarget({
@@ -637,7 +701,7 @@ export const GraphList: FC = memo(() => {
     setExpandedFolders((prev) =>
       setAllGraphFolderExpansionStates({
         expandedFolders: prev,
-        folderPaths: allFolderPaths,
+        folderPaths: visibleFolderPaths,
         isExpanded,
         projectId: project.metadata.id,
       }),
@@ -703,6 +767,17 @@ export const GraphList: FC = memo(() => {
     showGraphReferenceIndicators,
     showUnreachableGraphTags,
   });
+  const graphCompareKindByGraphId = useMemo(
+    () =>
+      activeComparison
+        ? (Object.fromEntries(
+            Object.entries(activeComparison.comparison.graphs)
+              .filter(([, comparison]) => comparison.kind !== 'unchanged')
+              .map(([graphId, comparison]) => [graphId, comparison.kind]),
+          ) as Record<GraphId, ProjectComparisonChangeKind | undefined>)
+        : {},
+    [activeComparison],
+  );
 
   const confirmDeleteGraph = useStableCallback(() => {
     if (!graphPendingDelete) {
@@ -906,7 +981,7 @@ export const GraphList: FC = memo(() => {
             onDragOver={handleDragOver}
             onDragStart={handleDragStart}
           >
-            {folderedGraphs.map((item) => (
+            {visibleFolderedGraphs.map((item) => (
               <FolderItem
                 key={item.type === 'graph' ? item.graph.metadata?.id : item.fullPath}
                 item={item}
@@ -916,6 +991,7 @@ export const GraphList: FC = memo(() => {
                 dragOverFolderName={dragOverFolderName}
                 draggingItemFolder={draggingItemFolder}
                 graphReachabilityByGraphId={graphListReachability.bucketByGraphId}
+                graphCompareKindByGraphId={graphCompareKindByGraphId}
                 referencingSelectedGraphIds={referencingSelectedGraphIds}
                 depth={0}
                 onGraphSelected={loadGraph}
@@ -1074,6 +1150,17 @@ const SearchIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
     />
   </svg>
 );
+
+function graphMatchesFilter(graph: NodeGraph, searchText: string): boolean {
+  const normalizedSearchText = searchText.trim().toLocaleLowerCase();
+  if (normalizedSearchText.length === 0) {
+    return true;
+  }
+
+  const name = graph.metadata?.name?.toLocaleLowerCase() ?? '';
+  const description = graph.metadata?.description?.toLocaleLowerCase() ?? '';
+  return name.includes(normalizedSearchText) || description.includes(normalizedSearchText);
+}
 
 // Allows the bottom of the list to be a drop target
 export const GraphListSpacer: FC = memo(() => {

@@ -22,7 +22,8 @@ import { useDatasets } from '../hooks/useDatasets';
 import { overlayOpenState } from '../state/ui';
 import { GraphExecutionSelectorBar } from './GraphExecutionSelectorBar';
 import { HistoricalGraphNotice } from './HistoricalGraphNotice';
-import { NodeChangesModal, NodeChangesModalRenderer } from './NodeChangesModal';
+import { NodeChangesModalRenderer } from './NodeChangesModal';
+import { ProjectComparisonNodeChangesModalRenderer } from './ProjectComparisonNodeChangesModal.js';
 import { AiGraphCreatorInput } from './AiGraphCreatorInput';
 import { AiGraphCreatorToggle } from './AiGraphCreatorToggle';
 import { useReloadProjectReferences } from '../hooks/useReloadProjectReferences';
@@ -31,6 +32,18 @@ import { useSyncCurrentProjectEditorState } from '../hooks/useSyncCurrentProject
 import { toggleNodeSelection } from '../domain/graphEditing/nodeSelection.js';
 import { useSyncProjectPluginsFromGraphUsage } from '../hooks/useSyncProjectPluginsFromGraphUsage.js';
 import { warmCodeEditor } from './LazyComponents.js';
+import {
+  activeProjectComparisonState,
+  projectCompareReferenceState,
+  selectedGraphProjectComparisonState,
+} from '../state/projectComparison.js';
+import {
+  formatProjectComparisonCounts,
+  formatProjectComparisonCurrentGraphCounts,
+  getGraphProjectComparisonCounts,
+  getOverallProjectComparisonCounts,
+  getProjectComparisonReferenceFileName,
+} from '../utils/projectComparisonSummary.js';
 
 const Container = styled.div`
   position: relative;
@@ -63,6 +76,39 @@ const Container = styled.div`
     z-index: 500;
     box-shadow: inset 0 0 2px 3px var(--grey-light);
   }
+
+  .project-compare-notice {
+    position: absolute;
+    top: calc(var(--project-selector-height) + 12px);
+    left: 50%;
+    z-index: 450;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: min(720px, calc(100vw - 48px));
+    padding: 8px 10px 8px 14px;
+    border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
+    border-radius: 12px;
+    corner-shape: squircle;
+    background: color-mix(in srgb, var(--grey-dark-colorish) 96%, var(--primary) 4%);
+    box-shadow: var(--popup-shadow);
+    color: var(--foreground);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.35;
+    transform: translateX(-50%);
+  }
+
+  .project-compare-notice strong {
+    color: var(--primary-text);
+  }
+
+  .project-compare-notice-text {
+    min-width: 0;
+  }
+
+  .project-compare-notice-text > div + div {
+    margin-top: 2px;
+  }
 `;
 
 export const GraphBuilder: FC = () => {
@@ -72,6 +118,9 @@ export const GraphBuilder: FC = () => {
   const setEditingNodeId = useSetAtom(editingNodeState);
   const loadedRecording = useAtomValue(loadedRecordingState);
   const project = useAtomValue(projectState);
+  const activeComparison = useAtomValue(activeProjectComparisonState);
+  const selectedGraphComparison = useAtomValue(selectedGraphProjectComparisonState);
+  const setProjectCompareReference = useSetAtom(projectCompareReferenceState);
 
   useReloadProjectReferences();
   useSyncCurrentProjectEditorState();
@@ -169,6 +218,32 @@ export const GraphBuilder: FC = () => {
           </Button>
         )}
         {overlay === undefined && <NavigationBar />}
+        {activeComparison && (
+          <div className="project-compare-notice">
+            <div className="project-compare-notice-text">
+              <div>
+                Compare mode against{' '}
+                <strong>
+                  {getProjectComparisonReferenceFileName(
+                    activeComparison.referencePath,
+                    activeComparison.referenceProject.metadata.title,
+                  )}
+                </strong>
+              </div>
+              <div>
+                - Overall difference:{' '}
+                <strong>{formatProjectComparisonCounts(getOverallProjectComparisonCounts(activeComparison.comparison))}</strong>
+              </div>
+              <div>
+                - Current opened graph difference:{' '}
+                <strong>{formatProjectComparisonCurrentGraphCounts(getGraphProjectComparisonCounts(selectedGraphComparison))}</strong>
+              </div>
+            </div>
+            <Button spacing="compact" onClick={() => setProjectCompareReference(undefined)}>
+              Exit
+            </Button>
+          </div>
+        )}
         <GraphExecutionSelectorBar />
         <HistoricalGraphNotice />
         <UserInputModal
@@ -179,6 +254,7 @@ export const GraphBuilder: FC = () => {
           onClose={handleCloseUserInputModal}
         />
         <NodeChangesModalRenderer />
+        <ProjectComparisonNodeChangesModalRenderer />
         <AiGraphCreatorInput />
         <AiGraphCreatorToggle />
       </ErrorBoundary>

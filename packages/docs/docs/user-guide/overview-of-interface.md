@@ -8,6 +8,8 @@ title: 'Overview of the Interface'
 
 Use **Project settings** at the top of the graph tree panel to set the name and description of your project. This data is saved with your project file and used for documenting your project.
 
+You can also use **Project settings** to compare the open project to an older `.rivet-project` file. See [Working with Projects](./working-with-projects.md#comparing-projects) for how compare mode highlights added, changed, and removed graphs, nodes, and connections.
+
 Project plugin declarations are shown separately as "Plugins used by this project". In Rivet 2, plugins are installed into the app from Settings > Plugins, and the project list is derived from actual plugin-node usage. See the [Plugins](./plugins.md) documentation for more information.
 
 ![Project Info](./assets/project-info.png)

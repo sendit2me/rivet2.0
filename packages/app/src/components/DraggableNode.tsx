@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { type ChartNode, type NodeConnection } from '@valerypopoff/rivet2-core';
+import { type ChartNode, type NodeConnection, type ProjectComparisonChangeKind } from '@valerypopoff/rivet2-core';
 import {
   type FC,
   type MouseEvent as ReactMouseEvent,
@@ -23,6 +23,7 @@ interface DraggableNodeProps {
   dragMode: DragMode;
   renderSkeleton?: boolean;
   node: ChartNode;
+  compareChangeKind?: ProjectComparisonChangeKind;
   connections?: NodeConnection[];
   isSelected?: boolean;
   isHovered?: boolean;
@@ -40,6 +41,7 @@ export const DraggableNode: FC<DraggableNodeProps> = memo(
     dragAxisLock,
     dragMode,
     node,
+    compareChangeKind,
     connections = [],
     isSelected = false,
     isHovered = false,
@@ -90,6 +92,7 @@ export const DraggableNode: FC<DraggableNodeProps> = memo(
           isHovered={isHovered}
           isSearchMatch={isSearchMatch}
           node={node}
+          compareChangeKind={compareChangeKind}
           connections={connections}
           isDragging={isDragging && !shouldKeepSourceNodeVisible}
           xDelta={constrainedTransform && !shouldKeepSourceNodeVisible ? constrainedTransform.x / canvasZoom : 0}

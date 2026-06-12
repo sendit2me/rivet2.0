@@ -6,7 +6,7 @@ import Select from '@atlaskit/select';
 import { projectState, savedGraphsState } from '../state/savedGraphs';
 import { css, Global } from '@emotion/react';
 import { ProjectRevisions } from './ProjectRevisionList';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { ProjectReferencesConfiguration } from './ProjectReferencesConfiguration';
 import { ProjectMCPConfiguration } from './ProjectMCPConfiguration';
 import { MainGraphIcon } from './graphList/MainGraphIcon';
@@ -18,6 +18,20 @@ import Collapsible from 'react-collapsible';
 import ChevronDownIcon from 'majesticons/line/chevron-down-line.svg?react';
 import ChevronUpIcon from 'majesticons/line/chevron-up-line.svg?react';
 import { projectSettingsSectionOpenState } from '../state/ui';
+import { useIOProvider } from '../providers/ProvidersContext';
+import {
+  activeProjectComparisonState,
+  projectCompareReferenceState,
+  selectedGraphProjectComparisonState,
+} from '../state/projectComparison';
+import { toast } from 'react-toastify';
+import {
+  formatProjectComparisonCounts,
+  formatProjectComparisonCurrentGraphCounts,
+  getGraphProjectComparisonCounts,
+  getOverallProjectComparisonCounts,
+  getProjectComparisonReferenceFileName,
+} from '../utils/projectComparisonSummary';
 
 const styles = css`
   font-size: var(--ui-font-size-compact);
@@ -70,6 +84,20 @@ const styles = css`
 
   .project-info-action {
     margin-top: 8px;
+  }
+
+  .project-info-compare-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .project-info-compare-summary {
+    margin-top: 8px;
+    color: var(--foreground-muted);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.4;
   }
 
   .project-info-label {
@@ -178,6 +206,11 @@ const projectSettingsBodyScrollableTestId = `${projectSettingsBodyTestId}--scrol
 export const ProjectInfoPanel: FC = () => {
   const [project, setProject] = useAtom(projectState);
   const savedGraphs = useAtomValue(savedGraphsState);
+  const ioProvider = useIOProvider();
+  const [compareLoading, setCompareLoading] = useState(false);
+  const activeComparison = useAtomValue(activeProjectComparisonState);
+  const selectedGraphComparison = useAtomValue(selectedGraphProjectComparisonState);
+  const setProjectCompareReference = useSetAtom(projectCompareReferenceState);
 
   const graphOptions = useMemo(
     () => [
@@ -188,6 +221,29 @@ export const ProjectInfoPanel: FC = () => {
   );
 
   const selectedMainGraph = graphOptions.find((g) => g.value === project.metadata.mainGraphId);
+
+  const startProjectCompare = async () => {
+    setCompareLoading(true);
+
+    try {
+      await ioProvider.loadProjectData(({ project: referenceProject, path }) => {
+        setProjectCompareReference({
+          projectId: project.metadata.id,
+          referencePath: path,
+          referenceProject,
+        });
+        toast.success('Project compare mode enabled.');
+      });
+    } catch (error) {
+      toast.error(`Failed to compare project: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
+  const stopProjectCompare = () => {
+    setProjectCompareReference(undefined);
+  };
 
   return (
     <div css={styles} className="project-info-section">
@@ -241,6 +297,35 @@ export const ProjectInfoPanel: FC = () => {
 
         <div className="project-info-item">
           <ProjectReferencesConfiguration />
+        </div>
+
+        <div className="project-info-item">
+          <div className="project-info-label">Project compare</div>
+          <div className="project-info-compare-actions">
+            <Button isDisabled={compareLoading} onClick={() => void startProjectCompare()}>
+              {compareLoading ? 'Loading project...' : 'Compare to an older version'}
+            </Button>
+            {activeComparison && <Button onClick={stopProjectCompare}>Stop comparing</Button>}
+          </div>
+          {activeComparison && (
+            <div className="project-info-compare-summary">
+              <div>
+                Compare mode against{' '}
+                {getProjectComparisonReferenceFileName(
+                  activeComparison.referencePath,
+                  activeComparison.referenceProject.metadata.title,
+                )}
+              </div>
+              <div>
+                - Overall difference:{' '}
+                {formatProjectComparisonCounts(getOverallProjectComparisonCounts(activeComparison.comparison))}
+              </div>
+              <div>
+                - Current opened graph difference:{' '}
+                {formatProjectComparisonCurrentGraphCounts(getGraphProjectComparisonCounts(selectedGraphComparison))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="project-info-item">

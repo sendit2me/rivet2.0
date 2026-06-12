@@ -1,4 +1,4 @@
-import { type NodeGraph } from '@valerypopoff/rivet2-core';
+import { type NodeGraph, type ProjectComparisonChangeKind } from '@valerypopoff/rivet2-core';
 
 export interface NodeGraphFolder {
   type: 'folder';
@@ -11,6 +11,8 @@ export interface NodeGraphFolderGraph {
   type: 'graph';
   name: string;
   graph: NodeGraph;
+  compareChangeKind?: ProjectComparisonChangeKind;
+  isComparisonGhost?: boolean;
 }
 
 export type NodeGraphFolderItem = NodeGraphFolder | NodeGraphFolderGraph;
@@ -93,14 +95,28 @@ export function createFoldersFromGraphs(graphs: NodeGraph[], folderNames: string
     });
   });
 
-  const sortFolder = (folder: NodeGraphFolder) => {
-    folder.children.sort(compareGraphTreeItems);
-    folder.children.forEach((child) => {
-      if (child.type === 'folder') {
-        sortFolder(child);
-      }
-    });
+  sortFolder(rootFolder);
+  return rootFolder.children;
+}
+
+export function addComparisonRemovedGraphsToFolderTree(
+  folderedGraphs: NodeGraphFolderItem[],
+  removedGraphs: NodeGraph[],
+): NodeGraphFolderItem[] {
+  if (removedGraphs.length === 0) {
+    return folderedGraphs;
+  }
+
+  const rootFolder: NodeGraphFolder = {
+    name: '',
+    fullPath: '',
+    type: 'folder',
+    children: cloneFolderItems(folderedGraphs),
   };
+
+  for (const removedGraph of removedGraphs) {
+    addComparisonRemovedGraph(rootFolder, removedGraph);
+  }
 
   sortFolder(rootFolder);
   return rootFolder.children;
@@ -165,4 +181,59 @@ export function countGraphsInFolder(folder: NodeGraphFolder): number {
 
     return count + countGraphsInFolder(child);
   }, 0);
+}
+
+function addComparisonRemovedGraph(rootFolder: NodeGraphFolder, graph: NodeGraph): void {
+  const graphNameParts = graph.metadata?.name?.split('/') ?? [];
+  let currentFolder = rootFolder;
+
+  for (let index = 0; index < graphNameParts.length - 1; index++) {
+    const folderName = graphNameParts[index] ?? '';
+    const existingFolder = currentFolder.children.find(
+      (child): child is NodeGraphFolder => child.name === folderName && child.type === 'folder',
+    );
+
+    if (existingFolder) {
+      currentFolder = existingFolder;
+      continue;
+    }
+
+    const newFolder: NodeGraphFolder = {
+      name: folderName,
+      fullPath: graphNameParts.slice(0, index + 1).join('/'),
+      type: 'folder',
+      children: [],
+    };
+
+    currentFolder.children.push(newFolder);
+    currentFolder = newFolder;
+  }
+
+  currentFolder.children.push({
+    compareChangeKind: 'removed',
+    graph,
+    isComparisonGhost: true,
+    name: graphNameParts[graphNameParts.length - 1] ?? '',
+    type: 'graph',
+  });
+}
+
+function cloneFolderItems(items: NodeGraphFolderItem[]): NodeGraphFolderItem[] {
+  return items.map((item) =>
+    item.type === 'folder'
+      ? {
+          ...item,
+          children: cloneFolderItems(item.children),
+        }
+      : { ...item },
+  );
+}
+
+function sortFolder(folder: NodeGraphFolder): void {
+  folder.children.sort(compareGraphTreeItems);
+  folder.children.forEach((child) => {
+    if (child.type === 'folder') {
+      sortFolder(child);
+    }
+  });
 }

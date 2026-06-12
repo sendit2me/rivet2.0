@@ -9,7 +9,13 @@ import {
 } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useSetAtom } from 'jotai';
-import { type ChartNode, type CommentNode, type NodeConnection } from '@valerypopoff/rivet2-core';
+import {
+  type ChartNode,
+  type CommentNode,
+  type GraphId,
+  type NodeConnection,
+  type ProjectComparisonChangeKind,
+} from '@valerypopoff/rivet2-core';
 import type { HeightCache } from '../../hooks/useNodeBodyHeight';
 import SettingsCogIcon from 'majesticons/line/settings-cog-line.svg?react';
 import BookIcon from 'majesticons/line/book-open-line.svg?react';
@@ -38,6 +44,7 @@ import { getCanvasCommentHeight, getCanvasNodeWidth } from '../../hooks/canvasVi
 import { getBoxResizeCursor } from '../../utils/resizeCursors.js';
 import { NodeHeaderWarningIcon } from './NodeHeaderWarningIcon.js';
 import { ConditionalIfPort } from './ConditionalIfPort.js';
+import { viewingProjectComparisonNodeState } from '../../state/projectComparison.js';
 
 export const NormalVisualNodeContent: FC<{
   heightCache: HeightCache;
@@ -52,6 +59,8 @@ export const NormalVisualNodeContent: FC<{
   renderHeavyContent: boolean;
   minimumNodeWidth: number;
   headerWarning?: string;
+  compareChangeKind?: ProjectComparisonChangeKind;
+  graphId?: GraphId;
 }> = memo(
   ({
     heightCache,
@@ -66,6 +75,8 @@ export const NormalVisualNodeContent: FC<{
     renderHeavyContent,
     minimumNodeWidth,
     headerWarning,
+    compareChangeKind,
+    graphId,
   }) => {
     useDependsOnPlugins();
     const {
@@ -76,6 +87,7 @@ export const NormalVisualNodeContent: FC<{
     } = useCanvasHandlersContext();
     const { clientToCanvasPosition } = useCanvasPositioning();
     const setViewingNodeChanges = useSetAtom(viewingNodeChangesState);
+    const setViewingProjectComparisonNode = useSetAtom(viewingProjectComparisonNodeState);
 
     const [resizeState, setResizeState] = useState<{
       direction: BoxNodeResizeDirection;
@@ -230,6 +242,11 @@ export const NormalVisualNodeContent: FC<{
         setViewingNodeChanges(node.id);
       }
     };
+    const viewProjectCompareChanges = () => {
+      if (graphId && compareChangeKind === 'changed') {
+        setViewingProjectComparisonNode({ graphId, nodeId: node.id });
+      }
+    };
 
     const nodeDescription = node.description?.trim();
     const resizeDirections: BoxNodeResizeDirection[] = isComment
@@ -265,6 +282,22 @@ export const NormalVisualNodeContent: FC<{
                 className="changed-button"
               >
                 <Tooltip content="This node was changed, click to view changes">
+                  <BookIcon />
+                </Tooltip>
+              </button>
+            )}
+            {graphId && compareChangeKind === 'changed' && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  viewProjectCompareChanges();
+                }}
+                onPointerDown={handleEditPointerDown}
+                onMouseDown={handleEditMouseDown}
+                className="changed-button project-compare-changes-button"
+              >
+                <Tooltip content="View project comparison changes">
                   <BookIcon />
                 </Tooltip>
               </button>
