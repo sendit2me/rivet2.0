@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { GraphId, NodeGraph } from '@valerypopoff/rivet2-core';
-import { getFolderItemPresentation, getGraphListItemPath } from './useGraphListPresentation.js';
+import type { ChartNode, GraphId, NodeGraph, NodeId, Project, ProjectId } from '@valerypopoff/rivet2-core';
+import {
+  getFolderItemPresentation,
+  getGraphListItemPath,
+  mergeGraphListCurrentGraphIntoProject,
+} from './useGraphListPresentation.js';
+import { getGraphIdsReferencingGraph, getGraphReachabilityReport } from '../../utils/graphReachability.js';
 import type { NodeGraphFolderItem } from './graphFolders.js';
 
 const graph = (id: string, name: string): NodeGraph => ({
@@ -10,7 +15,69 @@ const graph = (id: string, name: string): NodeGraph => ({
   connections: [],
 });
 
+const node = (id: string, type: string, data: Record<string, unknown> = {}): ChartNode => ({
+  id: id as NodeId,
+  type,
+  title: type,
+  visualData: { x: 0, y: 0 },
+  data,
+});
+
+const project = (graphs: NodeGraph[], mainGraphId: string): Project =>
+  ({
+    metadata: {
+      id: 'project-id' as ProjectId,
+      title: 'Project',
+      description: '',
+      mainGraphId: mainGraphId as GraphId,
+    },
+    graphs: Object.fromEntries(graphs.map((entry) => [entry.metadata!.id!, entry])),
+    plugins: [],
+  }) as Project;
+
+function sortGraphIds(graphIds: Set<GraphId>): string[] {
+  return [...graphIds].sort();
+}
+
 describe('graph list presentation helpers', () => {
+  it('uses the live current graph when computing graph reachability', () => {
+    const savedMain = graph('main', 'Main');
+    const target = graph('target', 'Target');
+    const currentMain = {
+      ...savedMain,
+      nodes: [node('subgraph', 'subGraph', { graphId: 'target' as GraphId })],
+    };
+    const staleReport = getGraphReachabilityReport(project([savedMain, target], 'main'));
+    const liveReport = getGraphReachabilityReport(
+      mergeGraphListCurrentGraphIntoProject(project([savedMain, target], 'main'), currentMain),
+    );
+
+    assert.deepEqual(sortGraphIds(staleReport.unreachable), ['target']);
+    assert.deepEqual(sortGraphIds(liveReport.unreachable), []);
+  });
+
+  it('uses the live current graph when computing graph reference indicators', () => {
+    const savedMain = graph('main', 'Main');
+    const target = graph('target', 'Target');
+    const currentMain = {
+      ...savedMain,
+      nodes: [node('subgraph', 'subGraph', { graphId: 'target' as GraphId })],
+    };
+    const baseProject = project([savedMain, target], 'main');
+    const liveProject = mergeGraphListCurrentGraphIntoProject(baseProject, currentMain);
+
+    assert.deepEqual(sortGraphIds(getGraphIdsReferencingGraph(baseProject, 'target' as GraphId)), []);
+    assert.deepEqual(sortGraphIds(getGraphIdsReferencingGraph(liveProject, 'target' as GraphId)), ['main']);
+  });
+
+  it('does not add an unsaved current graph to graph-list reachability analysis', () => {
+    const savedMain = graph('main', 'Main');
+    const draftGraph = graph('draft', 'Draft');
+    const baseProject = project([savedMain], 'main');
+
+    assert.equal(mergeGraphListCurrentGraphIntoProject(baseProject, draftGraph), baseProject);
+  });
+
   it('detects collapsed folders that contain the open graph', () => {
     const item: NodeGraphFolderItem = {
       type: 'folder',

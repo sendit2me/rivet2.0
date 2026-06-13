@@ -12,7 +12,10 @@ import {
   type GraphReachabilityRegistry,
   resolveSupportedBuiltInPluginIds,
 } from '../../utils/graphReachability.js';
+import { mergeCurrentGraphIntoProject } from '../../utils/workspaceTransitions.js';
 import { countGraphsInFolder, isInFolder, type NodeGraphFolderItem } from './graphFolders.js';
+
+type GraphListProject = Omit<Project, 'data'>;
 
 export type GraphListPresentation = {
   reachability: GraphListReachabilityPresentation;
@@ -20,14 +23,16 @@ export type GraphListPresentation = {
 };
 
 export function useGraphListPresentation(options: {
+  currentGraph: NodeGraph | undefined;
   currentGraphId: GraphId | undefined;
   plugins: PluginState[];
-  project: Project;
+  project: GraphListProject;
   projectNodeRegistry: GraphReachabilityRegistry;
   showGraphReferenceIndicators: boolean;
   showUnreachableGraphTags: boolean;
 }): GraphListPresentation {
   const {
+    currentGraph,
     currentGraphId,
     plugins,
     project,
@@ -35,6 +40,10 @@ export function useGraphListPresentation(options: {
     showGraphReferenceIndicators,
     showUnreachableGraphTags,
   } = options;
+  const liveProject = useMemo(
+    () => mergeGraphListCurrentGraphIntoProject(project, currentGraph),
+    [currentGraph, project],
+  );
 
   const reachability = useMemo<GraphListReachabilityPresentation>(() => {
     if (!showUnreachableGraphTags) {
@@ -44,36 +53,48 @@ export function useGraphListPresentation(options: {
       };
     }
 
-    const builtInPluginIds = resolveSupportedBuiltInPluginIds(project.plugins);
+    const builtInPluginIds = resolveSupportedBuiltInPluginIds(liveProject.plugins);
     const pluginStatesById = new Map(plugins.map((plugin) => [plugin.id, plugin]));
-    const graphListPlugins = (project.plugins ?? [])
+    const graphListPlugins = (liveProject.plugins ?? [])
       .map((spec) => pluginStatesById.get(spec.id))
       .filter((plugin) => plugin != null);
 
-    const report = getGraphReachabilityReport(project, {
+    const report = getGraphReachabilityReport(liveProject, {
       registry: projectNodeRegistry,
       builtInPluginIds,
     });
 
     return buildGraphListReachabilityPresentation({
       report,
-      graphIds: Object.keys(project.graphs) as GraphId[],
+      graphIds: Object.keys(liveProject.graphs) as GraphId[],
       plugins: graphListPlugins,
     });
-  }, [plugins, project, projectNodeRegistry, showUnreachableGraphTags]);
+  }, [liveProject, plugins, projectNodeRegistry, showUnreachableGraphTags]);
 
   const referencingSelectedGraphIds = useMemo(() => {
     if (!showGraphReferenceIndicators || !currentGraphId) {
       return new Set<GraphId>();
     }
 
-    return getGraphIdsReferencingGraph(project, currentGraphId);
-  }, [currentGraphId, project, showGraphReferenceIndicators]);
+    return getGraphIdsReferencingGraph(liveProject, currentGraphId);
+  }, [currentGraphId, liveProject, showGraphReferenceIndicators]);
 
   return {
     reachability,
     referencingSelectedGraphIds,
   };
+}
+
+export function mergeGraphListCurrentGraphIntoProject(
+  project: GraphListProject,
+  currentGraph: NodeGraph | undefined,
+): GraphListProject {
+  const currentGraphId = currentGraph?.metadata?.id;
+  if (currentGraphId == null || project.graphs[currentGraphId] == null) {
+    return project;
+  }
+
+  return mergeCurrentGraphIntoProject(project, currentGraph);
 }
 
 export function getGraphListItemPath(item: NodeGraphFolderItem): string {
