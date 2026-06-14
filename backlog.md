@@ -1,4 +1,6 @@
 
+- Context values (in the project settings modal) are meant to be rememebered per project. But not in the project file. In the Rivet app. It used to work but it broke. Let's find the root cause and fix it. I want them to be remembered across the project openings and rivet app openings.
+
 - Node from rivet project. Should be compatible with rivet wrappers
 
 - Apply a style where there's a straight line and another line in parallel close to it, just like in the Rivet logo
