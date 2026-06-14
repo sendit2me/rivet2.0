@@ -6,12 +6,12 @@ import { isPathBasedIOProvider } from '../io/IOProvider.js';
 import { useIOProvider } from '../providers/ProvidersContext.js';
 import { useRivetAppHostCallbacks } from '../providers/HostCallbacksContext.js';
 import {
-  clearProjectContextState,
   loadedProjectState,
   openedProjectSnapshotsState,
   openedProjectsSortedIdsState,
   projectsState,
   projectState,
+  releaseProjectContextState,
 } from '../state/savedGraphs.js';
 import { handleError } from '../utils/errorHandling.js';
 import {
@@ -156,7 +156,7 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
             return nextSnapshots;
           });
           removeProjectExecutionSnapshot(currentProjectId);
-          clearProjectContextState(currentProjectId);
+          releaseProjectContextState(currentProjectId);
           clearCodeEditorModelCacheForClosedProject(currentProjectId);
         }
 
@@ -257,7 +257,7 @@ export function useRivetWorkspaceHost(): RivetWorkspaceHost {
       delete nextSnapshots[projectId];
       return nextSnapshots;
     });
-    clearProjectContextState(projectId);
+    releaseProjectContextState(projectId);
     clearCodeEditorModelCacheForClosedProject(projectId);
 
     return true;

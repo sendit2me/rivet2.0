@@ -9,6 +9,8 @@ import { useAtom, useAtomValue } from 'jotai';
 import { type FC, useMemo, useState } from 'react';
 import { useToggle } from 'ahooks';
 import { projectContextState, projectState } from '../state/savedGraphs.js';
+import { flushHybridStorageGroup } from '../state/storage.js';
+import { handleError } from '../utils/errorHandling.js';
 import { entries } from '../utils/typeSafety.js';
 import { AppModalHeader } from './AppModalHeader.js';
 import { FieldHelperMessage } from './FieldHelperMessage.js';
@@ -86,6 +88,12 @@ type ContextValue = {
   value: DataValue;
 };
 
+function persistProjectContextValues(): void {
+  void flushHybridStorageGroup('project').catch((error) => {
+    handleError(error, 'Failed to persist project context values', { toastError: false });
+  });
+}
+
 export const ProjectContextConfiguration: FC = () => {
   const project = useAtomValue(projectState);
   const [projectContext, setProjectContext] = useAtom(projectContextState(project.metadata.id));
@@ -110,6 +118,7 @@ export const ProjectContextConfiguration: FC = () => {
         };
       }),
     );
+    persistProjectContextValues();
     toggleProjectEditContextModalOpen.setLeft();
     setEditContextData(undefined);
   };
@@ -120,6 +129,7 @@ export const ProjectContextConfiguration: FC = () => {
         delete draft[key];
       }),
     );
+    persistProjectContextValues();
     toggleProjectEditContextModalOpen.setLeft();
     setEditContextData(undefined);
   };
