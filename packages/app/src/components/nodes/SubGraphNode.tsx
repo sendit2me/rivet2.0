@@ -1,5 +1,16 @@
 import { css } from '@emotion/react';
-import { type ChangeEvent, type FC, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type FC,
+  type KeyboardEvent,
+  type MouseEvent,
+  type WheelEvent as ReactWheelEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useAtomValue } from 'jotai';
 import { projectState } from '../../state/savedGraphs.js';
 import { type GraphId, type PortId, type SubGraphNode } from '@valerypopoff/rivet2-core';
@@ -51,19 +62,22 @@ const subGraphBodyCss = css`
   }
 
   .subgraph-node-body-select {
+    align-items: center;
     appearance: none;
-    background: color-mix(in srgb, var(--grey-darkish) 80%, transparent);
+    background: var(--node-body-bg);
     border: 1px solid color-mix(in srgb, var(--foreground-bright) 18%, transparent);
     border-radius: calc(5px * var(--ui-font-scale, 1));
     color: var(--foreground-bright);
     cursor: pointer;
+    display: flex;
     font: inherit;
-    height: calc(26px * var(--ui-font-scale, 1));
-    line-height: 1;
+    height: calc(30px * var(--ui-font-scale, 1));
+    line-height: 1.2;
     max-width: 100%;
     min-width: 0;
     overflow: hidden;
     padding: 0 calc(24px * var(--ui-font-scale, 1)) 0 calc(8px * var(--ui-font-scale, 1));
+    text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
     width: 100%;
@@ -79,9 +93,54 @@ const subGraphBodyCss = css`
     outline: none;
   }
 
-  .subgraph-node-body-select option {
-    background: var(--grey-dark);
+  .subgraph-node-body-select-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .subgraph-node-body-select-menu {
+    background: var(--node-body-bg);
+    border: 1px solid color-mix(in srgb, var(--foreground-bright) 20%, transparent);
+    border-radius: calc(6px * var(--ui-font-scale, 1));
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    left: 0;
+    max-height: calc(180px * var(--ui-font-scale, 1));
+    min-width: 100%;
+    overflow-y: auto;
+    padding: calc(3px * var(--ui-font-scale, 1));
+    position: absolute;
+    top: calc(100% + 4px);
+    z-index: 1000;
+  }
+
+  .subgraph-node-body-select-option {
+    appearance: none;
+    background: var(--node-body-bg);
+    border: none;
+    border-radius: calc(4px * var(--ui-font-scale, 1));
     color: var(--foreground-bright);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1.2;
+    max-width: 100%;
+    min-height: calc(24px * var(--ui-font-scale, 1));
+    overflow: hidden;
+    padding: calc(5px * var(--ui-font-scale, 1)) calc(7px * var(--ui-font-scale, 1));
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .subgraph-node-body-select-option:hover,
+  .subgraph-node-body-select-option:focus-visible,
+  .subgraph-node-body-select-option.selected {
+    background: color-mix(in srgb, var(--primary) 18%, var(--node-body-bg) 82%);
+    outline: none;
   }
 `;
 
@@ -97,8 +156,8 @@ export const SubGraphNodeBody: FC<{
   const project = useAtomValue(projectState);
   const editNode = useEditNodeCommand();
   const rootRef = useRef<HTMLDivElement>(null);
-  const selectRef = useRef<HTMLSelectElement>(null);
-  const [isSelectFocused, setIsSelectFocused] = useState(false);
+  const menuId = useId();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const graphOptions = useMemo(
     () =>
       getProjectGraphSelectorOptions(project.graphs, {
@@ -107,38 +166,55 @@ export const SubGraphNodeBody: FC<{
       }),
     [node.data.graphId, project.graphs],
   );
-  const selectValue = graphOptions.some((option) => option.value === node.data.graphId) ? node.data.graphId : '';
+  const selectedOption = graphOptions.find((option) => option.value === node.data.graphId);
+  const selectedLabel = selectedOption?.label ?? (graphOptions.length === 0 ? 'No graphs' : 'Select graph...');
+
+  const closeMenu = useCallback(() => setIsMenuOpen(false), []);
 
   useEffect(() => {
-    if (!isSelectFocused) {
+    if (!isMenuOpen) {
       return;
     }
 
     const handleDocumentPointerDown = (event: PointerEvent) => {
-      const selectElement = selectRef.current;
-
-      if (!selectElement || document.activeElement !== selectElement || !(event.target instanceof Node)) {
+      if (event.target instanceof Node && rootRef.current?.contains(event.target)) {
         return;
       }
 
-      const nodeElement = rootRef.current?.closest<HTMLElement>('.node');
+      closeMenu();
+    };
 
-      if (nodeElement?.contains(event.target)) {
+    const handleDocumentWheel = (event: WheelEvent) => {
+      if (event.target instanceof Node && rootRef.current?.contains(event.target)) {
         return;
       }
 
-      selectElement.blur();
+      closeMenu();
+    };
+
+    const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenu();
     };
 
     document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+    document.addEventListener('wheel', handleDocumentWheel, true);
+    document.addEventListener('keydown', handleDocumentKeyDown, true);
 
     return () => {
       document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+      document.removeEventListener('wheel', handleDocumentWheel, true);
+      document.removeEventListener('keydown', handleDocumentKeyDown, true);
     };
-  }, [isSelectFocused]);
+  }, [closeMenu, isMenuOpen]);
 
-  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const graphId = event.target.value as GraphId;
+  const handleSelectGraph = (graphId: GraphId) => {
+    setIsMenuOpen(false);
 
     if (!graphId || graphId === node.data.graphId) {
       return;
@@ -155,33 +231,77 @@ export const SubGraphNodeBody: FC<{
     });
   };
 
-  const handleSelectDoubleClick = (event: MouseEvent<HTMLSpanElement>) => {
+  const handleControlMouseDown = (event: MouseEvent<HTMLElement>) => {
     event.stopPropagation();
   };
 
+  const handleControlDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+  };
+
+  const handleControlKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      setIsMenuOpen(false);
+    }
+  };
+
+  const handleMenuWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+  };
+
+  const handleControlWheel = (event: ReactWheelEvent<HTMLButtonElement>) => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    event.stopPropagation();
+    setIsMenuOpen(false);
+  };
+
   return (
-    <div ref={rootRef} css={subGraphBodyCss}>
-      <span className="subgraph-node-body-select-wrap" onDoubleClick={handleSelectDoubleClick}>
-        <select
-          ref={selectRef}
+    <div ref={rootRef} css={subGraphBodyCss} onDoubleClick={handleControlDoubleClick}>
+      <div className="subgraph-node-body-select-wrap">
+        <button
+          aria-controls={isMenuOpen ? menuId : undefined}
           aria-label="Subgraph graph"
+          aria-expanded={isMenuOpen}
+          aria-haspopup="listbox"
           className="subgraph-node-body-select"
           disabled={graphOptions.length === 0}
-          onBlur={() => setIsSelectFocused(false)}
-          onChange={handleChange}
-          onFocus={() => setIsSelectFocused(true)}
-          value={selectValue}
+          onClick={() => setIsMenuOpen((open) => !open)}
+          onKeyDown={handleControlKeyDown}
+          onMouseDown={handleControlMouseDown}
+          onWheel={handleControlWheel}
+          type="button"
         >
-          <option value="" disabled>
-            {graphOptions.length === 0 ? 'No graphs' : 'Select graph...'}
-          </option>
-          {graphOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </span>
+          <span className="subgraph-node-body-select-label">{selectedLabel}</span>
+        </button>
+        {isMenuOpen && (
+          <div
+            id={menuId}
+            className="subgraph-node-body-select-menu"
+            role="listbox"
+            aria-label="Subgraph graph options"
+            onWheel={handleMenuWheel}
+          >
+            {graphOptions.map((option) => (
+              <button
+                key={option.value}
+                className={`subgraph-node-body-select-option${option.value === node.data.graphId ? ' selected' : ''}`}
+                onClick={() => handleSelectGraph(option.value)}
+                onMouseDown={handleControlMouseDown}
+                role="option"
+                aria-selected={option.value === node.data.graphId}
+                title={option.label}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
