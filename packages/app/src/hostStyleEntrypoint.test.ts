@@ -168,6 +168,28 @@ test('Bright theme asks native form controls to render light built-in widgets', 
   assert.match(colorsCss, /:root\.theme-bright,[\s\S]*--form-control-color-scheme: light;/);
 });
 
+test('theme color-scheme reaches app and portal scroll containers', () => {
+  const indexCss = readFileSync(join(srcDir, 'index.css'), 'utf8');
+  const hostCss = readFileSync(join(srcDir, 'host.css'), 'utf8');
+  const colorsCss = readFileSync(join(srcDir, 'colors.css'), 'utf8');
+
+  assert.match(colorsCss, /--scrollbar-track-bg: var\(--grey-dark-colorish\);/);
+  assert.match(colorsCss, /--scrollbar-thumb-bg: color-mix\(in srgb, var\(--foreground\) 28%, var\(--grey-dark-colorish\) 72%\);/);
+
+  for (const source of [indexCss, hostCss]) {
+    assert.match(
+      source,
+      /html,[\s\S]*body,[\s\S]*\.app,[\s\S]*\.atlaskit-portal,[\s\S]*\.atlaskit-portal-container\s*{[\s\S]*color-scheme: var\(--form-control-color-scheme\);/,
+    );
+    assert.match(
+      source,
+      /\.app,[\s\S]*\.app \*,[\s\S]*\.atlaskit-portal,[\s\S]*\.atlaskit-portal \*,[\s\S]*\.atlaskit-portal-container,[\s\S]*\.atlaskit-portal-container \*\s*{[\s\S]*scrollbar-color: var\(--scrollbar-thumb-bg\) var\(--scrollbar-track-bg\);/,
+    );
+    assert.match(source, /::-webkit-scrollbar-track[\s\S]*background-color: var\(--scrollbar-track-bg\);/);
+    assert.match(source, /::-webkit-scrollbar-corner[\s\S]*background-color: var\(--scrollbar-track-bg\);/);
+  }
+});
+
 test('app rounded surfaces keep squircle geometry with plain-radius fallback', () => {
   const indexCss = readFileSync(join(srcDir, 'index.css'), 'utf8');
   const nodeStyles = readFileSync(join(srcDir, 'components', 'nodeStyles.ts'), 'utf8');

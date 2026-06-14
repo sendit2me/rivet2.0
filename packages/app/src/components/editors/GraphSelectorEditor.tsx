@@ -3,11 +3,10 @@ import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { Field, HelperMessage } from '@atlaskit/form';
 import Select from '@atlaskit/select';
-import { orderBy, values } from 'lodash-es';
-import { nanoid } from 'nanoid/non-secure';
 import { useAtomValue } from 'jotai';
 import { projectState } from '../../state/savedGraphs';
 import { getHelperMessage } from './editorUtils';
+import { getProjectGraphSelectorOptions } from '../../utils/graphSelectorOptions';
 
 export const DefaultGraphSelectorEditor: FC<
   SharedEditorProps & {
@@ -63,14 +62,7 @@ export const GraphSelectorSelect: FC<{
   onChange?: (selected: GraphId) => void;
 }> = ({ value, isReadonly, onChange }) => {
   const project = useAtomValue(projectState);
-
-  const graphOptions = orderBy(
-    values(project.graphs).map((graph) => ({
-      label: graph.metadata?.name ?? graph.metadata?.id ?? 'Unknown Graph',
-      value: graph.metadata?.id ?? (nanoid() as GraphId),
-    })),
-    'label',
-  );
+  const graphOptions = getProjectGraphSelectorOptions(project.graphs);
 
   const selectedOption = graphOptions.find((option) => option.value === value);
 

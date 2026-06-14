@@ -22,7 +22,6 @@ export type GraphDependencyEdgeKind =
   | 'direct-static'
   | 'static-via-callgraph'
   | 'dynamic-via-callgraph'
-  | 'dynamic-name-match'
   | 'cross-project'
   | 'invalid';
 
@@ -128,9 +127,6 @@ export function getGraphReachabilityReport(
   const unsupportedReasons = new Set<GraphReachabilityUnsupportedReason>();
   const graphEntries = Object.entries(project.graphs) as Array<[GraphId, NodeGraph]>;
   const allGraphIds = graphEntries.map(([graphId]) => graphId);
-  const namedGraphIds = graphEntries
-    .filter(([, graph]) => graph.metadata?.name && graph.metadata.name.trim().length > 0)
-    .map(([graphId]) => graphId);
   const builtInPluginIds = new Set(options.builtInPluginIds ?? []);
 
   const definite = new Set<GraphId>();
@@ -207,7 +203,6 @@ export function getGraphReachabilityReport(
     const edges = collectGraphDependencyEdges({
       allGraphIds,
       graph,
-      namedGraphIds,
       project,
     });
 
@@ -260,7 +255,6 @@ export function getGraphIdsReferencingGraph(project: ProjectWithGraphs, targetGr
       allGraphIds,
       graph,
       includeDelegateFunctionCallEdges: false,
-      namedGraphIds: [],
       project,
     }).some((edge) => isReachableGraphDependencyEdge(edge) && edge.targets.includes(targetGraphId));
 
@@ -333,10 +327,9 @@ function collectGraphDependencyEdges(options: {
   allGraphIds: GraphId[];
   graph: NodeGraph;
   includeDelegateFunctionCallEdges?: boolean;
-  namedGraphIds: GraphId[];
   project: ProjectWithGraphs;
 }): GraphDependencyEdge[] {
-  const { allGraphIds, graph, includeDelegateFunctionCallEdges = true, namedGraphIds, project } = options;
+  const { allGraphIds, graph, includeDelegateFunctionCallEdges = true, project } = options;
   const nodesById = Object.fromEntries(graph.nodes.map((node) => [node.id, node])) as Record<NodeId, ChartNode>;
   const connectionsByInputNodeId = graph.connections.reduce((accumulator, connection) => {
     accumulator[connection.inputNodeId] ??= [];
@@ -374,17 +367,6 @@ function collectGraphDependencyEdges(options: {
     }
 
     edges.push({ kind, targets: [graphId] });
-  };
-
-  const addDynamicTargets = (
-    kind: Extract<GraphDependencyEdgeKind, 'dynamic-name-match' | 'dynamic-via-callgraph'>,
-    targets: GraphId[],
-  ) => {
-    if (targets.length === 0) {
-      return;
-    }
-
-    edges.push({ kind, targets });
   };
 
   for (const node of graph.nodes) {
@@ -431,24 +413,14 @@ function collectGraphDependencyEdges(options: {
         }
 
         const data = node.data as DelegateFunctionCallNodeData;
-        if (data.autoDelegate) {
-          addDynamicTargets('dynamic-name-match', namedGraphIds);
-          if (data.unknownHandler) {
+        if (!data.autoDelegate) {
+          for (const handler of data.handlers ?? []) {
             addStoredTarget('direct-static', {
-              graphId: data.unknownHandler,
-              description: 'delegate fallback graph',
+              graphId: handler.value,
+              description: `delegate handler graph for "${handler.key || 'unknown'}"`,
               node,
             });
           }
-          break;
-        }
-
-        for (const handler of data.handlers ?? []) {
-          addStoredTarget('direct-static', {
-            graphId: handler.value,
-            description: `delegate handler graph for "${handler.key || 'unknown'}"`,
-            node,
-          });
         }
 
         if (data.unknownHandler) {

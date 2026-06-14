@@ -15,6 +15,8 @@ The Subgraph Node allows you to execute another graph within the current graph. 
 
 The inputs and outputs of the Subgraph Node are defined by [Graph Input Nodes](./graph-input.mdx) and [Graph Output Nodes](./graph-output.mdx) within the subgraph. The Subgraph Node will automatically update its inputs and outputs to match those of the selected subgraph.
 
+You can choose the graph from the Subgraph node body directly on the canvas, or from the **Graph** setting in the node settings panel. Both controls edit the same Subgraph setting.
+
 ## Rearranging ports
 
 You can manually reorder a Subgraph node's visible graph input and graph output ports by right-clicking the Subgraph node and choosing **Rearrange inputs/outputs**. While draggable port labels have rounded backgrounds, drag a port label or row up and down; the other labels shift while you drag, so you can drop the port between existing ports. Click outside the node to exit rearrange mode. Drag the circular port handle when you want to create or rewire a connection. The saved order is specific to that Subgraph node instance; it does not rename ports, change connections, or change the keys in the subgraph output object. The optional `Error` output is not part of the subgraph boundary and stays after the graph outputs.
@@ -63,7 +65,7 @@ The Subgraph node output view can also show runtime metrics such as duration and
 
 | Setting          | Description                                                                                                                                                                                      | Default Value | Use Input Toggle | Input Data Type |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- | ---------------- | --------------- |
-| Graph            | The graph to execute when this node is ran. Must be a graph in the same project.                                                                                                                 | (required)    | No               | N/A             |
+| Graph            | The graph to execute when this node is ran. Must be a graph in the same project. This can be changed from the node body on the canvas or from this settings panel.                              | (required)    | No               | N/A             |
 | Use Error Output | If enabled, then the Subgraph node will not fail, but instead any error will appear in the `Error` output port of the node. If disabled, the entire Subgraph node will error if the call errors. | False         | No               | N/A             |
 
 </TabItem>

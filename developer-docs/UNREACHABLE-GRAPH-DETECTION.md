@@ -11,7 +11,7 @@ Current same-project execution reachability comes from a mix of:
 
 - direct graph executors with stored `GraphId` fields
 - dynamic graph dispatch through `Call Graph`
-- name-based runtime dispatch in `Delegate Tool Call`
+- explicit `Delegate Tool Call` handler/fallback graph IDs
 - bundled plugin nodes that store graph handlers (`openaiRunThread`)
 
 The main implementation seam added for this investigation is:
@@ -61,7 +61,7 @@ Important interpretation:
 | `LoopUntilNode` | Executor | `direct-static` | Yes | No | No | Stored `data.targetGraph` |
 | `CronNode` | Executor | `direct-static` | Yes | UI suggests dynamic, runtime is static today | No | `useTargetGraphInput` exists, but `process()` still uses stored `targetGraph` |
 | `DelegateFunctionCallNode` manual handlers | Executor | `direct-static` | Yes | Handler chosen at runtime from a static set | No | `handlers[]` and `unknownHandler` are stored graph IDs |
-| `DelegateFunctionCallNode` auto delegate | Executor | `dynamic-name-match` | No | Picks graphs by `graph.metadata.name.includes(functionCall.name)` | No | Any named graph can become reachable |
+| `DelegateFunctionCallNode` auto delegate | Runtime name match | excluded from graph-list reachability | No | Picks graphs by `graph.metadata.name.includes(functionCall.name)` | No | Ignored by unreachable-graph detection because treating every named graph as reachable makes the graph-tree tags unusable |
 | `CallGraphNode` + static immediate `GraphReferenceNode` | Executor | `static-via-callgraph` | Yes | No | No | Only the immediate static `GraphReferenceNode` case is treated as statically provable |
 | `CallGraphNode` + any other input provenance | Executor | `dynamic-via-callgraph` | No | Graph identity resolved at runtime | No | Includes dynamic `GraphReferenceNode`, generic object producers, code, and all nontrivial upstream chains |
 | `GraphReferenceNode` | Reference carrier | none by itself | N/A | Can become dynamic when input-enabled | No | Merely producing a reference does not imply execution |
@@ -164,7 +164,10 @@ When the graph-list feature is implemented, use:
 - `dynamically reachable`: ambiguous styling / badge / tooltip, not "unreachable"
 - `unreachable`: the only bucket that should be visually marked with the muted lowercase `unreachable` badge
 
-That preserves the three-bucket model without collapsing runtime-only dispatch into a false negative.
+That preserves the three-bucket model without collapsing dynamic `Call Graph` dispatch into a false negative.
+`Delegate Tool Call` auto-delegate name matching is the exception: graph-list reachability intentionally ignores it because
+one auto-delegate node would otherwise make every named graph look reachable. Stored delegate handler and fallback graph IDs
+still count as definite edges.
 
 The graph list also uses the same dependency-edge collector in reverse for local context: when a graph is open,
 every other graph with a supported same-project dependency edge to the open graph gets a small active-color dot beside

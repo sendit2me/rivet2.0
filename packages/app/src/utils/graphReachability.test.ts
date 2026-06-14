@@ -227,7 +227,7 @@ describe('graphReachability', () => {
     assert.match(report.warnings.join('\n'), /wired from missing node missing-ref/i);
   });
 
-  test('treats manual handler graphs as definite and auto-delegation by name as dynamic', () => {
+  test('treats delegate handler graphs as definite without marking auto-delegate name matches reachable', () => {
     const delegateManual = makeNode('delegateFunctionCall', {
       autoDelegate: false,
       handlers: [{ key: 'weather', value: 'handler-a' as GraphId }],
@@ -247,7 +247,25 @@ describe('graphReachability', () => {
     const report = getGraphReachabilityReport(makeProject([main, handlerA, handlerB, fallback, named], 'main'));
 
     assert.deepEqual(sortGraphIds(report.definite), ['fallback', 'handler-a', 'handler-b', 'main']);
-    assert.deepEqual(sortGraphIds(report.dynamic), ['named']);
+    assert.deepEqual(sortGraphIds(report.dynamic), []);
+    assert.deepEqual(sortGraphIds(report.unreachable), ['named']);
+  });
+
+  test('does not let auto-delegate-only nodes make named graphs reachable', () => {
+    const delegateAuto = makeNode('delegateFunctionCall', {
+      autoDelegate: true,
+      handlers: [],
+      unknownHandler: undefined,
+    });
+    const main = makeGraph('main', 'Main', [delegateAuto]);
+    const matchingName = makeGraph('matching-name', 'weather');
+    const otherNamed = makeGraph('other-named', 'Other Named Graph');
+
+    const report = getGraphReachabilityReport(makeProject([main, matchingName, otherNamed], 'main'));
+
+    assert.deepEqual(sortGraphIds(report.definite), ['main']);
+    assert.deepEqual(sortGraphIds(report.dynamic), []);
+    assert.deepEqual(sortGraphIds(report.unreachable), ['matching-name', 'other-named']);
   });
 
   test('includes bundled Run Thread graph hooks as definite', () => {

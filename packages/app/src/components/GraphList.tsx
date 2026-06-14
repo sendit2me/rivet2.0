@@ -760,6 +760,7 @@ export const GraphList: FC = memo(() => {
   });
 
   const { reachability: graphListReachability, referencingSelectedGraphIds } = useGraphListPresentation({
+    currentGraph: graph,
     currentGraphId: graph.metadata?.id,
     plugins,
     project,

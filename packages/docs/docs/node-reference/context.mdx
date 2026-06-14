@@ -15,7 +15,7 @@ Context values are shared run inputs that are accessible in any graph, whether t
 
 This is useful for values that should be available everywhere without threading them through Graph Input nodes, such as current-date values, tenant IDs, environment-specific configuration, or API keys.
 
-In the desktop app, context values are edited in the Project tab under **Context**. They are stored by the Rivet app for that project ID, not written into the `.rivet-project` file.
+In the desktop app, context values are edited in Project settings under **Context values**. They are stored by the Rivet app for that project ID, not written into the `.rivet-project` file. They stay available when you close and reopen the same project, and after restarting the Rivet app on the same machine.
 
 In code, context values are passed with the `contextValues` / `context` run option. `@valerypopoff/rivet2-node` accepts loose primitive values and converts them into Rivet `DataValue` objects:
 
