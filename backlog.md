@@ -1,4 +1,4 @@
-- Node from rivet project. Should be compatible with rivet wrappers
+- Node from rivet project. Should be compatible with rivet wrappers. Isn't "Project References" the same thing?
 
 - Apply a style where there's a straight line and another line in parallel close to it, just like in the Rivet logo
 
