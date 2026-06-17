@@ -36,11 +36,13 @@ named **connection bundle** selectable per node.
 - **`packages/core/src/model/ProcessContext.ts`** (L62–68) — `getChatNodeEndpoint(endpoint,
   model) → { endpoint, headers }` runtime hook (used to remap endpoint / inject
   headers). Leave it intact; profiles layer *above* it.
-- **`packages/core/src/api/createProcessor.ts`** — **[MV]** in rivet2.0 this file does
-  **not** reference `openAiKey`/`openAiEndpoint` field-by-field (unlike the Ironclad
-  baseline), so `Settings` likely flows as a whole object and new fields may propagate
-  automatically. **Confirm how `Settings` reaches the processor before adding any
-  thread-through.**
+- **`packages/core/src/api/processSettings.ts`** — the real thread-through site
+  (**confirmed**, see §7 and VERIFIED-FINDINGS §F). `createProcessor.ts` itself never names
+  the model fields, but it builds settings via `resolveProcessSettings(options)`, which
+  rebuilds a `Required<Settings>` from an explicit field allowlist (no `...settings` spread).
+  So new fields do **not** propagate automatically; the `Required<Settings>` return type
+  forces a one-line addition there (`llmProfiles: settings.llmProfiles ?? []`). The earlier
+  "`Settings` may flow as a whole object" guess was disproven during 001.
 
 > Line numbers verified against rivet2.0 @ `4820fcbc` (2026-06-17) — see
 > `../../VERIFIED-FINDINGS.md`. Confirm by reading; re-note if the file moved.
