@@ -19,5 +19,6 @@ export function resolveProcessSettings(
     chatNodeHeaders: settings.chatNodeHeaders ?? {},
     chatNodeTimeout: settings.chatNodeTimeout ?? DEFAULT_CHAT_NODE_TIMEOUT,
     throttleChatNode: settings.throttleChatNode ?? 100,
+    llmProfiles: settings.llmProfiles ?? [],
   };
 }
