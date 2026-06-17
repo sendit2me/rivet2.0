@@ -24,6 +24,39 @@ export interface LlmProfile {
   defaultModel?: string;
 }
 
+/**
+ * A reusable, named *behavior* bundle (the "Skill" axis), composable onto any
+ * {@link LlmProfile}. Where a Profile owns the connection, a Skill owns behavior: a
+ * pre-prompt plus sampling / effort / format overrides. Default is No-Skill (passthrough),
+ * which is byte-identical to base behavior.
+ *
+ * Pure behavior — **no selection metadata**. A Skill does not carry `isDefault` or a
+ * `preferredProfileId`; default-selection and Profile×Skill bundling live at the Preset
+ * layer (Feature 003). Each field is optional; an omitted field inherits the lower layer
+ * (the node's value / its default). See SPEC 002 §4 for the precedence and "node-set" rule.
+ */
+export interface LlmSkill {
+  /** Stable unique id, referenced by nodes via `llmSkillId`. */
+  id: string;
+  /** Human label (for UI / presets). */
+  name: string;
+  /** Optional parent skill id to inherit from (single-axis inheritance; cycle-guarded). */
+  extends?: string;
+
+  /** Prepended into the message array at run time as a system message (the "pre-prompt"). */
+  systemPrompt?: string;
+
+  // Behavior / sampling overrides (all optional; omitted = inherit the node's value/default).
+  temperature?: number;
+  top_p?: number;
+  useTopP?: boolean;
+  maxTokens?: number;
+  reasoningEffort?: '' | 'low' | 'medium' | 'high';
+  toolChoice?: 'none' | 'auto' | 'function';
+  responseFormat?: '' | 'text' | 'json' | 'json_schema';
+  stop?: string;
+}
+
 export interface Settings<PluginSettings = Record<string, Record<string, unknown>>> {
   recordingPlaybackLatency?: number;
 
@@ -55,4 +88,7 @@ export interface Settings<PluginSettings = Record<string, Record<string, unknown
 
   /** Reusable connection bundles selectable per node. See {@link LlmProfile}. */
   llmProfiles?: LlmProfile[];
+
+  /** Reusable behavior bundles selectable per node. See {@link LlmSkill}. */
+  llmSkills?: LlmSkill[];
 }

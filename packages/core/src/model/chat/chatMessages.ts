@@ -51,6 +51,32 @@ export function coercePromptToChatMessages(prompt: unknown, options: { requirePr
   return coercedString != null ? [{ type: 'user', message: coerceType(value, 'string') }] : [];
 }
 
+/**
+ * Inject a Skill's `systemPrompt` as a leading system message (the "pre-prompt"), per
+ * SPEC 002 §5. Composed order is **skill system → the node's own system message → user turns**:
+ * the skill frames the role, the node's existing system text refines it.
+ *
+ * Idempotent / loop-safe: any prior copy of *this exact* skill prompt is removed before
+ * re-inserting it once at the front, so feedback loops (ChatLoop wiring `all-messages` back
+ * into `prompt`) never accumulate duplicates. De-dupe is by exact text, so a legitimately
+ * *different* node system message is preserved, never collapsed.
+ *
+ * The returned messages carry `type: 'system'`; the OpenAI role (`system` vs `developer`) is
+ * applied downstream by `chatMessageToOpenAIChatCompletionMessage`, so `systemPromptMode` is
+ * honored automatically. Empty/blank skill prompt → passthrough (returns the input array).
+ */
+export function prependSkillSystemPrompt(messages: ChatMessage[], skillSystemPrompt: string | undefined): ChatMessage[] {
+  if (!skillSystemPrompt) {
+    return messages;
+  }
+
+  const withoutPriorInjection = messages.filter(
+    (message) => !(message.type === 'system' && message.message === skillSystemPrompt),
+  );
+
+  return [{ type: 'system', message: skillSystemPrompt }, ...withoutPriorInjection];
+}
+
 export function prependSystemPrompt(messages: ChatMessage[], systemPrompt: unknown): ChatMessage[] {
   if (!systemPrompt) {
     return messages;

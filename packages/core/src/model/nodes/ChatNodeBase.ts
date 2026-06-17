@@ -20,6 +20,7 @@ import type { InternalProcessContext } from '../ProcessContext.js';
 import { chatMessageToOpenAIChatCompletionMessage } from '../../utils/chatMessageToOpenAIChatCompletionMessage.js';
 import { DEFAULT_CHAT_ENDPOINT } from '../../utils/defaults.js';
 import { resolveChatNodeConnection, resolveProfile } from '../LlmProfileResolution.js';
+import { applySkillParams, resolveSkill } from '../LlmSkillResolution.js';
 import type { TokenizerCallInfo } from '../../integrations/Tokenizer.js';
 import retry from 'p-retry';
 import {
@@ -31,7 +32,7 @@ import {
   resolveOpenAIResponseFormat,
   resolvePredictionObject,
 } from '../chat/openAIChatRequest.js';
-import { coercePromptToChatMessages, prependSystemPrompt } from '../chat/chatMessages.js';
+import { coercePromptToChatMessages, prependSkillSystemPrompt, prependSystemPrompt } from '../chat/chatMessages.js';
 import { clampMaxTokensToModelLimit } from '../chat/tokenBudget.js';
 import {
   applyOpenAINonStreamingResponse,
@@ -54,6 +55,8 @@ export type ChatNodeConfigData = {
   endpoint?: string;
   /** Id of the LLM Profile to use. Empty/undefined = global-settings behavior (backward compatible). */
   llmProfileId?: string;
+  /** Id of the Skill (behavior bundle) to apply. Empty/undefined = No-Skill (passthrough). */
+  llmSkillId?: string;
   overrideModel?: string;
   overrideMaxTokens?: number;
   headers?: { key: string; value: string }[];
@@ -768,6 +771,13 @@ export const ChatNodeBase = {
           },
           {
             type: 'string',
+            label: 'Skill ID',
+            dataKey: 'llmSkillId',
+            helperMessage:
+              'Id of a Skill (from settings.llmSkills) supplying a system pre-prompt and behavior params (temperature, reasoning effort, response format, …). Leave blank for No-Skill (passthrough). A Skill only fills fields the node left at its default; any value you set on the node wins.',
+          },
+          {
+            type: 'string',
             label: 'Custom Model',
             dataKey: 'overrideModel',
             helperMessage: 'Overrides the model selected above with a custom string for the model.',
@@ -879,17 +889,28 @@ export const ChatNodeBase = {
   ): Promise<Outputs> => {
     const output: Outputs = {};
 
+    // Resolve the selected Skill (behavior bundle). Empty/unknown id => {} => No-Skill passthrough.
+    const skill = resolveSkill(context.settings, data.llmSkillId, context.trace);
+    // Option C precedence (SPEC 002 §4): fold the skill's behavior params into a copy of `data`
+    // ONLY for fields the node left at its default. Reads below go through `params`, so an
+    // input-port-wired value still wins (getInputOrData short-circuits to the input first), and
+    // any value the user changed on the node wins (it differs from the default). `data` itself is
+    // untouched, so non-param logic (model, headers, function use, …) is unaffected.
+    const params = applySkillParams(data, ChatNodeBase.defaultData(), skill);
+
     const model = getInputOrData(data, inputs, 'model');
-    const temperature = getInputOrData(data, inputs, 'temperature', 'number');
+    const temperature = getInputOrData(params, inputs, 'temperature', 'number');
 
-    const topP = data.useTopPInput ? coerceTypeOptional(inputs['top_p' as PortId], 'number') ?? data.top_p : data.top_p;
+    const topP = data.useTopPInput
+      ? coerceTypeOptional(inputs['top_p' as PortId], 'number') ?? params.top_p
+      : params.top_p;
 
-    const useTopP = getInputOrData(data, inputs, 'useTopP', 'boolean');
+    const useTopP = getInputOrData(params, inputs, 'useTopP', 'boolean');
     const stop = data.useStopInput
       ? data.useStop
-        ? coerceTypeOptional(inputs['stop' as PortId], 'string') ?? data.stop
+        ? coerceTypeOptional(inputs['stop' as PortId], 'string') ?? params.stop
         : undefined
-      : data.stop;
+      : params.stop;
 
     const presencePenalty = getInputOrData(data, inputs, 'presencePenalty', 'number');
     const frequencyPenalty = getInputOrData(data, inputs, 'frequencyPenalty', 'number');
@@ -898,8 +919,8 @@ export const ChatNodeBase = {
     const overrideModel = getInputOrData(data, inputs, 'overrideModel');
     const seed = getInputOrData(data, inputs, 'seed', 'number');
     const parallelFunctionCalling = getInputOrData(data, inputs, 'parallelFunctionCalling', 'boolean');
-    const toolChoice = resolveChatToolChoice(data, inputs);
-    const openaiResponseFormat = resolveOpenAIResponseFormat(data, inputs);
+    const toolChoice = resolveChatToolChoice(params, inputs);
+    const openaiResponseFormat = resolveOpenAIResponseFormat(params, inputs);
     const additionalHeaders = resolveAdditionalHeaders(data, inputs);
     const additionalParameters = resolveAdditionalParameters(data, inputs);
 
@@ -924,7 +945,10 @@ export const ChatNodeBase = {
     const functions = coerceTypeOptional(inputs['functions' as PortId], 'gpt-function[]');
     const tools = resolveChatTools(inputs);
 
-    const { messages } = getChatNodeMessages(inputs);
+    // Assemble messages from inputs (fresh each run), then inject the Skill's system pre-prompt
+    // once at the front (idempotent under loop feedback). No-Skill / blank prompt => unchanged.
+    const { messages: assembledMessages } = getChatNodeMessages(inputs);
+    const messages = prependSkillSystemPrompt(assembledMessages, skill.systemPrompt);
 
     const isModernModel =
       finalModel.startsWith('o1') ||
@@ -950,7 +974,7 @@ export const ChatNodeBase = {
       messages.map((message) => chatMessageToOpenAIChatCompletionMessage(message, { useDeveloperPrompts })),
     );
 
-    let { maxTokens } = data;
+    let { maxTokens } = params;
 
     const openaiModel = {
       ...(openaiModels[finalModel as keyof typeof openaiModels] ?? {
@@ -1005,7 +1029,7 @@ export const ChatNodeBase = {
     const predictionObject = resolvePredictionObject(data, inputs);
     const { modalities, audio } = resolveAudioAndModalities(data, inputs);
 
-    const reasoningEffort = getInputOrData(data, inputs, 'reasoningEffort') as '' | 'low' | 'medium' | 'high';
+    const reasoningEffort = getInputOrData(params, inputs, 'reasoningEffort') as '' | 'low' | 'medium' | 'high';
 
     const supported =
       (openaiModels[finalModel as keyof typeof openaiModels] as OpenAIModel | undefined)?.supported ??
