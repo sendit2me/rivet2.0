@@ -19,6 +19,7 @@ import { cleanHeaders, getInputOrData } from '../../utils/inputs.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { chatMessageToOpenAIChatCompletionMessage } from '../../utils/chatMessageToOpenAIChatCompletionMessage.js';
 import { DEFAULT_CHAT_ENDPOINT } from '../../utils/defaults.js';
+import { resolveChatNodeConnection, resolveProfile } from '../LlmProfileResolution.js';
 import type { TokenizerCallInfo } from '../../integrations/Tokenizer.js';
 import retry from 'p-retry';
 import {
@@ -51,6 +52,8 @@ export type ChatNodeConfigData = {
   user?: string;
   numberOfChoices?: number;
   endpoint?: string;
+  /** Id of the LLM Profile to use. Empty/undefined = global-settings behavior (backward compatible). */
+  llmProfileId?: string;
   overrideModel?: string;
   overrideMaxTokens?: number;
   headers?: { key: string; value: string }[];
@@ -758,6 +761,13 @@ export const ChatNodeBase = {
           },
           {
             type: 'string',
+            label: 'LLM Profile ID',
+            dataKey: 'llmProfileId',
+            helperMessage:
+              'Id of an LLM Profile (from settings.llmProfiles) supplying endpoint, API key, organization, headers, and default model. Leave blank to use the global settings (default). Node-level fields above still take precedence over the profile.',
+          },
+          {
+            type: 'string',
             label: 'Custom Model',
             dataKey: 'overrideModel',
             helperMessage: 'Overrides the model selected above with a custom string for the model.',
@@ -893,8 +903,23 @@ export const ChatNodeBase = {
     const additionalHeaders = resolveAdditionalHeaders(data, inputs);
     const additionalParameters = resolveAdditionalParameters(data, inputs);
 
-    // If using a model input, that's priority, otherwise override > main
-    const finalModel = data.useModelInput && inputs['model' as PortId] != null ? model : overrideModel || model;
+    // Resolve the selected LLM Profile (connection bundle). Empty/unknown id => {} => global fallback,
+    // which keeps no-profile behavior byte-identical to base Rivet.
+    const profile = resolveProfile(context.settings, data.llmProfileId, context.trace);
+
+    // If using a model input, that's priority, otherwise override > main.
+    const nodeModel = data.useModelInput && inputs['model' as PortId] != null ? model : overrideModel || model;
+
+    // Apply precedence Node > Profile > Global for endpoint / key / org / model / headers. Resolved here
+    // (above the getChatNodeEndpoint hook) so the hook and any load-balancing logic see the final model
+    // and endpoint. The hook's endpoint/headers are layered on top afterwards.
+    const connection = resolveChatNodeConnection({
+      profile,
+      global: context.settings,
+      node: { endpoint, model: nodeModel, headers: additionalHeaders },
+      defaultEndpoint: DEFAULT_CHAT_ENDPOINT,
+    });
+    const finalModel = connection.model;
 
     const functions = coerceTypeOptional(inputs['functions' as PortId], 'gpt-function[]');
     const tools = resolveChatTools(inputs);
@@ -944,8 +969,8 @@ export const ChatNodeBase = {
 
     const isMultiResponse = data.useNumberOfChoicesInput || (data.numberOfChoices ?? 1) > 1;
 
-    // Resolve to final endpoint if configured in ProcessContext
-    const configuredEndpoint = endpoint || context.settings.openAiEndpoint || DEFAULT_CHAT_ENDPOINT;
+    // Resolve to final endpoint if configured in ProcessContext (precedence already applied above).
+    const configuredEndpoint = connection.endpoint;
     const resolvedEndpointAndHeaders = context.getChatNodeEndpoint
       ? await context.getChatNodeEndpoint(configuredEndpoint, finalModel)
       : {
@@ -953,11 +978,15 @@ export const ChatNodeBase = {
           headers: {},
         };
 
+    // Header precedence, lowest -> highest: global+profile+node (from connection) then the runtime hook.
     const allAdditionalHeaders = cleanHeaders({
-      ...context.settings.chatNodeHeaders,
-      ...additionalHeaders,
+      ...connection.headers,
       ...resolvedEndpointAndHeaders.headers,
     });
+
+    // Credential precedence Profile > Global (an empty string is a valid keyless value).
+    const effectiveApiKey = connection.apiKey;
+    const effectiveOrganization = connection.organization;
 
     let inputTokenCount: number = 0;
 
@@ -1031,8 +1060,8 @@ export const ChatNodeBase = {
           if (isO1Beta || audio) {
             const response = await chatCompletions({
               auth: {
-                apiKey: context.settings.openAiKey ?? '',
-                organization: context.settings.openAiOrganization,
+                apiKey: effectiveApiKey,
+                organization: effectiveOrganization,
               },
               headers: allAdditionalHeaders,
               signal: context.signal,
@@ -1064,8 +1093,8 @@ export const ChatNodeBase = {
 
           const chunks = streamChatCompletions({
             auth: {
-              apiKey: context.settings.openAiKey ?? '',
-              organization: context.settings.openAiOrganization,
+              apiKey: effectiveApiKey,
+              organization: effectiveOrganization,
             },
             headers: allAdditionalHeaders,
             signal: context.signal,
