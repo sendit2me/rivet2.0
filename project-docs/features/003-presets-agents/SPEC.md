@@ -33,18 +33,26 @@ export interface LlmPreset {
   isDefault?: boolean;              // the default radio selection
 }
 
-/** Whitelisted overridable fields (endpoint/model/sampling/etc.). Keep explicit;
- *  do not allow overriding arbitrary node internals. */
+/** Whitelisted overridable fields: the FULL union of LlmProfile's value fields and
+ *  LlmSkill's value fields. Keep explicit; do not allow overriding node internals. */
 export interface LlmPresetOverrides {
+  // Connection (from LlmProfile)
   endpoint?: string;
-  defaultModel?: string;
   apiKey?: string;
   organization?: string;
   headers?: Record<string, string>;
-  temperature?: number;
-  reasoningEffort?: '' | 'low' | 'medium' | 'high';
-  responseFormat?: '' | 'text' | 'json' | 'json_schema';
+  defaultModel?: string;
+
+  // Behavior (from LlmSkill)
   systemPrompt?: string;
+  temperature?: number;
+  top_p?: number;
+  useTopP?: boolean;
+  maxTokens?: number;
+  reasoningEffort?: '' | 'low' | 'medium' | 'high';
+  toolChoice?: 'none' | 'auto' | 'function';
+  responseFormat?: '' | 'text' | 'json' | 'json_schema';
+  stop?: string;
 }
 
 export interface Settings {
@@ -125,10 +133,10 @@ directly on the node (`Node > Preset`). So `node.llmProfileId = PB` + preset ove
   `llmPresetId`.
 - **Phase 2 (the actual goal):** in `packages/app`, a **dropdown** listing presets
   by `name`, with the `isDefault` preset pre-selected (the "default radio" UX), plus
-  a Presets management panel. New nodes inherit the default preset when
-  `useDefaultLlmPreset` is on.
-- For the headless workflow, default selection is expressed via `isDefault` +
-  `useDefaultLlmPreset` in the seeded `Settings`; no UI required.
+  a Presets management panel.
+- For the headless workflow, default selection is expressed via `isDefault` alone in
+  the seeded `Settings` (no toggle — see §2); a default preset applies to a node that
+  selects nothing (all-or-nothing). No UI required.
 
 ## 6. Edge cases
 
@@ -137,7 +145,7 @@ directly on the node (`Node > Preset`). So `node.llmProfileId = PB` + preset ove
 2. `overrides` sets a field the Skill also set → **Preset override wins** (per §3).
 3. Node field set + Preset override set → **node wins** (per §3).
 4. Multiple presets flagged `isDefault` → first one wins; `trace` a warning.
-5. `useDefaultLlmPreset` false + no selection → global (backward compatible).
+5. No `isDefault` preset defined + no selection → global (backward compatible).
 
 ## 7. Testing requirements
 
@@ -166,7 +174,10 @@ directly on the node (`Node > Preset`). So `node.llmProfileId = PB` + preset ove
 - `packages/core/src/model/Settings.ts`
 - `packages/core/src/model/LlmPresetResolution.ts` — **new**
 - `packages/core/src/model/nodes/ChatNodeBase.ts` — data field, editor, merge
-- `packages/core/src/api/createProcessor.ts` — thread-through **only if needed**
-  (see VERIFIED-FINDINGS §F / `[MV]`: rivet2.0 may pass `Settings` wholesale)
+- `packages/core/src/api/processSettings.ts` — thread-through (`llmPresets: settings.llmPresets ?? []`).
+  This is the real site: `resolveProcessSettings` rebuilds a `Required<Settings>` from an explicit
+  allowlist, so the field is mandatory there (resolved in Feature 001 — VERIFIED-FINDINGS §F);
+  `createProcessor.ts` needs no edit.
+- `packages/core/src/exports.ts` — export the new helper.
 - (Phase 2) `packages/app/...` — dropdown + presets panel
 - tests + headless harness
