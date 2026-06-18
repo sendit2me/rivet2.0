@@ -238,6 +238,39 @@ Verified on `feature/005-model-config-ui` (off 001–004). Confirms SPEC 005 §2
 - **[C2] Pre-existing duplicate** — the `EditorDefinition` union lists `GraphSelectorEditorDefinition`
   twice (`EditorDefinition.ts` ~L262 & ~L264). Harmless; left as-is (minimal blast radius).
 
+### J.1 Feature 005 Phase B anchors — project-scoped model-config authoring  *(verified 2026-06-18, implemented)*
+
+- **[C2] Project-scoped authoring home = the "Project settings" modal.** Opened from
+  `components/GraphList.tsx:935` (label "Project settings") → `ProjectInfoModal` → `ProjectInfoPanel`
+  (`components/ProjectInfoModal.tsx:206`), which hosts the project-scoped panels: `ProjectMCPConfiguration`,
+  `ProjectReferencesConfiguration`, and foldable `ProjectPluginsConfiguration` / `ProjectContextConfiguration`
+  via `ProjectInfoFoldableSection` (`:429`). Phase B adds a `ProjectInfoFoldableSection sectionKey="model-config"`
+  hosting the new `ProjectModelConfigConfiguration`.
+- **[C2] CRUD precedent = `ProjectReferencesConfiguration.tsx`** — `const [project, setProject] = useAtom(projectState)`
+  (`:28`), and writes via `setProject(prev => ({ ...prev, references: [...] }))` (`:62-67`). The model-config panel
+  mirrors this over `project.modelConfig.{profiles,skills,presets}`.
+- **[C2] `projectState` carries `modelConfig`** — `state/savedGraphs.ts:29`
+  `atomWithStorage<Omit<Project,'data'>>('projectState', …)`; it's `Omit<Project,'data'>` so the 006 `modelConfig`
+  field rides along.
+- **[C2] Project edits need an explicit flush.** The 'project' hybrid storage group is debounced —
+  `ProjectContextConfiguration.tsx` calls `flushHybridStorageGroup('project')` after each edit
+  (`:12` import, `:91-92`), pinned by its test. The model-config panel does the same (corrects SPEC Phase B's
+  "persistence is automatic"). Authored entities then serialize into the project file via 006.
+- **[C2] Selector re-point is one spot.** `getLlmSelectorOptions(items, …)` (`utils/llmSelectorOptions.ts`) is
+  source-agnostic. Phase B routes the three renderers in `components/editors/LlmSelectorEditors.tsx` through a single
+  helper `utils/projectModelConfig.ts → getEditorModelConfig(project)` reading `projectState` (was `settingsState`).
+  When the global library lands, `getEditorModelConfig` becomes `merge(project, global)` project-first — one change,
+  not three. `LlmSelectorField` is now **exported** for reuse in the preset form.
+- **[C2] Forms are presentational/store-decoupled** (`components/modelConfig/Llm{Profile,Skill,Preset}Form.tsx`):
+  `value` in / `onChange` out, no store imports/hooks — so the deferred global-library panel reuses them verbatim.
+  `extraBody` (Skill) and `overrides` (Preset) object editors are deferred to Phase C (drop-in fields, no restructure).
+- **[C2] Field primitives** — `@atlaskit/textfield`, `@atlaskit/textarea`, `@atlaskit/select`, `@atlaskit/toggle`,
+  and `KeyValuePairs` (`components/editors/KeyValuePairEditor.tsx`, for profile headers) are all available/used.
+- **[C2] Validation** — app `tsc` + `vite build` green; app suite 1127 / core 700 green incl. the updated selector
+  contract test and the new `ProjectModelConfigConfiguration.test.ts` (asserts: authors into `projectState`, writes
+  `Project.modelConfig`, flushes 'project', forms store-free, generic profile fields, Phase C deferrals). Playwright
+  E2E flagged post-merge.
+
 ## K. Feature 006 anchors — project-embedded model-config / portability  *(verified 2026-06-18, implemented)*
 
 > Verified against the working tree on `feature/006-project-embedded-model-config` (off `main` —

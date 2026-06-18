@@ -5,16 +5,20 @@ import test from 'node:test';
 const source = readFileSync(new URL('./LlmSelectorEditors.tsx', import.meta.url), 'utf8');
 const dispatchSource = readFileSync(new URL('./DefaultNodeEditorField.tsx', import.meta.url), 'utf8');
 
-test('llm selectors build options via the shared helper and read settingsState', () => {
+test('llm selectors build options via the shared helper and read the project model-config', () => {
   assert.match(source, /import \{ getLlmSelectorOptions.* \} from '\.\.\/\.\.\/utils\/llmSelectorOptions';/);
   assert.match(source, /getLlmSelectorOptions\(items, \{ selectedId: value \}\)/);
-  assert.match(source, /import \{ settingsState \} from '\.\.\/\.\.\/state\/settings';/);
-  // Each selector reads the relevant Settings array via the Feature 006 `modelConfig` path
-  // (the merged project+global set at runtime).
-  assert.match(source, /settings\.modelConfig\?\.profiles \?\? \[\]/);
-  assert.match(source, /settings\.modelConfig\?\.skills \?\? \[\]/);
-  assert.match(source, /settings\.modelConfig\?\.presets \?\? \[\]/);
-  // No hardcoded domain knowledge — options come from Settings, not a baked-in list.
+  // Phase B: the source is the PROJECT's model-config (what travels/runs), via the one-spot helper —
+  // not the global settings atom. Routing through getEditorModelConfig keeps the future global-merge
+  // a single change here, not a re-edit of the three renderers.
+  assert.match(source, /import \{ projectState \} from '\.\.\/\.\.\/state\/savedGraphs';/);
+  assert.match(source, /import \{ getEditorModelConfig \} from '\.\.\/\.\.\/utils\/projectModelConfig';/);
+  assert.match(source, /getEditorModelConfig\(project\)\.profiles/);
+  assert.match(source, /getEditorModelConfig\(project\)\.skills/);
+  assert.match(source, /getEditorModelConfig\(project\)\.presets/);
+  // The shared field is exported so the Phase B preset editor reuses the exact same picker.
+  assert.match(source, /export const LlmSelectorField/);
+  // No hardcoded domain knowledge — options come from the project config, not a baked-in list.
   assert.doesNotMatch(source, /nanoid/);
 });
 

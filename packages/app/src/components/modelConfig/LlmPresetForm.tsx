@@ -1,0 +1,74 @@
+import { type FC } from 'react';
+import { Field } from '@atlaskit/form';
+import TextField from '@atlaskit/textfield';
+import Toggle from '@atlaskit/toggle';
+import { type LlmPreset, type LlmProfile, type LlmSkill } from '@valerypopoff/rivet2-core';
+import { LlmSelectorField } from '../editors/LlmSelectorEditors.js';
+import { modelConfigFormStyles } from './modelConfigFormStyles.js';
+
+/**
+ * Presentational editor for one **Preset** (a one-pick Profile + Skill bundle — the friendly
+ * "agent" entry, and the path the multi-agent harness leans on). Pure: `value` in, `onChange` out;
+ * no store access. The Profile and Skill pickers reuse the exact Phase A `LlmSelectorField` (same
+ * None / dangling-id semantics as the node). The object-valued override layer is deferred to
+ * Phase C — it drops in below as additional fields, no restructure.
+ */
+export const LlmPresetForm: FC<{
+  value: LlmPreset;
+  onChange: (next: LlmPreset) => void;
+  profiles: ReadonlyArray<LlmProfile>;
+  skills: ReadonlyArray<LlmSkill>;
+  isReadonly?: boolean;
+}> = ({ value, onChange, profiles, skills, isReadonly = false }) => {
+  const update = (patch: Partial<LlmPreset>) => onChange({ ...value, ...patch });
+
+  return (
+    <div css={modelConfigFormStyles}>
+      <Field name="preset-name" label="Name" isDisabled={isReadonly}>
+        {() => (
+          <TextField
+            value={value.name ?? ''}
+            placeholder="e.g. Planner (Claude) or Coder (Qwen)"
+            isReadOnly={isReadonly}
+            onChange={(e) => update({ name: (e.target as HTMLInputElement).value })}
+          />
+        )}
+      </Field>
+
+      <LlmSelectorField
+        items={profiles}
+        value={value.profileId}
+        name="preset-profile"
+        label="Profile (connection)"
+        isReadonly={isReadonly}
+        placeholder="Select a profile..."
+        helperMessage="The connection (endpoint / model / key) this preset uses."
+        onChange={(selected) => update({ profileId: selected })}
+      />
+
+      <LlmSelectorField
+        items={skills}
+        value={value.skillId}
+        name="preset-skill"
+        label="Skill (behavior, optional)"
+        isReadonly={isReadonly}
+        placeholder="Select a skill..."
+        helperMessage="The behavior (system prompt / sampling) this preset applies. Leave None for connection-only."
+        onChange={(selected) => update({ skillId: selected || undefined })}
+      />
+
+      <Field name="preset-is-default" label="Default preset" isDisabled={isReadonly}>
+        {() => (
+          <div className="model-config-form-row-inline">
+            <Toggle
+              isChecked={value.isDefault ?? false}
+              isDisabled={isReadonly}
+              onChange={(e) => update({ isDefault: e.target.checked || undefined })}
+            />
+            <span>Apply to nodes that select nothing</span>
+          </div>
+        )}
+      </Field>
+    </div>
+  );
+};
