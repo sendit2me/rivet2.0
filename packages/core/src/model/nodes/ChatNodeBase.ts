@@ -25,6 +25,7 @@ import { resolveNodeModelComposition } from '../LlmPresetResolution.js';
 import type { TokenizerCallInfo } from '../../integrations/Tokenizer.js';
 import retry from 'p-retry';
 import {
+  applyExtraBody,
   resolveAdditionalHeaders,
   resolveAdditionalParameters,
   resolveAudioAndModalities,
@@ -72,6 +73,13 @@ export type ChatNodeConfigData = {
   responseSchemaName?: string;
   useServerTokenCalculation?: boolean;
   outputUsage?: boolean;
+  /** When true, expose a `reasoning` output port carrying the model's reasoning_content (separate
+   *  from `response`). Default false → no port, byte-identical node. Mirrors `outputUsage`. (Feature 004) */
+  outputReasoning?: boolean;
+  /** Structured per-request body params (Feature 004). Deep-merged Node > Preset.override > Skill and
+   *  applied to the request body, winning over managed optional params but never over connection/
+   *  transport (endpoint, model, messages, stream). */
+  extraBody?: Record<string, unknown>;
   usePredictedOutput?: boolean;
   reasoningEffort?: '' | 'low' | 'medium' | 'high';
 
@@ -147,6 +155,7 @@ export const ChatNodeBase = {
     useAdditionalParametersInput: false,
     useServerTokenCalculation: true,
     outputUsage: false,
+    outputReasoning: false,
     usePredictedOutput: false,
     modalitiesIncludeAudio: false,
     modalitiesIncludeText: false,
@@ -468,6 +477,15 @@ export const ChatNodeBase = {
       });
     }
 
+    if (data.outputReasoning) {
+      outputs.push({
+        dataType: 'string',
+        id: 'reasoning' as PortId,
+        title: 'Reasoning',
+        description: "The model's reasoning_content (thinking), separate from the response. Empty if none.",
+      });
+    }
+
     if (data.modalitiesIncludeAudio) {
       outputs.push({
         dataType: 'audio',
@@ -738,6 +756,13 @@ export const ChatNodeBase = {
             helperMessage: 'If on, output usage statistics for the model, such as token counts and cost.',
           },
           {
+            type: 'toggle',
+            label: 'Output Reasoning',
+            dataKey: 'outputReasoning',
+            helperMessage:
+              "If on, expose a `reasoning` output port carrying the model's reasoning_content (thinking), separate from the response. Default off.",
+          },
+          {
             type: 'string',
             label: 'User',
             dataKey: 'user',
@@ -905,9 +930,20 @@ export const ChatNodeBase = {
     // profile/skill replaces the preset's piece) and folds the preset overrides onto the effective
     // profile/skill — no new precedence engine. With no preset selected/defaulted it reduces to the
     // post-002 path, so behavior stays byte-identical.
-    const { profile: effectiveProfile, skill: effectiveSkill } = resolveNodeModelComposition(
+    // Feature 004: the composition also returns the effective `extraBody` (deep-merged
+    // Node > Preset.override > Skill); applied to the request body as the final step below.
+    const {
+      profile: effectiveProfile,
+      skill: effectiveSkill,
+      extraBody: effectiveExtraBody,
+    } = resolveNodeModelComposition(
       context.settings,
-      { llmPresetId: data.llmPresetId, llmProfileId: data.llmProfileId, llmSkillId: data.llmSkillId },
+      {
+        llmPresetId: data.llmPresetId,
+        llmProfileId: data.llmProfileId,
+        llmSkillId: data.llmSkillId,
+        extraBody: data.extraBody,
+      },
       context.trace,
     );
 
@@ -1087,7 +1123,13 @@ export const ChatNodeBase = {
             options.max_tokens = maxTokens;
           }
 
-          const cacheKey = JSON.stringify(options);
+          // Feature 004 (E2): apply the merged extraBody as the final body step — it wins over the
+          // managed optional params above, but the connection/transport essentials are re-asserted
+          // from the node (D2). Empty extraBody => same `options` reference => byte-identical body.
+          // Applied before the cacheKey so two different extraBody values never cache-collide.
+          const requestOptions = applyExtraBody(options, effectiveExtraBody);
+
+          const cacheKey = JSON.stringify(requestOptions);
 
           if (data.cache) {
             const cached = cache.get(cacheKey);
@@ -1108,14 +1150,14 @@ export const ChatNodeBase = {
               headers: allAdditionalHeaders,
               signal: context.signal,
               timeout: context.settings.chatNodeTimeout,
-              ...options,
+              ...requestOptions,
             });
 
             if ('error' in response) {
               throw new OpenAIError(400, response.error);
             }
 
-            await applyOpenAINonStreamingResponse({
+            const { reasoning } = await applyOpenAINonStreamingResponse({
               response,
               output,
               messages,
@@ -1126,6 +1168,11 @@ export const ChatNodeBase = {
                 finalModel in openaiModels ? openaiModels[finalModel as keyof typeof openaiModels].cost : undefined,
               durationMs: Date.now() - startTime,
             });
+
+            // Feature 004 (E1): map reasoning to the `reasoning` port only when opted in.
+            if (data.outputReasoning) {
+              output['reasoning' as PortId] = { type: 'string', value: reasoning };
+            }
 
             Object.freeze(output);
             cache.set(cacheKey, output);
@@ -1141,10 +1188,10 @@ export const ChatNodeBase = {
             headers: allAdditionalHeaders,
             signal: context.signal,
             timeout: context.settings.chatNodeTimeout,
-            ...options,
+            ...requestOptions,
           });
 
-          await applyOpenAIStreamingResponse({
+          const { reasoning } = await applyOpenAIStreamingResponse({
             chunks,
             output,
             messages,
@@ -1164,6 +1211,11 @@ export const ChatNodeBase = {
           });
 
           output['duration' as PortId] = { type: 'number', value: Date.now() - startTime };
+
+          // Feature 004 (E1): map reasoning to the `reasoning` port only when opted in.
+          if (data.outputReasoning) {
+            output['reasoning' as PortId] = { type: 'string', value: reasoning };
+          }
 
           Object.freeze(output);
           cache.set(cacheKey, output);

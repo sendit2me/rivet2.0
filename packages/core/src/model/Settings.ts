@@ -55,6 +55,14 @@ export interface LlmSkill {
   toolChoice?: 'none' | 'auto' | 'function';
   responseFormat?: '' | 'text' | 'json' | 'json_schema';
   stop?: string;
+
+  /**
+   * Structured per-request body params carried on the behavior axis (Feature 004). Deep-merged
+   * (Node > Preset.override > Skill) and applied to the request body, winning over managed optional
+   * params but never over connection/transport (endpoint, model, messages, stream). Lets a Skill
+   * carry e.g. `{ chat_template_kwargs: { enable_thinking: false } }`.
+   */
+  extraBody?: Record<string, unknown>;
 }
 
 /**
@@ -82,6 +90,9 @@ export interface LlmPresetOverrides {
   toolChoice?: 'none' | 'auto' | 'function';
   responseFormat?: '' | 'text' | 'json' | 'json_schema';
   stop?: string;
+
+  /** Behavior-axis body params (Feature 004); deep-merged over the Skill's `extraBody`. See {@link LlmSkill.extraBody}. */
+  extraBody?: Record<string, unknown>;
 }
 
 /**

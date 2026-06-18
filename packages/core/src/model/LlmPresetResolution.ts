@@ -1,6 +1,7 @@
 import type { LlmPreset, LlmPresetOverrides, Settings } from './Settings.js';
 import { resolveProfile, type ResolvedProfile } from './LlmProfileResolution.js';
 import { resolveSkill, type ResolvedSkill } from './LlmSkillResolution.js';
+import { deepMerge } from '../utils/deepMerge.js';
 
 /**
  * The expansion of an {@link LlmPreset}: its resolved Profile (connection) and Skill (behavior),
@@ -109,6 +110,8 @@ export interface NodeModelSelectors {
   llmPresetId?: string;
   llmProfileId?: string;
   llmSkillId?: string;
+  /** The node's own `extraBody` (Feature 004), highest in the deep-merge. */
+  extraBody?: Record<string, unknown>;
 }
 
 /** The effective connection (Profile) and behavior (Skill) for a node, after Preset composition. */
@@ -117,6 +120,8 @@ export interface NodeModelComposition {
   profile: ResolvedProfile;
   /** Resolved skill with the preset's behavior overrides folded in (overrides win). */
   skill: ResolvedSkill;
+  /** Deep-merged behavior-axis body params: Skill < Preset.override < Node (Node wins per key). */
+  extraBody: Record<string, unknown>;
 }
 
 /**
@@ -152,8 +157,16 @@ export function resolveNodeModelComposition(
   const profile = selectors.llmProfileId ? resolveProfile(settings, selectors.llmProfileId, onTrace) : preset.profile;
   const skill = selectors.llmSkillId ? resolveSkill(settings, selectors.llmSkillId, onTrace) : preset.skill;
 
+  // extraBody (Feature 004) deep-merges across the behavior axis: Skill < Preset.override < Node,
+  // Node winning per key. This is NOT the scalar Option-C path — it is a per-key deep merge.
+  const extraBody = deepMerge(
+    deepMerge(skill.extraBody ?? {}, preset.overrides.extraBody ?? {}),
+    selectors.extraBody ?? {},
+  );
+
   return {
     profile: applyPresetOverridesToProfile(profile, preset.overrides),
     skill: applyPresetOverridesToSkill(skill, preset.overrides),
+    extraBody,
   };
 }

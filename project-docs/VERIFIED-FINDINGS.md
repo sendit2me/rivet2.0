@@ -165,3 +165,45 @@ once 001/002 edits land — re-grep for the named symbols rather than trusting t
   `git merge-base`, `git log <mb>..upstream/main`, `git rev-list --count`, `git cherry`.
 - Licenses & Studio Server docs: `raw.githubusercontent.com` fetches.
 - Re-run any of the above to refresh; update the "Verified on" date if you do.
+
+## I. Feature 004 anchors — reasoning output + extraBody  *(rivet2.0, verified 2026-06-18)*
+
+> SPEC 004 §234 calls this "§G", but §G/§H were already taken — it lives here as §I. Verified
+> against the `integration` working tree (001–003 merged). Line numbers shift as edits land —
+> re-grep for the named symbols. These correct two anchors SPEC 004 §5/§10 got slightly off.
+
+- **[C2]** `reasoning_content` was **never read** anywhere in `packages/core/src` before 004
+  (grep clean). E1 is purely additive.
+- **[C2] Streaming delta type is in `utils/openai.ts`, not local to the runtime.** The streaming
+  chunk delta is `ChatCompletionChunkChoice.delta` (`utils/openai.ts`, `content?: string`) — the
+  typed home for the new `reasoning_content?: string | null`. (SPEC §5's "runtime.ts L17" actually
+  points at the **non-streaming** `message` type inside `applyOpenAINonStreamingResponse`, which also
+  gains `reasoning_content?`.) So 004 touches `openai.ts` (one field) beyond SPEC §10's list.
+- **[C2] Runtime return shape.** `applyOpenAINonStreamingResponse` / `applyOpenAIStreamingResponse`
+  (`model/chat/openAIChatRuntime.ts`) mutated `output` and returned `void`; called **only** from
+  `ChatNodeBase` (non-streaming + streaming branches). 004 changes both to return
+  `{ reasoning: string }` (non-streaming: `message.reasoning_content`; streaming: a parallel
+  `reasoningChoicesParts[0]` buffer joined). `ChatNodeBase` writes `output['reasoning']` only when
+  `data.outputReasoning`, **before** the existing `Object.freeze(output)` in each branch.
+- **[C2] Reasoning port declaration** mirrors `outputUsage`: a conditional push in
+  `getOutputDefinitions` beside the `usage` block. Default off ⇒ port-list is the hardcoded set
+  `['response','in-messages','all-messages','responseTokens']`.
+- **[C2] Body-assembly / extraBody application point.** The request body is the `options` object
+  (`Omit<ChatCompletionOptions,'auth'|'signal'>`); `auth` (apiKey/org) and `headers` are **separate
+  args**, out of `extraBody`'s reach. `endpoint` **is** in `options`. 004 deep-merges the effective
+  `extraBody` over `options` **after** the `max_completion_tokens`/`temperature` block and **before**
+  the `cacheKey` (so two extraBody values don't cache-collide), then re-asserts essentials.
+  **D2 sharpened:** extraBody contributes body params only — protected keys are `model`, `messages`,
+  `endpoint` (re-asserted from the node) and `stream` (dropped; not a real `options` key).
+  Implemented as pure `applyExtraBody` in `model/chat/openAIChatRequest.ts`; returns the **same
+  `options` reference** when extraBody is empty (byte-identical rail).
+- **[C2] extraBody composition** lives in `resolveNodeModelComposition` (`LlmPresetResolution.ts`):
+  `deepMerge(deepMerge(skill.extraBody, preset.overrides.extraBody), node.extraBody)` (Node wins).
+  Within a Skill `extends` chain, `extraBody` deep-merges in `mergeSkillInto` (not replace). Shared
+  pure helper `utils/deepMerge.ts` (nested objects recurse; arrays/scalars replace).
+- **[C2] Editor note.** `extraBody` is a typed object (`Record<string,unknown>`) used directly by the
+  merge and headless seeding. The `code`/JSON editor binds only **string** dataKeys
+  (`DataOfType<T,string>`; cf. ObjectNode/HttpCallNode), so an object-bound inline JSON editor is not
+  type-possible without app-layer parse-on-edit machinery (out of scope: "No app UI in this feature").
+  004 ships the `outputReasoning` toggle; the node-level `extraBody` JSON editor is deferred to the
+  Phase-2 override-aware UI. (No §9 acceptance criterion covers the editor.)

@@ -459,6 +459,8 @@ export type ChatCompletionChunkChoice = {
   delta: {
     role?: 'assistant';
     content?: string;
+    /** Reasoning-model thinking stream, separate from `content` (e.g. oMLX/Qwen). Accumulated by Feature 004. */
+    reasoning_content?: string | null;
     tool_calls?: ChatCompletionChunkChoiceToolCall[];
   };
   finish_reason: null | 'stop' | 'length' | 'insufficient_tokens' | 'content_filter' | 'tool_calls';
