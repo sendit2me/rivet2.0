@@ -67,6 +67,34 @@ L957 (headers), **L1034 and L1067** (both auth blocks), plus the new `Settings`
 fields and the `resolveProfile` helper. The structure is identical to Ironclad; only
 the line numbers moved (Ironclad had these near ~1011 / ~1142 / ~1255).
 
+### C.1 Message-assembly map — for Feature 002 (Skills) pre-prompt injection  *(rivet2.0)*
+
+Pinned 2026-06-17 during Feature 002 (line numbers vs the 001 working tree; they shift
+once 001/002 edits land — re-grep for the named symbols rather than trusting the number).
+
+- **[C2]** Messages are assembled **once per `process()`** at `ChatNodeBase.ts` ~L927 via
+  `getChatNodeMessages(inputs)` (helper at ~L1152–1157): it runs
+  `coercePromptToChatMessages(inputs.prompt)` then `prependSystemPrompt(messages, inputs.systemPrompt)`.
+  The array is rebuilt from `inputs` every call, so the node itself never accumulates across
+  loop iterations — **but** ChatLoop feeds `all-messages` (`[...messages, response]`) back into
+  `prompt`, so a prior-iteration system message *can* re-enter via the input. Injection must be
+  idempotent (de-dupe by exact text).
+- **[C2]** Role is assigned **downstream**, not at assembly: ~L949–951
+  `chatMessageToOpenAIChatCompletionMessage(msg, { useDeveloperPrompts })`. `useDeveloperPrompts`
+  is derived at ~L942–947 from `data.systemPromptMode` (`'developer'|'system'`) and `isModernModel`.
+  So injecting a plain `{ type: 'system', message }` ChatMessage honors `systemPromptMode`
+  automatically — do **not** hand-roll a role.
+- **[C2]** `prependSystemPrompt` (in `model/chat/chatMessages.ts`) already de-dupes a *leading*
+  system message (splices it, then prepends the `systemPrompt` input). Feature 002 adds the
+  sibling `prependSkillSystemPrompt` there: drop any prior copy of the exact skill prompt, then
+  put it once at the front → composed order **skill-system → node's own system → user turns**.
+- **[C2]** Behavior-param reads (the Skill-affected ones): `temperature` ~L883, `top_p` ~L885,
+  `useTopP` ~L887, `stop` ~L888–893 (all via `getInputOrData`/inline), `toolChoice` (~L901,
+  `resolveChatToolChoice`), `responseFormat` (~L902, `resolveOpenAIResponseFormat`), `maxTokens`
+  (`let { maxTokens } = data` ~L953 — **ignores its input port**, a pre-existing quirk),
+  `reasoningEffort` (~L1008, `getInputOrData`). Feature 002 routes these through a
+  Skill-patched copy of `data` (Option C), leaving every other `data` read untouched.
+
 ## D. Headless execution surfaces  *(rivet2.0)*
 
 - **[C2]** **CLI** (`packages/cli/src/commands/`): `run.ts` (run a graph) and
