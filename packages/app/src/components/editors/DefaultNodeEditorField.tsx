@@ -12,6 +12,11 @@ import { DefaultDatasetSelectorEditor } from './DatasetSelectorEditor';
 import { DefaultDropdownEditor } from './DropdownEditor';
 import { DefaultFileBrowserEditor, DefaultFilePathBrowserEditor } from './FileBrowserEditor';
 import { DefaultGraphSelectorEditor } from './GraphSelectorEditor';
+import {
+  DefaultLlmPresetSelectorEditor,
+  DefaultLlmProfileSelectorEditor,
+  DefaultLlmSkillSelectorEditor,
+} from './LlmSelectorEditors';
 import { DefaultImageBrowserEditor } from './ImageBrowserEditor';
 import { DefaultNumberEditor } from './NumberEditor';
 import { DefaultSegmentedEditor } from './SegmentedEditor';
@@ -59,6 +64,13 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'number' }, (editor) => <DefaultNumberEditor {...sharedProps} editor={editor} />)
     .with({ type: 'code' }, (editor) => <DefaultCodeEditor {...sharedProps} editor={editor} />)
     .with({ type: 'graphSelector' }, (editor) => <DefaultGraphSelectorEditor {...sharedProps} editor={editor} />)
+    .with({ type: 'llmProfileSelector' }, (editor) => (
+      <DefaultLlmProfileSelectorEditor {...sharedProps} editor={editor} />
+    ))
+    .with({ type: 'llmSkillSelector' }, (editor) => <DefaultLlmSkillSelectorEditor {...sharedProps} editor={editor} />)
+    .with({ type: 'llmPresetSelector' }, (editor) => (
+      <DefaultLlmPresetSelectorEditor {...sharedProps} editor={editor} />
+    ))
     .with({ type: 'datasetSelector' }, (editor) => <DefaultDatasetSelectorEditor {...sharedProps} editor={editor} />)
     .with({ type: 'color' }, (editor) => <DefaultColorEditor {...sharedProps} editor={editor} />)
     .with({ type: 'fileBrowser' }, (editor) => <DefaultFileBrowserEditor {...sharedProps} editor={editor} />)

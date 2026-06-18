@@ -106,6 +106,34 @@ export type GraphSelectorEditorDefinition<T extends ChartNode> = SharedEditorDef
   useInputToggleDataKey?: DataOfType<T, boolean>;
 };
 
+/**
+ * Picks an LLM Profile (Feature 001) id from the ones defined in Settings. Shaped exactly like
+ * {@link GraphSelectorEditorDefinition} — the app populates the options from `settingsState`
+ * (`getEditors()` is static and cannot read Settings, so a plain `dropdown` won't do). Feature 005.
+ */
+export type LlmProfileSelectorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
+  type: 'llmProfileSelector';
+
+  dataKey: DataOfType<T, string>;
+  useInputToggleDataKey?: DataOfType<T, boolean>;
+};
+
+/** Picks an LLM Skill (Feature 002) id from the ones defined in Settings. See {@link LlmProfileSelectorEditorDefinition}. */
+export type LlmSkillSelectorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
+  type: 'llmSkillSelector';
+
+  dataKey: DataOfType<T, string>;
+  useInputToggleDataKey?: DataOfType<T, boolean>;
+};
+
+/** Picks an LLM Preset (Feature 003) id from the ones defined in Settings. See {@link LlmProfileSelectorEditorDefinition}. */
+export type LlmPresetSelectorEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
+  type: 'llmPresetSelector';
+
+  dataKey: DataOfType<T, string>;
+  useInputToggleDataKey?: DataOfType<T, boolean>;
+};
+
 export type NumberEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'number';
 
@@ -262,6 +290,9 @@ export type EditorDefinition<T extends ChartNode> =
   | GraphSelectorEditorDefinition<T>
   | ColorEditorDefinition<T>
   | GraphSelectorEditorDefinition<T>
+  | LlmProfileSelectorEditorDefinition<T>
+  | LlmSkillSelectorEditorDefinition<T>
+  | LlmPresetSelectorEditorDefinition<T>
   | FileBrowserEditorDefinition<T>
   | ImageBrowserEditorDefinition<T>
   | DatasetSelectorEditorDefinition<T>

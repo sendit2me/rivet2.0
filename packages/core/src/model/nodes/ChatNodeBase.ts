@@ -791,25 +791,25 @@ export const ChatNodeBase = {
               'The endpoint to use for the OpenAI API. You can use this to replace with any OpenAI-compatible API. Leave blank for the default: https://api.openai.com/api/v1/chat/completions',
           },
           {
-            type: 'string',
-            label: 'Preset ID',
+            type: 'llmPresetSelector',
+            label: 'Preset',
             dataKey: 'llmPresetId',
             helperMessage:
-              'Id of a Preset (from settings.llmPresets): one pick that applies a Profile + Skill + overrides. Precedence: Node > Preset overrides > Skill > Profile > Global. Setting Profile ID or Skill ID below replaces just that piece of the preset. Leave all selectors blank to inherit the default preset (if any), else global. Note: a preset override still beats a Profile you pick here, but a value you type directly on the node wins over everything.',
+              'A Preset (from settings.llmPresets): one pick that applies a Profile + Skill + overrides. Precedence: Node > Preset overrides > Skill > Profile > Global. Setting Profile or Skill below replaces just that piece of the preset. Leave all blank to inherit the default preset (if any), else global. Note: a preset override still beats a Profile you pick here, but a value you set directly on the node wins over everything.',
           },
           {
-            type: 'string',
-            label: 'LLM Profile ID',
+            type: 'llmProfileSelector',
+            label: 'LLM Profile',
             dataKey: 'llmProfileId',
             helperMessage:
-              'Id of an LLM Profile (from settings.llmProfiles) supplying endpoint, API key, organization, headers, and default model. Leave blank to use the global settings (default). Node-level fields above still take precedence over the profile.',
+              'An LLM Profile (from settings.llmProfiles) supplying endpoint, API key, organization, headers, and default model. Leave blank to use the global settings (default). Node-level fields above still take precedence over the profile.',
           },
           {
-            type: 'string',
-            label: 'Skill ID',
+            type: 'llmSkillSelector',
+            label: 'Skill',
             dataKey: 'llmSkillId',
             helperMessage:
-              'Id of a Skill (from settings.llmSkills) supplying a system pre-prompt and behavior params (temperature, reasoning effort, response format, …). Leave blank for No-Skill (passthrough). A Skill only fills fields the node left at its default; any value you set on the node wins.',
+              'A Skill (from settings.llmSkills) supplying a system pre-prompt and behavior params (temperature, reasoning effort, response format, …). Leave blank for No-Skill (passthrough). A Skill only fills fields the node left at its default; any value you set on the node wins.',
           },
           {
             type: 'string',
