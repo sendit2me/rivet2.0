@@ -57,6 +57,61 @@ export interface LlmSkill {
   stop?: string;
 }
 
+/**
+ * Whitelisted fields a {@link LlmPreset} may override on top of its resolved Profile + Skill.
+ * This is the **full union** of {@link LlmProfile}'s value fields (connection) and
+ * {@link LlmSkill}'s value fields (behavior) — a Preset can tweak anything its profile or skill
+ * carries — but it is *closed*: it deliberately excludes node machinery (`useModelInput`,
+ * `cache`, the `use<Field>Input` toggles, …) so a Preset can never reach into node internals.
+ */
+export interface LlmPresetOverrides {
+  // Connection (from LlmProfile)
+  endpoint?: string;
+  apiKey?: string;
+  organization?: string;
+  headers?: Record<string, string>;
+  defaultModel?: string;
+
+  // Behavior (from LlmSkill)
+  systemPrompt?: string;
+  temperature?: number;
+  top_p?: number;
+  useTopP?: boolean;
+  maxTokens?: number;
+  reasoningEffort?: '' | 'low' | 'medium' | 'high';
+  toolChoice?: 'none' | 'auto' | 'function';
+  responseFormat?: '' | 'text' | 'json' | 'json_schema';
+  stop?: string;
+}
+
+/**
+ * A one-pick **composition** — the friendly "local-Qwen-developer" entry. A Preset references a
+ * Profile (connection) and an optional Skill (behavior), plus an optional whitelisted `overrides`
+ * layer, so a single node selection applies both. The engine stays orthogonal: a Preset *expands*
+ * to Profile + Skill; it is not a new axis.
+ *
+ * Precedence across the whole stack (SPEC 003 §3):
+ * `Node-level field > Preset.overrides > Skill > Profile > Global`.
+ *
+ * `isDefault` is the home for default-selection (deliberately dropped from Profiles/Skills). A
+ * default preset applies **only when a node selects nothing on any axis** (no preset/profile/skill);
+ * with no `isDefault` preset defined, behavior is byte-identical to the no-Preset path.
+ */
+export interface LlmPreset {
+  /** Stable unique id, referenced by nodes via `llmPresetId`. */
+  id: string;
+  /** Human label, e.g. "local-Qwen-developer". */
+  name: string;
+  /** Required Profile (connection) this preset expands to. */
+  profileId: string;
+  /** Optional Skill (behavior); omitted = No-Skill. */
+  skillId?: string;
+  /** Field overrides applied on top of the resolved profile + skill (highest below the node). */
+  overrides?: LlmPresetOverrides;
+  /** Marks the preset applied to a node that selects nothing. First wins if several are flagged. */
+  isDefault?: boolean;
+}
+
 export interface Settings<PluginSettings = Record<string, Record<string, unknown>>> {
   recordingPlaybackLatency?: number;
 
@@ -91,4 +146,7 @@ export interface Settings<PluginSettings = Record<string, Record<string, unknown
 
   /** Reusable behavior bundles selectable per node. See {@link LlmSkill}. */
   llmSkills?: LlmSkill[];
+
+  /** One-pick Profile+Skill+overrides bundles selectable per node. See {@link LlmPreset}. */
+  llmPresets?: LlmPreset[];
 }

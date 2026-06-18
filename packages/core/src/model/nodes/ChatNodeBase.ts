@@ -19,8 +19,9 @@ import { cleanHeaders, getInputOrData } from '../../utils/inputs.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
 import { chatMessageToOpenAIChatCompletionMessage } from '../../utils/chatMessageToOpenAIChatCompletionMessage.js';
 import { DEFAULT_CHAT_ENDPOINT } from '../../utils/defaults.js';
-import { resolveChatNodeConnection, resolveProfile } from '../LlmProfileResolution.js';
-import { applySkillParams, resolveSkill } from '../LlmSkillResolution.js';
+import { resolveChatNodeConnection } from '../LlmProfileResolution.js';
+import { applySkillParams } from '../LlmSkillResolution.js';
+import { resolveNodeModelComposition } from '../LlmPresetResolution.js';
 import type { TokenizerCallInfo } from '../../integrations/Tokenizer.js';
 import retry from 'p-retry';
 import {
@@ -57,6 +58,8 @@ export type ChatNodeConfigData = {
   llmProfileId?: string;
   /** Id of the Skill (behavior bundle) to apply. Empty/undefined = No-Skill (passthrough). */
   llmSkillId?: string;
+  /** Id of a Preset (Profile + Skill + overrides). Empty/undefined = no preset. See resolution in process(). */
+  llmPresetId?: string;
   overrideModel?: string;
   overrideMaxTokens?: number;
   headers?: { key: string; value: string }[];
@@ -764,6 +767,13 @@ export const ChatNodeBase = {
           },
           {
             type: 'string',
+            label: 'Preset ID',
+            dataKey: 'llmPresetId',
+            helperMessage:
+              'Id of a Preset (from settings.llmPresets): one pick that applies a Profile + Skill + overrides. Precedence: Node > Preset overrides > Skill > Profile > Global. Setting Profile ID or Skill ID below replaces just that piece of the preset. Leave all selectors blank to inherit the default preset (if any), else global. Note: a preset override still beats a Profile you pick here, but a value you type directly on the node wins over everything.',
+          },
+          {
+            type: 'string',
             label: 'LLM Profile ID',
             dataKey: 'llmProfileId',
             helperMessage:
@@ -889,14 +899,24 @@ export const ChatNodeBase = {
   ): Promise<Outputs> => {
     const output: Outputs = {};
 
-    // Resolve the selected Skill (behavior bundle). Empty/unknown id => {} => No-Skill passthrough.
-    const skill = resolveSkill(context.settings, data.llmSkillId, context.trace);
-    // Option C precedence (SPEC 002 §4): fold the skill's behavior params into a copy of `data`
-    // ONLY for fields the node left at its default. Reads below go through `params`, so an
-    // input-port-wired value still wins (getInputOrData short-circuits to the input first), and
-    // any value the user changed on the node wins (it differs from the default). `data` itself is
+    // --- Feature 003: Preset composition. Canonical chain Node > Preset.overrides > Skill > Profile
+    // > Global. `resolveNodeModelComposition` applies the SPEC 003 selection + default rules (a
+    // default preset applies only when the node selects nothing on any axis; an explicit node
+    // profile/skill replaces the preset's piece) and folds the preset overrides onto the effective
+    // profile/skill — no new precedence engine. With no preset selected/defaulted it reduces to the
+    // post-002 path, so behavior stays byte-identical.
+    const { profile: effectiveProfile, skill: effectiveSkill } = resolveNodeModelComposition(
+      context.settings,
+      { llmPresetId: data.llmPresetId, llmProfileId: data.llmProfileId, llmSkillId: data.llmSkillId },
+      context.trace,
+    );
+
+    // Option C precedence (SPEC 002 §4): fold the effective skill's behavior params into a copy of
+    // `data` ONLY for fields the node left at its default. Reads below go through `params`, so an
+    // input-port-wired value still wins (getInputOrData short-circuits to the input first), and any
+    // value the user changed on the node wins (it differs from the default). `data` itself is
     // untouched, so non-param logic (model, headers, function use, …) is unaffected.
-    const params = applySkillParams(data, ChatNodeBase.defaultData(), skill);
+    const params = applySkillParams(data, ChatNodeBase.defaultData(), effectiveSkill);
 
     const model = getInputOrData(data, inputs, 'model');
     const temperature = getInputOrData(params, inputs, 'temperature', 'number');
@@ -924,18 +944,16 @@ export const ChatNodeBase = {
     const additionalHeaders = resolveAdditionalHeaders(data, inputs);
     const additionalParameters = resolveAdditionalParameters(data, inputs);
 
-    // Resolve the selected LLM Profile (connection bundle). Empty/unknown id => {} => global fallback,
-    // which keeps no-profile behavior byte-identical to base Rivet.
-    const profile = resolveProfile(context.settings, data.llmProfileId, context.trace);
-
     // If using a model input, that's priority, otherwise override > main.
     const nodeModel = data.useModelInput && inputs['model' as PortId] != null ? model : overrideModel || model;
 
-    // Apply precedence Node > Profile > Global for endpoint / key / org / model / headers. Resolved here
-    // (above the getChatNodeEndpoint hook) so the hook and any load-balancing logic see the final model
-    // and endpoint. The hook's endpoint/headers are layered on top afterwards.
+    // Apply precedence Node > Preset.overrides > Profile > Global for endpoint / key / org / model /
+    // headers (Skill carries no connection fields). `effectiveProfile` already has the preset's
+    // connection overrides folded in, so the existing Node > profile > Global resolver yields the
+    // full chain. Resolved here (above the getChatNodeEndpoint hook) so the hook and any
+    // load-balancing logic see the final model and endpoint.
     const connection = resolveChatNodeConnection({
-      profile,
+      profile: effectiveProfile,
       global: context.settings,
       node: { endpoint, model: nodeModel, headers: additionalHeaders },
       defaultEndpoint: DEFAULT_CHAT_ENDPOINT,
@@ -948,7 +966,7 @@ export const ChatNodeBase = {
     // Assemble messages from inputs (fresh each run), then inject the Skill's system pre-prompt
     // once at the front (idempotent under loop feedback). No-Skill / blank prompt => unchanged.
     const { messages: assembledMessages } = getChatNodeMessages(inputs);
-    const messages = prependSkillSystemPrompt(assembledMessages, skill.systemPrompt);
+    const messages = prependSkillSystemPrompt(assembledMessages, effectiveSkill.systemPrompt);
 
     const isModernModel =
       finalModel.startsWith('o1') ||

@@ -19,6 +19,7 @@ describe('resolveProcessSettings', () => {
       throttleChatNode: 100,
       llmProfiles: [],
       llmSkills: [],
+      llmPresets: [],
     });
   });
 
@@ -56,6 +57,7 @@ describe('resolveProcessSettings', () => {
         throttleChatNode: 100,
         llmProfiles: [],
         llmSkills: [],
+        llmPresets: [],
       },
     );
   });
