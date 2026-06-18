@@ -32,6 +32,7 @@ export * from './model/RegistryAssembly.js';
 export type * from './model/Settings.js';
 export * from './model/LlmProfileResolution.js';
 export * from './model/LlmSkillResolution.js';
+export * from './model/LlmPresetResolution.js';
 export * from './model/EditorDefinition.js';
 export * from './model/NodeBodySpec.js';
 export * from './model/interpolationInputDefinition.js';
