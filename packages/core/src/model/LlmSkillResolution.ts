@@ -1,4 +1,5 @@
 import type { LlmSkill, Settings } from './Settings.js';
+import { deepMerge } from '../utils/deepMerge.js';
 
 /**
  * The flattened result of resolving an {@link LlmSkill} and its `extends` chain. Every field
@@ -15,6 +16,8 @@ export interface ResolvedSkill {
   toolChoice?: 'none' | 'auto' | 'function';
   responseFormat?: '' | 'text' | 'json' | 'json_schema';
   stop?: string;
+  /** Behavior-axis body params (Feature 004), deep-merged across the `extends` chain. */
+  extraBody?: Record<string, unknown>;
 }
 
 /** Maximum `extends` chain depth before we stop walking and trace a warning. */
@@ -118,6 +121,9 @@ function mergeSkillInto(target: ResolvedSkill, skill: LlmSkill): void {
   if (skill.toolChoice !== undefined) target.toolChoice = skill.toolChoice;
   if (skill.responseFormat !== undefined) target.responseFormat = skill.responseFormat;
   if (skill.stop !== undefined) target.stop = skill.stop;
+  // extraBody deep-merges across the chain (child wins per key), not replace — mirrors how the
+  // Node > Preset > Skill axis composes it (SPEC 004 §3). `skill` is processed child-last here.
+  if (skill.extraBody !== undefined) target.extraBody = deepMerge(target.extraBody ?? {}, skill.extraBody);
 }
 
 /**

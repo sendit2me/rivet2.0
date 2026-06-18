@@ -15,6 +15,8 @@ export async function applyOpenAINonStreamingResponse(params: {
     choices: Array<{
       message: {
         content?: string | null;
+        /** Reasoning-model thinking, separate from `content` (Feature 004). */
+        reasoning_content?: string | null;
         audio?: { data: string; transcript: string } | null;
       };
     }>;
@@ -37,7 +39,7 @@ export async function applyOpenAINonStreamingResponse(params: {
       }
     | undefined;
   durationMs: number;
-}) {
+}): Promise<{ reasoning: string }> {
   const { response, output, messages, isMultiResponse, modalities, audioFormat, modelCosts, durationMs } = params;
 
   if (isMultiResponse) {
@@ -100,6 +102,10 @@ export async function applyOpenAINonStreamingResponse(params: {
       value: usageCosts.totalCost,
     };
   }
+
+  // Return accumulated reasoning; ChatNodeBase maps it to the `reasoning` port only when
+  // `outputReasoning` is on (Feature 004). '' when the model emits none.
+  return { reasoning: response.choices[0]?.message.reasoning_content ?? '' };
 }
 
 export async function applyOpenAIStreamingResponse(params: {
@@ -115,7 +121,7 @@ export async function applyOpenAIStreamingResponse(params: {
   numberOfChoices: number | undefined;
   useServerTokenCalculation: boolean | undefined;
   modelCosts: { prompt: number; completion: number };
-}) {
+}): Promise<{ reasoning: string }> {
   const {
     chunks,
     output,
@@ -132,6 +138,7 @@ export async function applyOpenAIStreamingResponse(params: {
   } = params;
 
   const responseChoicesParts: string[][] = [];
+  const reasoningChoicesParts: string[][] = [];
   const functionCalls: {
     type: 'function';
     id: string;
@@ -162,6 +169,10 @@ export async function applyOpenAIStreamingResponse(params: {
       if (delta.content != null) {
         responseChoicesParts[index] ??= [];
         responseChoicesParts[index]!.push(delta.content);
+      }
+      if (delta.reasoning_content != null) {
+        reasoningChoicesParts[index] ??= [];
+        reasoningChoicesParts[index]!.push(delta.reasoning_content);
       }
       if (delta.tool_calls) {
         functionCalls[index] ??= [];
@@ -246,6 +257,10 @@ export async function applyOpenAIStreamingResponse(params: {
   }
 
   output['cost' as PortId] = { type: 'number', value: totalCost };
+
+  // Accumulated reasoning for the primary choice; ChatNodeBase maps it to the `reasoning` port
+  // only when `outputReasoning` is on (Feature 004). '' when the model emits none.
+  return { reasoning: reasoningChoicesParts[0]?.join('') ?? '' };
 }
 
 export function handleOpenAIRetryableFailure(params: {

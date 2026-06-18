@@ -4,6 +4,43 @@ import type { ChatCompletionOptions, ChatCompletionTool } from '../../utils/open
 import type { Inputs } from '../GraphProcessor.js';
 import type { PortId } from '../NodeBase.js';
 import type { ChatNodeData } from '../nodes/ChatNodeBase.js';
+import { deepMerge } from '../../utils/deepMerge.js';
+
+/**
+ * Connection/transport keys in the assembled request `options` that the node always controls;
+ * `extraBody` (Feature 004) contributes **body params only** and may never set these. `model` /
+ * `messages` / `endpoint` are re-asserted from the node; `stream` is dropped (it isn't a real
+ * `options` key — streaming is chosen by which request function runs). `apiKey` / `organization` /
+ * `headers` are passed as separate `auth`/`headers` args, not in `options`, so they're already
+ * out of reach.
+ */
+const EXTRA_BODY_PROTECTED_KEYS = ['model', 'messages', 'endpoint'] as const;
+
+/**
+ * Apply the merged `extraBody` to the assembled request options as the final body step (SPEC 004
+ * §3, D2). Deep-merges `extraBody` over `options` so it wins over managed optional params
+ * (temperature, response_format, sampling, additionalParameters, …), then re-asserts the
+ * connection/transport essentials from the node so `extraBody` can never redirect or break the call.
+ *
+ * Pure. Returns `options` **unchanged (same reference)** when `extraBody` is empty — the
+ * byte-identical rail.
+ */
+export function applyExtraBody<T extends object>(options: T, extraBody: Record<string, unknown> | undefined): T {
+  if (!extraBody || Object.keys(extraBody).length === 0) {
+    return options;
+  }
+  const source = options as Record<string, unknown>;
+  const merged = deepMerge(source, extraBody);
+  for (const key of EXTRA_BODY_PROTECTED_KEYS) {
+    if (key in source) {
+      merged[key] = source[key];
+    } else {
+      delete merged[key];
+    }
+  }
+  delete merged['stream'];
+  return merged as T;
+}
 
 export function resolveChatToolChoice(data: ChatNodeData, inputs: Inputs): ChatCompletionOptions['tool_choice'] {
   const toolChoiceMode = getInputOrData(data, inputs, 'toolChoice', 'string') as 'none' | 'auto' | 'function';
