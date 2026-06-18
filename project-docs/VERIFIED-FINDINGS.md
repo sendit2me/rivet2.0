@@ -207,3 +207,33 @@ once 001/002 edits land — re-grep for the named symbols rather than trusting t
   type-possible without app-layer parse-on-edit machinery (out of scope: "No app UI in this feature").
   004 ships the `outputReasoning` toggle; the node-level `extraBody` JSON editor is deferred to the
   Phase-2 override-aware UI. (No §9 acceptance criterion covers the editor.)
+
+## J. Feature 005 app-side anchors — Model-Config UI  *(packages/app, verified 2026-06-18)*
+
+Verified on `feature/005-model-config-ui` (off 001–004). Confirms SPEC 005 §2.
+
+- **[C2] Settings atom** — `packages/app/src/state/settings.ts:10` `settingsState =
+  atomWithStorage<Settings>('settings', {…}, storage)` (jotai, localStorage via
+  `createHybridStorage` L8). The default object (L12–24) does **not** list
+  `llmProfiles`/`llmSkills`/`llmPresets` — they're optional on `Settings` and default to
+  **`undefined`** until authored, so selector option-builders must read `settings.llmProfiles ?? []`.
+  *(Phase A reads this **flat** path; Feature 006 migrates the single read to
+  `settings.modelConfig?.profiles`.)*
+- **[C2] Editor-type dispatch is the one exhaustive switch.** `components/editors/
+  DefaultNodeEditorField.tsx` builds the rendered editor via `match(editor)…` ending in
+  **`.exhaustive()`** (L51–73 pre-005). It is the *only* exhaustive switch over
+  `EditorDefinition['type']` — every other `match({type:…})` in the app is over **DataValue** types,
+  and graph search (`hooks/graphSearch.ts:468`) is a non-exhaustive `type==='code' ||
+  includeInGraphSearch` check that safely skips selectors. So adding union members **forces** the
+  matching `.with()` cases here at compile time — core + app land as one atomic commit.
+- **[C2] Selector precedent = `graphSelector`** — `utils/graphSelectorOptions.ts`
+  (`getProjectGraphSelectorOptions`, sorted `{label,value}` + a "Missing graph: <id>" row) +
+  `components/editors/GraphSelectorEditor.tsx` (reads `useAtomValue(projectState)`). Feature 005
+  mirrors both against `settingsState`: `utils/llmSelectorOptions.ts` (`getLlmSelectorOptions`, with a
+  leading `None` and a `Missing: <id>` dangling row) + `components/editors/LlmSelectorEditors.tsx`.
+- **[C2] No DOM/React test renderer in `packages/app`** (no testing-library/jsdom). The suite is
+  `tsx --test`: pure-helper unit tests + **source-contract** tests that read a component's `.tsx` text
+  and assert its imports/usage (cf. `GraphSelectorEditor.test.ts`). Actual rendering is Playwright's
+  job (post-merge, against served Studio Server).
+- **[C2] Pre-existing duplicate** — the `EditorDefinition` union lists `GraphSelectorEditorDefinition`
+  twice (`EditorDefinition.ts` ~L262 & ~L264). Harmless; left as-is (minimal blast radius).
