@@ -108,7 +108,7 @@ async function main(): Promise<void> {
 
   const run = async (chatData: Record<string, unknown>, skills: LlmSkill[] = []) => {
     const { project, graphId } = buildProject({ endpoint: base, ...chatData });
-    return runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, llmSkills: skills });
+    return runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, modelConfig: { skills } });
   };
 
   try {

@@ -58,7 +58,7 @@ export const DefaultLlmProfileSelectorEditor: FC<
 
   return (
     <LlmSelectorField
-      items={settings.llmProfiles ?? []}
+      items={settings.modelConfig?.profiles ?? []}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
@@ -78,7 +78,7 @@ export const DefaultLlmSkillSelectorEditor: FC<
 
   return (
     <LlmSelectorField
-      items={settings.llmSkills ?? []}
+      items={settings.modelConfig?.skills ?? []}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
@@ -98,7 +98,7 @@ export const DefaultLlmPresetSelectorEditor: FC<
 
   return (
     <LlmSelectorField
-      items={settings.llmPresets ?? []}
+      items={settings.modelConfig?.presets ?? []}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}

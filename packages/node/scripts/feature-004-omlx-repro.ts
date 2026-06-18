@@ -83,7 +83,7 @@ async function main(): Promise<void> {
   const runOnce = async (chatData: Record<string, unknown>, skills: LlmSkill[]) => {
     const { project, graphId } = buildProject(chatData);
     const t0 = Date.now();
-    const out = await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, llmSkills: skills, openAiKey: apiKey });
+    const out = await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, modelConfig: { skills }, openAiKey: apiKey });
     return { ms: Date.now() - t0, response: String(out['response']?.value ?? ''), reasoning: String(out['reasoning']?.value ?? '') };
   };
 

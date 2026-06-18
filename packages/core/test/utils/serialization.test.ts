@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import type { NodeGraph, Project } from '../../src/index.js';
+import type { ModelConfig, NodeGraph, Project } from '../../src/index.js';
 import {
   deserializeGraph,
   deserializeProject,
@@ -486,6 +486,36 @@ describe('serialization compatibility', () => {
     assert.equal(deserialized.nodes.find((node) => node.id === 'legacy-custom')?.title, 'Custom legacy title');
     assert.equal(deserialized.nodes.find((node) => node.id === 'current-default')?.title, 'Code');
     assert.equal(deserialized.nodes.find((node) => node.id === 'current-custom')?.title, 'Custom current title');
+  });
+
+  it('round-trips an embedded project modelConfig through V4 (Feature 006)', () => {
+    const modelConfig: ModelConfig = {
+      profiles: [{ id: 'p-claude', name: 'Claude', endpoint: 'https://claude/v1', defaultModel: 'claude-opus-4-8' }],
+      skills: [{ id: 's-dev', name: 'Dev', systemPrompt: 'You are a developer.', temperature: 0.2 }],
+      presets: [{ id: 'pr-x', name: 'X', profileId: 'p-claude', skillId: 's-dev' }],
+    };
+    const project: Project = {
+      metadata: { id: 'project-modelconfig', title: 'ModelConfig', description: '' },
+      graphs: { 'graph-1': baseGraph },
+      modelConfig,
+    };
+
+    const [deserialized] = deserializeProject(serializeProject(project) as string);
+
+    assert.deepEqual(deserialized.modelConfig, modelConfig);
+  });
+
+  it('deserializes a field-less / pre-006 project to an absent/empty modelConfig (additive rail)', () => {
+    // baseProject carries no modelConfig. The v1–v3 deserializers never knew the field, so it stays
+    // absent (undefined); a field-less v4 deserializes to an empty object via the `?? {}` default.
+    // Both are resolution-safe (the read path is `settings.modelConfig?.profiles ?? []`).
+    const [projectV1] = deserializeProject(v1Project);
+    const [projectV3] = deserializeProject(v3Project);
+    const [projectV4] = deserializeProject(serializeProject(baseProject) as string);
+
+    assert.equal(projectV1.modelConfig, undefined);
+    assert.equal(projectV3.modelConfig, undefined);
+    assert.deepEqual(projectV4.modelConfig, {});
   });
 });
 

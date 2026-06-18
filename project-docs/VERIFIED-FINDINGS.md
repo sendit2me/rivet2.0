@@ -237,3 +237,55 @@ Verified on `feature/005-model-config-ui` (off 001–004). Confirms SPEC 005 §2
   job (post-merge, against served Studio Server).
 - **[C2] Pre-existing duplicate** — the `EditorDefinition` union lists `GraphSelectorEditorDefinition`
   twice (`EditorDefinition.ts` ~L262 & ~L264). Harmless; left as-is (minimal blast radius).
+
+## K. Feature 006 anchors — project-embedded model-config / portability  *(verified 2026-06-18, implemented)*
+
+> Verified against the working tree on `feature/006-project-embedded-model-config` (off `main` —
+> the `integration` branch is gone; 001–005A all landed on `main`, HEAD `932167cc`). Line numbers
+> shift as edits land; re-grep the named symbols.
+
+- **[C2] Reshape, not a new field.** 001–004's three flat `Settings` fields became one nested,
+  shared object: `Settings.modelConfig?: ModelConfig` with `ModelConfig = { profiles?: LlmProfile[];
+  skills?: LlmSkill[]; presets?: LlmPreset[] }` (`model/Settings.ts`, both defined there alongside the
+  entity types; exported via `exports.ts` `export type * from './model/Settings.js'`). The **same**
+  `ModelConfig` is added to `Project` (`model/Project.ts`, beside `plugins?`/`references?`).
+- **[C2] Resolution read-path renamed, logic unchanged.** The helpers now take
+  `Pick<Settings, 'modelConfig'>` and read `settings.modelConfig?.{profiles,skills,presets} ?? []`:
+  `LlmProfileResolution.ts` (`resolveProfile`), `LlmSkillResolution.ts` (`resolveSkill`),
+  `LlmPresetResolution.ts` (`resolvePreset`, `findDefaultPreset`, `resolveNodeModelComposition`).
+  `api/processSettings.ts` `resolveProcessSettings` returns `modelConfig: settings.modelConfig ?? {}`
+  (one line; the `Required<Settings>` return type forces it — the same compile-time guardrail noted in §F).
+- **[C2] Serialization is additive, no version bump.** `serialization_v4.ts`: `SerializedProject`
+  gains `modelConfig?: ModelConfig`; `toSerializedProject` writes `modelConfig: project.modelConfig ?? {}`
+  and `fromSerializedProject` reads `serializedProject.modelConfig ?? {}` (mirrors the `plugins`/
+  `references` `?? []` precedent). Old/v1–v3 projects deserialize to **absent** (`undefined`, the v1–v3
+  deserializers never set it); a field-less v4 to **empty** (`{}`). Both resolution-safe.
+- **[C2] Assembly seam = `GraphProcessor.#initializeGraphRun`** (not a two-site augment). Right after
+  `this.#context = context`, it sets
+  `this.#context = { ...context, settings: assembleModelConfig(context.settings, this.#project) }`.
+  `#initializeGraphRun` runs once per processor (top-level *and* every subprocessor) against that
+  processor's own `#project`, so the single hook covers all subgraph cases — confirmed by tracing:
+  `#prepareNodeProcessContextBase` spreads `...this.#context`, and `#createNodeProcessContext`
+  inherits via `base: this.#nodeProcessContextBase`. Ordering proof: `processGraph` calls
+  `#initializeGraphRun` **before** `#prepareNodeProcessContextBase`.
+- **[C2] Subgraph cases (the open edge, resolved).** Subprocessors are run via
+  `subprocessor.processGraph(context, …)` with the **parent's** context (`CallGraphNode`,
+  `SubGraphNode`, `LoopUntilNode`, `CronNode`, `ReferencedGraphAliasNode`); `#createSubProcessor`
+  sets `subprocessorProject = project ?? this.#project` and builds a new `GraphProcessor` for it.
+  Because the augment re-runs in each subprocessor's `#initializeGraphRun`: same-project subgraph is
+  idempotent (project wins both merges); a cross-project `ReferencedGraphAliasNode` (passes
+  `{ project }`) resolves referenced → parent → global. (Forgiving inheritance, not strict isolation;
+  noted as a possible future reset-instead-of-inherit refinement.)
+- **[C2] `assembleModelConfig`** (`model/assembleModelConfig.ts`): pure, no-mutate; returns a fresh
+  `Settings` whose `modelConfig` merges by id with **project winning**, every other field carried
+  through. An absent axis stays absent (no synthesized empty arrays).
+- **[C2] App migration (005 Phase A merged).** `components/editors/LlmSelectorEditors.tsx` reads
+  `settings.modelConfig?.{profiles,skills,presets} ?? []` (was the flat path); the source-contract
+  test `LlmSelectorEditors.test.ts` regex updated to match. `utils/llmSelectorOptions.ts` takes
+  `items`, unchanged.
+- **[C2] Validation.** Core build/lint/test green (700 core tests incl. new `assembleModelConfig`,
+  `modelConfig006Baseline`, serialization round-trip); app (1123) and node (104) green; the headless
+  `feature-006-portable-modelconfig-harness.ts` proves two embedded presets route to two
+  endpoints/keys/models with **no global model-config**, survive serialize→deserialize, and leave an
+  unselecting node byte-identical. Harness option-seeding for 001–004 migrated from the flat keys to
+  `modelConfig` (caller-side rename; the node `RunGraphOptions & Settings` now carries `modelConfig`).

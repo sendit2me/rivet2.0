@@ -18,6 +18,7 @@ import PQueue from '../utils/pQueueCompat.js';
 import { getError } from '../utils/errors.js';
 import Emittery from 'emittery';
 import { type ProjectId, type Project, type ProjectReference } from './Project.js';
+import { assembleModelConfig } from './assembleModelConfig.js';
 import { nanoid } from 'nanoid/non-secure';
 import type {
   GraphExecutionMetadata,
@@ -1092,7 +1093,14 @@ export class GraphProcessor {
   ): void {
     this.#initProcessState();
 
-    this.#context = context;
+    // Fold this processor's project model-config over the (global) settings the caller established,
+    // project winning by id. Runs once per processor against *this* processor's own `#project`, so a
+    // headless/published/triggered run resolves models from the embedded config, and every subgraph
+    // — including a cross-project reference whose subprocessor carries a different `#project` —
+    // assembles against the right project (the augment re-runs in each subprocessor's own
+    // `#initializeGraphRun`). Idempotent for the same-project case (the project wins both merges).
+    // Every per-node `InternalProcessContext` inherits this via `#prepareNodeProcessContextBase`.
+    this.#context = { ...context, settings: assembleModelConfig(context.settings, this.#project) };
     this.#graphInputs = inputs;
     this.#contextValues = contextValues;
 

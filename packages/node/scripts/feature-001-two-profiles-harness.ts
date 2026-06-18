@@ -146,7 +146,7 @@ async function main(): Promise<void> {
     captured.length = 0;
     {
       const { project, graphId } = buildProject('A');
-      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, llmProfiles });
+      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, modelConfig: { profiles: llmProfiles } });
     }
     console.log('\n[Run 1] Chat node selects profile A:');
     const reqA = captured.at(-1)!;
@@ -159,7 +159,7 @@ async function main(): Promise<void> {
     captured.length = 0;
     {
       const { project, graphId } = buildProject('B');
-      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, llmProfiles });
+      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, modelConfig: { profiles: llmProfiles } });
     }
     console.log('\n[Run 2] Chat node selects profile B:');
     const reqB = captured.at(-1)!;
@@ -174,7 +174,7 @@ async function main(): Promise<void> {
       await runGraph(project, {
         graph: graphId,
         registry: globalRivetNodeRegistry,
-        llmProfiles,
+        modelConfig: { profiles: llmProfiles },
         openAiEndpoint: `${base}/global/v1/chat/completions`,
         openAiKey: 'key-GLOBAL',
       });

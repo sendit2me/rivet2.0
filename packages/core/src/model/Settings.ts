@@ -152,12 +152,31 @@ export interface Settings<PluginSettings = Record<string, Record<string, unknown
 
   throttleChatNode?: number;
 
+  /**
+   * The model-configuration layer (Profiles + Skills + Presets) used to resolve a node's
+   * connection and behavior. The **same** shape lives on {@link Project} (embedded, travels with
+   * the project) and here on `Settings` (the browser-local reusable library). At runtime the
+   * processor resolves against `merge(project, global)` with the project winning by id, so a
+   * headless/published/triggered run — which has no global `Settings` — works purely from the
+   * project's embedded copy. See {@link ModelConfig} and `assembleModelConfig`.
+   */
+  modelConfig?: ModelConfig;
+}
+
+/**
+ * The cohesive model-configuration object — Profiles (connection) + Skills (behavior) + Presets
+ * (one-pick bundles) — that together resolve into one model configuration for a node. A single
+ * findable representation, shared by {@link Settings} (the global library) and {@link Project}
+ * (embedded, portable). All fields optional; an absent/empty object means "no model-config",
+ * which resolves byte-identically to base rivet2.0.
+ */
+export interface ModelConfig {
   /** Reusable connection bundles selectable per node. See {@link LlmProfile}. */
-  llmProfiles?: LlmProfile[];
+  profiles?: LlmProfile[];
 
   /** Reusable behavior bundles selectable per node. See {@link LlmSkill}. */
-  llmSkills?: LlmSkill[];
+  skills?: LlmSkill[];
 
   /** One-pick Profile+Skill+overrides bundles selectable per node. See {@link LlmPreset}. */
-  llmPresets?: LlmPreset[];
+  presets?: LlmPreset[];
 }

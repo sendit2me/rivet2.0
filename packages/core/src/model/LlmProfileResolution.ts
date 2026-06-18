@@ -100,7 +100,7 @@ export const MAX_PROFILE_EXTENDS_DEPTH = 10;
  * Pure and side-effect free apart from the optional trace callback.
  */
 export function resolveProfile(
-  settings: Pick<Settings, 'llmProfiles'>,
+  settings: Pick<Settings, 'modelConfig'>,
   profileId: string | undefined,
   onTrace?: (message: string) => void,
 ): ResolvedProfile {
@@ -108,7 +108,7 @@ export function resolveProfile(
     return {};
   }
 
-  const profiles = settings.llmProfiles ?? [];
+  const profiles = settings.modelConfig?.profiles ?? [];
   const byId = new Map<string, LlmProfile>(profiles.map((p) => [p.id, p]));
 
   const root = byId.get(profileId);

@@ -28,7 +28,7 @@ const EMPTY_PRESET: ResolvedPreset = { profile: {}, skill: {}, overrides: {} };
  * Pure apart from the optional `onTrace` callback (wired to `context.trace`).
  */
 export function resolvePreset(
-  settings: Pick<Settings, 'llmPresets' | 'llmProfiles' | 'llmSkills'>,
+  settings: Pick<Settings, 'modelConfig'>,
   presetId: string | undefined,
   onTrace?: (message: string) => void,
 ): ResolvedPreset {
@@ -36,7 +36,7 @@ export function resolvePreset(
     return EMPTY_PRESET;
   }
 
-  const preset = (settings.llmPresets ?? []).find((p) => p.id === presetId);
+  const preset = (settings.modelConfig?.presets ?? []).find((p) => p.id === presetId);
   if (!preset) {
     onTrace?.(`LLM preset '${presetId}' not found; using global settings`);
     return EMPTY_PRESET;
@@ -55,10 +55,10 @@ export function resolvePreset(
  * post-002 (the sacred rail). If several are flagged, the first wins and a warning is traced.
  */
 export function findDefaultPreset(
-  settings: Pick<Settings, 'llmPresets'>,
+  settings: Pick<Settings, 'modelConfig'>,
   onTrace?: (message: string) => void,
 ): LlmPreset | undefined {
-  const defaults = (settings.llmPresets ?? []).filter((p) => p.isDefault);
+  const defaults = (settings.modelConfig?.presets ?? []).filter((p) => p.isDefault);
   if (defaults.length === 0) {
     return undefined;
   }
@@ -145,7 +145,7 @@ export interface NodeModelComposition {
  * Pure apart from the optional `onTrace` callback.
  */
 export function resolveNodeModelComposition(
-  settings: Pick<Settings, 'llmPresets' | 'llmProfiles' | 'llmSkills'>,
+  settings: Pick<Settings, 'modelConfig'>,
   selectors: NodeModelSelectors,
   onTrace?: (message: string) => void,
 ): NodeModelComposition {

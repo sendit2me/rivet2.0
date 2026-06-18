@@ -17,9 +17,7 @@ describe('resolveProcessSettings', () => {
       chatNodeHeaders: {},
       chatNodeTimeout: DEFAULT_CHAT_NODE_TIMEOUT,
       throttleChatNode: 100,
-      llmProfiles: [],
-      llmSkills: [],
-      llmPresets: [],
+      modelConfig: {},
     });
   });
 
@@ -55,9 +53,7 @@ describe('resolveProcessSettings', () => {
         chatNodeHeaders: {},
         chatNodeTimeout: DEFAULT_CHAT_NODE_TIMEOUT,
         throttleChatNode: 100,
-        llmProfiles: [],
-        llmSkills: [],
-        llmPresets: [],
+        modelConfig: {},
       },
     );
   });

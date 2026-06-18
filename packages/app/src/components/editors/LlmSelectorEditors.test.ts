@@ -9,10 +9,11 @@ test('llm selectors build options via the shared helper and read settingsState',
   assert.match(source, /import \{ getLlmSelectorOptions.* \} from '\.\.\/\.\.\/utils\/llmSelectorOptions';/);
   assert.match(source, /getLlmSelectorOptions\(items, \{ selectedId: value \}\)/);
   assert.match(source, /import \{ settingsState \} from '\.\.\/\.\.\/state\/settings';/);
-  // Each selector reads the relevant Settings array (flat path; Feature 006 migrates this read).
-  assert.match(source, /settings\.llmProfiles \?\? \[\]/);
-  assert.match(source, /settings\.llmSkills \?\? \[\]/);
-  assert.match(source, /settings\.llmPresets \?\? \[\]/);
+  // Each selector reads the relevant Settings array via the Feature 006 `modelConfig` path
+  // (the merged project+global set at runtime).
+  assert.match(source, /settings\.modelConfig\?\.profiles \?\? \[\]/);
+  assert.match(source, /settings\.modelConfig\?\.skills \?\? \[\]/);
+  assert.match(source, /settings\.modelConfig\?\.presets \?\? \[\]/);
   // No hardcoded domain knowledge — options come from Settings, not a baked-in list.
   assert.doesNotMatch(source, /nanoid/);
 });

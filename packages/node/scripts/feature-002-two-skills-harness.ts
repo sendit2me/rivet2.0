@@ -151,7 +151,7 @@ async function main(): Promise<void> {
 
   const run = async (profileId: string, skillId: string | undefined) => {
     const { project, graphId } = buildProject(profileId, skillId);
-    await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, llmProfiles, llmSkills });
+    await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, modelConfig: { profiles: llmProfiles, skills: llmSkills } });
     return captured.at(-1)!;
   };
 
