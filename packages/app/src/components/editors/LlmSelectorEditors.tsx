@@ -9,16 +9,18 @@ import { type SharedEditorProps } from './SharedEditorProps';
 import { Field, HelperMessage } from '@atlaskit/form';
 import Select from '@atlaskit/select';
 import { useAtomValue } from 'jotai';
-import { settingsState } from '../../state/settings';
+import { projectState } from '../../state/savedGraphs';
 import { getHelperMessage } from './editorUtils';
 import { getLlmSelectorOptions, LLM_SELECTOR_NONE_VALUE } from '../../utils/llmSelectorOptions';
+import { getEditorModelConfig } from '../../utils/projectModelConfig';
 
 /**
- * Shared field for the three LLM selectors (Feature 005, Phase A). Builds options from the given
- * Settings entities via `getLlmSelectorOptions` (None + sorted + dangling-id row) and renders an
- * Atlaskit Select. Mirrors `GraphSelectorEditor`'s structure against `settingsState`.
+ * Shared field for the three LLM selectors (Feature 005, Phase A; re-pointed to the project in Phase
+ * B). Builds options from the given model-config entities via `getLlmSelectorOptions` (None + sorted
+ * + dangling-id row) and renders an Atlaskit Select. Exported so the Phase B preset editor reuses
+ * the exact same picker (consistent None/dangling-id semantics on the node and in the preset form).
  */
-const LlmSelectorField: FC<{
+export const LlmSelectorField: FC<{
   items: ReadonlyArray<{ id: string; name?: string }>;
   value: string | undefined;
   name: string;
@@ -54,11 +56,11 @@ export const DefaultLlmProfileSelectorEditor: FC<
   SharedEditorProps & { editor: LlmProfileSelectorEditorDefinition<ChartNode> }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
   const data = node.data as Record<string, unknown>;
-  const settings = useAtomValue(settingsState);
+  const project = useAtomValue(projectState);
 
   return (
     <LlmSelectorField
-      items={settings.modelConfig?.profiles ?? []}
+      items={getEditorModelConfig(project).profiles}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
@@ -74,11 +76,11 @@ export const DefaultLlmSkillSelectorEditor: FC<
   SharedEditorProps & { editor: LlmSkillSelectorEditorDefinition<ChartNode> }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
   const data = node.data as Record<string, unknown>;
-  const settings = useAtomValue(settingsState);
+  const project = useAtomValue(projectState);
 
   return (
     <LlmSelectorField
-      items={settings.modelConfig?.skills ?? []}
+      items={getEditorModelConfig(project).skills}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
@@ -94,11 +96,11 @@ export const DefaultLlmPresetSelectorEditor: FC<
   SharedEditorProps & { editor: LlmPresetSelectorEditorDefinition<ChartNode> }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
   const data = node.data as Record<string, unknown>;
-  const settings = useAtomValue(settingsState);
+  const project = useAtomValue(projectState);
 
   return (
     <LlmSelectorField
-      items={settings.modelConfig?.presets ?? []}
+      items={getEditorModelConfig(project).presets}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}

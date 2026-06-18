@@ -65,17 +65,37 @@ and the desktop app, with no per-shell or Rust work.
 - **Result:** pick a Profile/Skill/Preset from a dropdown of the defined ones. No selection ⇒
   byte-identical to today.
 
-### Phase B — Authoring panel in Settings
-- **App:** a new `ModelConfigSettingsPage` (nav label e.g. **"LLM Profiles"**) in
-  `settings/SettingsPages` + a `SettingsNavButton` in `SettingsModal`. CRUD over
-  `settingsState.llmProfiles/llmSkills/llmPresets`, mirroring `OpenAiSettingsPage` (field
-  layout) and the Plugins pages (add/remove/list). Each entity edits its own fields (Profile:
-  endpoint/apiKey/organization/headers/defaultModel/extends; Skill: systemPrompt/temperature/
-  …/extraBody; Preset: profileId/skillId/overrides/isDefault). **Reuse the Phase-A selectors**
-  to pick a Preset's `profileId`/`skillId`, so references stay consistent.
-- Persistence is automatic (`atomWithStorage` → localStorage).
-- **Result:** define everything in the UI; it appears in the Phase-A selectors and drives
-  execution.
+### Phase B — Authoring panel (project-scoped)  *(redesigned post-006; was "a page in SettingsModal")*
+> **Design shift:** SPEC Phase B originally said "a `ModelConfigSettingsPage` in `SettingsModal`
+> over `settingsState`." That predates 006, which made the model-config live in **`Project.modelConfig`**
+> (the portability home — travels with the project, runs headless) merged over a global library. So
+> v1 authors the **project**, not global settings. The global-library authoring page in `SettingsModal`
+> is **deferred** (see "Deferred" below).
+- **App:** a new `ProjectModelConfigConfiguration` panel, mounted as a `ProjectInfoFoldableSection`
+  (title **"LLM model config"**) in `ProjectInfoPanel` (`components/ProjectInfoModal.tsx`) — the
+  established project-scoped authoring home, beside Plugins / References / MCP / Context. CRUD over
+  **`Project.modelConfig`** `profiles/skills/presets`, mirroring `ProjectReferencesConfiguration`
+  (list + add/remove over `projectState`) and `OpenAiSettingsPage` (field layout).
+- **Presentational forms:** `LlmProfileForm` / `LlmSkillForm` / `LlmPresetForm` are pure (`value` in,
+  `onChange` out) and **store-decoupled** — the panel owns the `projectState` read/write. The
+  deferred global-library panel reuses the same forms verbatim against a different store.
+  - Profile: generic connection fields — **API endpoint / Model / API key / Organization / Headers /
+    Extends** (never oMLX-shaped). Skill: systemPrompt + scalar/enum behavior fields. Preset: name +
+    **Profile + Skill pickers (reusing the Phase-A `LlmSelectorField`)** + `isDefault`.
+- **Selector re-point:** the Phase-A node selectors read the **project's** model-config (via the
+  single helper `utils/projectModelConfig.ts → getEditorModelConfig(project)`), not the global
+  `settingsState`. The no-selection byte-identical rail holds (empty config ⇒ only `None`).
+- **Persistence:** `projectState` writes go through the **hybrid 'project' storage group, which is
+  debounced** — each edit calls `flushHybridStorageGroup('project')` (the `ProjectContextConfiguration`
+  precedent). *(Corrects the original "persistence is automatic" note.)* Authored entities serialize
+  into the project file via 006.
+- **Object-valued fields** (a Skill's `extraBody`, a Preset's `overrides`) and `responseFormat`-as-
+  object are **deferred to Phase C** (their object/JSON editors). v1 = scalar + connection + enum fields.
+- **Deferred — the global library:** authoring `Settings.modelConfig` (a `SettingsModal` page) +
+  cross-project reuse + materialize-on-use. When it lands, `getEditorModelConfig` becomes
+  `merge(project, global)` project-first (one spot) and the forms are reused as-is.
+- **Result:** define everything in the project UI; it appears in the Phase-A selectors, travels with
+  the project, and drives headless execution.
 
 ### Phase C — Override UX + `extraBody` editor
 - **Override indicators:** in the node editor, when a field's node value differs from the
