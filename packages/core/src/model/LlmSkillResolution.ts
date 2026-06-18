@@ -52,7 +52,7 @@ type SkillParamField = (typeof SKILL_PARAM_FIELDS)[number];
  * Pure apart from the optional `onTrace` diagnostics callback (wired to `context.trace`).
  */
 export function resolveSkill(
-  settings: Pick<Settings, 'llmSkills'>,
+  settings: Pick<Settings, 'modelConfig'>,
   skillId: string | undefined,
   onTrace?: (message: string) => void,
 ): ResolvedSkill {
@@ -60,7 +60,7 @@ export function resolveSkill(
     return {};
   }
 
-  const skills = settings.llmSkills ?? [];
+  const skills = settings.modelConfig?.skills ?? [];
   const byId = new Map<string, LlmSkill>(skills.map((s) => [s.id, s]));
 
   const root = byId.get(skillId);

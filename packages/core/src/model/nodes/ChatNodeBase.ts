@@ -795,21 +795,21 @@ export const ChatNodeBase = {
             label: 'Preset',
             dataKey: 'llmPresetId',
             helperMessage:
-              'A Preset (from settings.llmPresets): one pick that applies a Profile + Skill + overrides. Precedence: Node > Preset overrides > Skill > Profile > Global. Setting Profile or Skill below replaces just that piece of the preset. Leave all blank to inherit the default preset (if any), else global. Note: a preset override still beats a Profile you pick here, but a value you set directly on the node wins over everything.',
+              'A Preset (from the model-config presets): one pick that applies a Profile + Skill + overrides. Precedence: Node > Preset overrides > Skill > Profile > Global. Setting Profile or Skill below replaces just that piece of the preset. Leave all blank to inherit the default preset (if any), else global. Note: a preset override still beats a Profile you pick here, but a value you set directly on the node wins over everything.',
           },
           {
             type: 'llmProfileSelector',
             label: 'LLM Profile',
             dataKey: 'llmProfileId',
             helperMessage:
-              'An LLM Profile (from settings.llmProfiles) supplying endpoint, API key, organization, headers, and default model. Leave blank to use the global settings (default). Node-level fields above still take precedence over the profile.',
+              'An LLM Profile (from the model-config profiles) supplying endpoint, API key, organization, headers, and default model. Leave blank to use the global settings (default). Node-level fields above still take precedence over the profile.',
           },
           {
             type: 'llmSkillSelector',
             label: 'Skill',
             dataKey: 'llmSkillId',
             helperMessage:
-              'A Skill (from settings.llmSkills) supplying a system pre-prompt and behavior params (temperature, reasoning effort, response format, …). Leave blank for No-Skill (passthrough). A Skill only fills fields the node left at its default; any value you set on the node wins.',
+              'A Skill (from the model-config skills) supplying a system pre-prompt and behavior params (temperature, reasoning effort, response format, …). Leave blank for No-Skill (passthrough). A Skill only fills fields the node left at its default; any value you set on the node wins.',
           },
           {
             type: 'string',

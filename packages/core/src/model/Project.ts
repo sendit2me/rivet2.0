@@ -2,6 +2,7 @@ import type { Opaque } from 'type-fest';
 import { type GraphId, type NodeGraph } from './NodeGraph.js';
 import { type PluginLoadSpec } from './PluginLoadSpec.js';
 import type { MCP } from '../integrations/mcp/MCPProvider.js';
+import type { ModelConfig } from './Settings.js';
 
 export type ProjectId = Opaque<string, 'ProjectId'>;
 
@@ -18,6 +19,15 @@ export type Project = {
 
   /** References to other projects. */
   references?: ProjectReference[];
+
+  /**
+   * The model-configuration (Profiles + Skills + Presets) embedded in this project so it travels
+   * with the saved `.rivet-project` and a headless/published/triggered run can resolve models
+   * without a global `Settings`. Merged over the global library by id (project wins) at runtime.
+   * Optional and additive: absent/empty means the project carries no model-config and behaves
+   * exactly as base rivet2.0. See {@link ModelConfig}.
+   */
+  modelConfig?: ModelConfig;
 };
 
 export type ProjectMetadata = {

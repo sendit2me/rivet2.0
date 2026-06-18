@@ -9,14 +9,14 @@ import type { LlmProfile, Settings } from '../../src/model/Settings.js';
 
 const DEFAULT_ENDPOINT = 'https://api.openai.com/api/v1/chat/completions';
 
-function settingsWith(profiles: LlmProfile[]): Pick<Settings, 'llmProfiles'> {
-  return { llmProfiles: profiles };
+function settingsWith(profiles: LlmProfile[]): Pick<Settings, 'modelConfig'> {
+  return { modelConfig: { profiles } };
 }
 
 describe('resolveProfile', () => {
   it('returns {} for an empty/undefined id (global fallback)', () => {
-    assert.deepEqual(resolveProfile({ llmProfiles: [] }, undefined), {});
-    assert.deepEqual(resolveProfile({ llmProfiles: [] }, ''), {});
+    assert.deepEqual(resolveProfile({ modelConfig: { profiles: [] } }, undefined), {});
+    assert.deepEqual(resolveProfile({ modelConfig: { profiles: [] } }, ''), {});
   });
 
   it('returns {} and traces for an unknown id', () => {
@@ -207,7 +207,7 @@ describe('backward compatibility (no profile selected)', () => {
       chatNodeHeaders: { 'x-custom': 'v' },
     };
     const conn = resolveChatNodeConnection({
-      profile: resolveProfile({ llmProfiles: [] }, undefined), // == {}
+      profile: resolveProfile({ modelConfig: { profiles: [] } }, undefined), // == {}
       global,
       node: { endpoint: undefined, model: 'gpt-5', headers: undefined },
       defaultEndpoint: DEFAULT_ENDPOINT,

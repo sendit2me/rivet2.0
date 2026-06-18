@@ -14,6 +14,7 @@ import { entries } from '../typeSafety.js';
 import type { PluginLoadSpec } from '../../model/PluginLoadSpec.js';
 import type { CombinedDataset } from './serialization.js';
 import { type ProjectMetadata } from '../../model/Project.js';
+import { type ModelConfig } from '../../model/Settings.js';
 import {
   type SerializedNodeConnection,
   serializeConnection,
@@ -32,6 +33,7 @@ type SerializedProject = {
   attachedData?: AttachedData;
   plugins?: PluginLoadSpec[];
   references?: SerializedProjectReference[];
+  modelConfig?: ModelConfig;
 };
 
 type SerializedProjectReference = {
@@ -101,6 +103,7 @@ function toSerializedProject(project: Project, attachedData?: AttachedData): Ser
     attachedData,
     plugins: project.plugins ?? [],
     references: project.references ?? [],
+    modelConfig: project.modelConfig ?? {},
   };
 }
 
@@ -111,6 +114,7 @@ function fromSerializedProject(serializedProject: SerializedProject): [Project, 
       graphs: mapValues(serializedProject.graphs, (graph) => fromSerializedGraph(graph)) as Record<GraphId, NodeGraph>,
       plugins: serializedProject.plugins ?? [],
       references: serializedProject.references ?? [],
+      modelConfig: serializedProject.modelConfig ?? {},
     },
     serializedProject.attachedData ?? {},
   ];

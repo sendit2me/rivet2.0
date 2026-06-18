@@ -23,9 +23,11 @@ function makeSettings(parts: {
   openAiKey?: string;
 }): Settings {
   return {
-    llmProfiles: parts.profiles ?? [],
-    llmSkills: parts.skills ?? [],
-    llmPresets: parts.presets ?? [],
+    modelConfig: {
+      profiles: parts.profiles ?? [],
+      skills: parts.skills ?? [],
+      presets: parts.presets ?? [],
+    },
     openAiEndpoint: parts.openAiEndpoint,
     openAiKey: parts.openAiKey,
   } as Settings;

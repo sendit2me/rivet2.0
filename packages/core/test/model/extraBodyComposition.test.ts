@@ -5,7 +5,9 @@ import { resolveSkill } from '../../src/model/LlmSkillResolution.js';
 import type { LlmPreset, LlmSkill, Settings } from '../../src/model/Settings.js';
 
 function settings(parts: { skills?: LlmSkill[]; presets?: LlmPreset[] }): Settings {
-  return { llmSkills: parts.skills ?? [], llmPresets: parts.presets ?? [], llmProfiles: [] } as Settings;
+  return {
+    modelConfig: { skills: parts.skills ?? [], presets: parts.presets ?? [], profiles: [] },
+  } as Settings;
 }
 
 describe('extraBody deep-merge across the Skill extends chain', () => {

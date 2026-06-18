@@ -12,14 +12,14 @@ import { getInputOrData } from '../../src/utils/inputs.js';
 import type { Inputs } from '../../src/model/GraphProcessor.js';
 import type { PortId } from '../../src/model/NodeBase.js';
 
-function settingsWith(skills: LlmSkill[]): Pick<Settings, 'llmSkills'> {
-  return { llmSkills: skills };
+function settingsWith(skills: LlmSkill[]): Pick<Settings, 'modelConfig'> {
+  return { modelConfig: { skills } };
 }
 
 describe('resolveSkill', () => {
   it('returns {} for an empty/undefined id (No-Skill passthrough)', () => {
-    assert.deepEqual(resolveSkill({ llmSkills: [] }, undefined), {});
-    assert.deepEqual(resolveSkill({ llmSkills: [] }, ''), {});
+    assert.deepEqual(resolveSkill({ modelConfig: { skills: [] } }, undefined), {});
+    assert.deepEqual(resolveSkill({ modelConfig: { skills: [] } }, ''), {});
   });
 
   it('returns {} and traces for an unknown id', () => {

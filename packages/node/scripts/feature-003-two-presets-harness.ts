@@ -157,7 +157,7 @@ async function main(): Promise<void> {
         { id: 'dev', data: chatNodeData({ llmPresetId: 'qwen-developer' }) },
         { id: 'rev', data: chatNodeData({ llmPresetId: 'opus-reviewer' }) },
       ]);
-      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, llmProfiles: profiles, llmSkills: skills, llmPresets: presets });
+      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, modelConfig: { profiles, skills, presets } });
     }
     console.log('\n[Graph] two presets on two nodes:');
     const dev = byUrlContains('/qwen')!;
@@ -184,7 +184,7 @@ async function main(): Promise<void> {
     {
       const defaultPresets: LlmPreset[] = [{ ...presets[0]!, isDefault: true }, presets[1]!];
       const { project, graphId } = buildProject([{ id: 'none', data: chatNodeData({}) }]);
-      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, llmProfiles: profiles, llmSkills: skills, llmPresets: defaultPresets });
+      await runGraph(project, { graph: graphId, registry: globalRivetNodeRegistry, modelConfig: { profiles, skills, presets: defaultPresets } });
     }
     console.log('\n[Default] node selects nothing + a default preset exists:');
     const def = captured.at(-1)!;
@@ -198,9 +198,7 @@ async function main(): Promise<void> {
       await runGraph(project, {
         graph: graphId,
         registry: globalRivetNodeRegistry,
-        llmProfiles: profiles,
-        llmSkills: skills,
-        llmPresets: presets, // none flagged isDefault
+        modelConfig: { profiles, skills, presets }, // none flagged isDefault
         openAiEndpoint: `${base}/global/v1/chat/completions`,
         openAiKey: 'key-GLOBAL',
       });
