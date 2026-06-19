@@ -4,13 +4,13 @@
 > 005B, 006 merged). App-side facts verified against `packages/app`. The Phase-2 UI promised in
 > SPEC 004 §6, now its own feature.
 >
-> **As-built + forward.** Phases A and B shipped (project-scoped, post-006); Phase C is split into
-> **C1 (next)** and **C2**. The pre-006 "Settings / `settingsState`" language has been reconciled to
+> **As-built + forward.** Phases A, B and C1 shipped (project-scoped, post-006); Phase C2 (override
+> badges) is next. The pre-006 "Settings / `settingsState`" language has been reconciled to
 > the project-scoped reality (006 + 005-B) and `integration` → `main` throughout.
 
 | | |
 |---|---|
-| **Status** | A, B shipped to `main`; 006 shipped; **C split → C1 (next) + C2** |
+| **Status** | A, B, C1 shipped to `main`; 006 shipped; **C2 (override badges) next** |
 | **Order** | Feature 5 (UI layer), after 006 |
 | **Depends on** | 001–004 (engine), 006 (project-scoped storage + merge); rendered via the fork-vite browser editor and the Tauri shell |
 | **Blast radius** | Mostly `packages/app` React + a few `core` editor-definition additions. **No Rust** — the same code renders in the browser editor *and* the Tauri shell. |
@@ -57,7 +57,7 @@ desktop app, with no per-shell or Rust work.
   object) gets a clean custom editor (the C1 / 004-deferral piece).
 - App imports core as **`@valerypopoff/rivet2-core`**.
 
-## 3. Design — three phases (A, B shipped; C split C1 → C2)
+## 3. Design — three phases (A, B, C1 shipped; C2 next)
 
 ### Phase A — Selectors on the node  *(SHIPPED)*
 - **Core:** added `LlmProfileSelectorEditorDefinition` / `LlmSkillSelectorEditorDefinition` /
@@ -114,7 +114,7 @@ desktop app, with no per-shell or Rust work.
 > node badges). C1 first — badges are only meaningful once `overrides` exists. C1 also clears the
 > three Phase-B UI-test findings (Extends, overrides-copy, region names). See `KICKOFF-phase-c1.md`.
 
-**Phase C1 — finish authoring (behind the clean default):**
+**Phase C1 — finish authoring (behind the clean default):**  *(SHIPPED)*
 - **Shared object/JSON editor (the deferred 004 piece):** edits an object value as JSON with
   parse-on-edit + inline validation (invalid → inline error, not committed). **Not** a string-backed
   shadow field (rejected in 004).
@@ -155,7 +155,7 @@ driven by the wire — don't badge it.
 - **D4 — Byte-identical defaults hold** — a node with nothing selected and Show-overrides off is
   unchanged; badges/Show-overrides default to the clean view. *(The 001–004 rail extends into the UI.)*
 - **D5 — Build in phases A → B → C, C split C1 → C2**, each a gated unit merged to **`main`** before
-  the next. A, B, 006 done; C1 next.
+  the next. A, B, 006, C1 done; C2 next.
 
 ## 5. Edge cases
 

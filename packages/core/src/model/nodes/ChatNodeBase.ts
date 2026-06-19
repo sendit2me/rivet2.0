@@ -884,6 +884,24 @@ export const ChatNodeBase = {
           },
         ],
       },
+      {
+        // Feature 005 Phase C1: the deferred-004 object body editor, in its own advanced group so the
+        // node stays clean by default. `advanced: true` makes the app CSS-hide it behind the
+        // "Show overrides" preference (default off) — byte-identical when no extraBody is set.
+        type: 'group',
+        label: 'Model config overrides',
+        advanced: true,
+        editors: [
+          {
+            type: 'custom',
+            customEditorId: 'extraBodyJson',
+            dataKey: 'extraBody',
+            label: 'Extra Body (JSON)',
+            helperMessage:
+              'Generic per-request body params merged into the request (Node > Preset override > Skill). Use for server-specific options any OpenAI-compatible server accepts, e.g. {"chat_template_kwargs": {"enable_thinking": false}}. Leave blank for none.',
+          },
+        ],
+      },
     ];
   },
 
