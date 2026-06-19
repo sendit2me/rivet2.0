@@ -456,6 +456,11 @@ const ProjectInfoFoldableSection: FC<{
         triggerWhenOpen={<ProjectInfoFoldableToggle label={title} isOpen />}
         transitionTime={150}
         easing="ease-out"
+        // Unique aria ids per section. react-collapsible otherwise falls back to a `Date.now()`-based
+        // id shared across sections mounting in the same tick, so each region's `aria-labelledby`
+        // resolves to the wrong trigger and reports the wrong region name. (Feature 005 Phase C1.)
+        contentElementId={`project-info-section-${sectionKey}-content`}
+        triggerElementProps={{ id: `project-info-section-${sectionKey}-trigger` }}
       >
         <div className="project-info-foldable-content">{children}</div>
       </Collapsible>

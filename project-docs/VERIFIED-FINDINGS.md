@@ -271,6 +271,44 @@ Verified on `feature/005-model-config-ui` (off 001–004). Confirms SPEC 005 §2
   `Project.modelConfig`, flushes 'project', forms store-free, generic profile fields, Phase C deferrals). Playwright
   E2E flagged post-merge.
 
+### J.2 Feature 005 Phase C1 anchors — object editors + extends + a11y  *(verified 2026-06-19, implemented)*
+
+- **[C1] `advanced?: boolean` on `SharedEditorDefinitionProps`** (`model/EditorDefinition.ts`) — a UI hint like
+  `hideIf`/`helperMessage`; never affects resolution. `ChatNodeBase.getEditors` adds a **separate** advanced `group`
+  (`advanced: true`) holding the `extraBody` custom editor (`customEditorId: 'extraBodyJson'`, `dataKey: 'extraBody'`),
+  distinct from the pre-existing always-visible "Advanced" group (gating that would hide shipped controls).
+- **[C1] Show-overrides gate** — `showModelConfigOverridesState` (`state/ui.ts`, `atomWithStorage`, default **off**).
+  `DefaultNodeEditorField` adds `advanced-editor` to a row when `editor.advanced`; `DefaultNodeEditor` reads the pref,
+  adds `hide-advanced-editors` to the container when off (CSS `&.hide-advanced-editors > .row.advanced-editor { display:none }`
+  — CSS-hide, not unmount), and renders a "Show overrides" toggle **only when** `editors.some(e => e.advanced)` (no chrome
+  on other nodes). Clean-node default byte-identical (covered by extended `chatNode004Baseline.test.ts`).
+- **[C1] Shared JSON object editor** — `components/modelConfig/JsonObjectField.tsx`, pure (`value`/`onChange`), with an
+  exported pure `parseJsonObjectInput` (empty ⇒ clear; valid object ⇒ commit; invalid/non-object ⇒ error, **not**
+  committed). Bound on the node via the `custom`-editor adapter `components/editors/custom/ExtraBodyJsonEditor.tsx`,
+  registered in `CustomEditor.tsx` (`.with('extraBodyJson', …)`, non-exhaustive `.otherwise`).
+- **[C1] Shared field groups** — `components/modelConfig/modelConfigFields.tsx` exports `ConnectionFields` /
+  `BehaviorFields` with `mode: 'direct' | 'override'`. **Pure extraction**: `LlmProfileForm`/`LlmSkillForm` now compose
+  them (the B round-trip tests stayed green untouched — the extraction proof). **Override mode keys by PRESENCE** —
+  `present = mode === 'override' ? key in value : true`; each scalar gets a per-field toggle that writes/removes the key,
+  so "inherit" vs "set to empty/zero/false" is distinguishable (the load-bearing `overrides` requirement). Enums with an
+  "Inherit" option and `headers`/`extraBody` express inherit by their own empty state.
+- **[C1] `overrides` editor** — `components/modelConfig/LlmOverridesForm.tsx` runs both groups in override mode plus the
+  JSON editor for `overrides.extraBody`; emits `undefined` when nothing is overridden. Wired into `LlmPresetForm` as an
+  "Overrides (advanced)" subsection. `extraBody` added to `LlmSkillForm`.
+- **[C1] Extends pickers (finding 1)** — `LlmProfileForm`/`LlmSkillForm` render `LlmSelectorField` for `extends`,
+  **always present** (the `.length > 0` guard is gone), self-excluded (`filter(e => e.id !== value.id)`).
+- **[C1] A11y (finding 6)** — `ProjectInfoFoldableSection` (`components/ProjectInfoModal.tsx`) now passes
+  `contentElementId` + `triggerElementProps.id` derived from `sectionKey`. react-collapsible otherwise falls back to a
+  `Date.now()`-based id (verified in `src/Collapsible.js:13`) shared across sections mounting in the same tick, so each
+  region's `aria-labelledby` resolved to the wrong trigger. Now each region reports its own name (de-flakes the
+  Playwright region locators).
+- **[C1] Finding 2 cleared** — shipping `overrides` makes the Chat node Preset precedence copy ("Node > Preset overrides
+  > Skill > Profile > Global", `ChatNodeBase.ts`) true; no trim needed.
+- **[C1] Validation** — app `tsc` + `vite build` + lint green; core build + lint green; **app 1136 / core 703** green
+  (new: `JsonObjectField.test.ts`, `modelConfigGate.test.ts`, extended panel + baseline tests). Playwright deltas
+  (`~/project/ui-testing/tests/model-config-ui.spec.ts`: author extraBody/overrides/extends, toggle Show-overrides) are
+  noted for the post-merge ui-testing run, not run here.
+
 ## K. Feature 006 anchors — project-embedded model-config / portability  *(verified 2026-06-18, implemented)*
 
 > Verified against the working tree on `feature/006-project-embedded-model-config` (off `main` —

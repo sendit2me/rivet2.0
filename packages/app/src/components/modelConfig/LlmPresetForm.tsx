@@ -5,6 +5,7 @@ import Toggle from '@atlaskit/toggle';
 import { type LlmPreset, type LlmProfile, type LlmSkill } from '@valerypopoff/rivet2-core';
 import { LlmSelectorField } from '../editors/LlmSelectorEditors.js';
 import { modelConfigFormStyles } from './modelConfigFormStyles.js';
+import { LlmOverridesForm } from './LlmOverridesForm.js';
 
 /**
  * Presentational editor for one **Preset** (a one-pick Profile + Skill bundle — the friendly
@@ -69,6 +70,19 @@ export const LlmPresetForm: FC<{
           </div>
         )}
       </Field>
+
+      <div className="model-config-form-subsection">
+        <div className="model-config-form-subsection-title">Overrides (advanced)</div>
+        <p className="model-config-form-subsection-help">
+          Tweak fields on top of the resolved Profile + Skill. Each field is off (inherited) until you toggle it on —
+          toggling on overrides it, toggling off goes back to inheriting.
+        </p>
+        <LlmOverridesForm
+          value={value.overrides}
+          isReadonly={isReadonly}
+          onChange={(overrides) => update({ overrides })}
+        />
+      </div>
     </div>
   );
 };

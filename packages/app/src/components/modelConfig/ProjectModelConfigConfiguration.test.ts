@@ -11,6 +11,9 @@ const panel = read('ProjectModelConfigConfiguration.tsx');
 const profileForm = read('LlmProfileForm.tsx');
 const skillForm = read('LlmSkillForm.tsx');
 const presetForm = read('LlmPresetForm.tsx');
+const fields = read('modelConfigFields.tsx');
+const overridesForm = read('LlmOverridesForm.tsx');
+const jsonField = read('JsonObjectField.tsx');
 
 test('the panel authors into the project store and flushes immediately', () => {
   // Authoring target is the PROJECT (portability home from 006), not global settings.
@@ -36,11 +39,14 @@ test('the panel does CRUD over all three axes', () => {
   assert.match(panel, /import \{ nanoid \} from 'nanoid\/non-secure';/);
 });
 
-test('the entity forms are presentational — no store access (reusable by the deferred global library)', () => {
+test('the entity forms and shared field groups are presentational — no store access (reusable by the deferred global library)', () => {
   for (const [label, src] of [
     ['ProfileForm', profileForm],
     ['SkillForm', skillForm],
     ['PresetForm', presetForm],
+    ['OverridesForm', overridesForm],
+    ['modelConfigFields', fields],
+    ['JsonObjectField', jsonField],
   ] as const) {
     // Store-coupling shows up as state-module imports, jotai hooks, or flush calls — none allowed.
     assert.doesNotMatch(src, /from '\.\.\/\.\.\/state\//, `${label} imports no store module`);
@@ -49,14 +55,41 @@ test('the entity forms are presentational — no store access (reusable by the d
   }
 });
 
-test('forms stay generic and defer object-valued fields to Phase C', () => {
-  // Profile connection fields are generic (never oMLX-shaped).
-  assert.match(profileForm, /API endpoint/);
-  assert.match(profileForm, /API key/);
-  assert.doesNotMatch(profileForm, /oMLX|chat_template_kwargs/i);
+test('connection/behavior fields are generic and shared by the forms', () => {
+  // Generic OpenAI-compatible connection fields live in the shared group (never oMLX-shaped).
+  assert.match(fields, /API endpoint/);
+  assert.match(fields, /API key/);
+  assert.doesNotMatch(fields, /oMLX|llama-server|Ollama|vLLM/i);
+  // Profile/Skill forms compose the shared groups (pure extraction).
+  assert.match(profileForm, /<ConnectionFields/);
+  assert.match(skillForm, /<BehaviorFields/);
   // The preset editor reuses the Phase A selector (consistent picker on node + preset).
   assert.match(presetForm, /import \{ LlmSelectorField \} from '\.\.\/editors\/LlmSelectorEditors\.js';/);
-  // Phase C deferrals: no object editors for a skill's extraBody or a preset's overrides yet.
-  assert.doesNotMatch(skillForm, /extraBody/);
-  assert.doesNotMatch(presetForm, /overrides/);
+});
+
+test('C1 ships the deferred object editors via the shared JSON editor', () => {
+  // Skill extraBody and the preset overrides editor are wired (the Phase C deferrals, now shipped).
+  assert.match(skillForm, /import \{ JsonObjectField \}/);
+  assert.match(skillForm, /update\(\{ extraBody: next \}\)/);
+  assert.match(presetForm, /import \{ LlmOverridesForm \}/);
+  assert.match(presetForm, /<LlmOverridesForm/);
+  // The overrides editor runs the shared groups in override mode + the JSON editor for extraBody.
+  assert.match(overridesForm, /mode="override"/);
+  assert.match(overridesForm, /import \{ JsonObjectField \}/);
+});
+
+test('overrides are keyed by PRESENCE (not value) so inherit vs set-to-empty/zero is distinguishable', () => {
+  // override mode tests key existence, not truthiness; toggling presence writes/removes the key.
+  assert.match(fields, /mode === 'override' \? key in value : true/);
+  assert.match(fields, /setPresent/);
+});
+
+test('extends pickers are always present and exclude self (finding 1 fix — no length guard)', () => {
+  for (const [label, src, key] of [
+    ['ProfileForm', profileForm, 'p'],
+    ['SkillForm', skillForm, 's'],
+  ] as const) {
+    assert.match(src, new RegExp(`filter\\(\\(${key}\\) => ${key}\\.id !== value\\.id\\)`), `${label} excludes self`);
+    assert.doesNotMatch(src, /extends\w*\.length > 0 &&/, `${label} has no length guard hiding extends`);
+  }
 });

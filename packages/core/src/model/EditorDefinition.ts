@@ -26,6 +26,14 @@ export type SharedEditorDefinitionProps<T extends ChartNode> = {
   hideIf?: (data: T['data']) => boolean;
 
   disableIf?: (data: T['data']) => boolean;
+
+  /**
+   * Marks this editor (typically a `group`) as advanced/override config. A UI hint only — like
+   * {@link hideIf}/{@link helperMessage}, it never affects resolution. The app CSS-hides advanced
+   * editors behind the "Show overrides" preference (default off), keeping the node's clean default
+   * byte-identical. Editors that don't set it are unchanged. (Feature 005 Phase C1.)
+   */
+  advanced?: boolean;
 };
 
 export type InfoEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {

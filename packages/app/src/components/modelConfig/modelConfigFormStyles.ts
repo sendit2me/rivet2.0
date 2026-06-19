@@ -6,11 +6,30 @@ export const modelConfigFormStyles = css`
   flex-direction: column;
   gap: 10px;
 
-  /* Phase C slot: object-valued editors (a Skill's extraBody, a Preset's overrides) drop in as
-     additional fields below the scalar fields — no restructure needed. */
   .model-config-form-row-inline {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .model-config-form-subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--grey-darkish);
+  }
+
+  .model-config-form-subsection-title {
+    color: var(--foreground-muted);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .model-config-form-subsection-help {
+    margin: 0;
+    color: var(--foreground-muted);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.4;
   }
 `;
