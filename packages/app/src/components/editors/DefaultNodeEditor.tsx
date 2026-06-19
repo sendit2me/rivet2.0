@@ -1,8 +1,13 @@
-import { type FC, useEffect, useState } from 'react';
-import { type ChartNode, type EditorDefinition } from '@valerypopoff/rivet2-core';
+import { type FC, useEffect, useMemo, useState } from 'react';
+import {
+  type ChartNode,
+  type EditorDefinition,
+  describeNodeComposition,
+  computeOverriddenModelConfigFields,
+} from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import clsx from 'clsx';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import Toggle from '@atlaskit/toggle';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { DefaultNodeEditorField } from './DefaultNodeEditorField';
@@ -11,7 +16,16 @@ import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import { produce } from 'immer';
 import { handleError } from '../../utils/errorHandling.js';
 import { showModelConfigOverridesState } from '../../state/ui';
+import { projectState } from '../../state/savedGraphs';
+import { getEditorModelConfig } from '../../utils/projectModelConfig';
 import { getEditorListKey, getEditorRenderRows } from './editorUtils';
+
+/** Walk editors (recursing into groups) yielding the leaf editors that carry a dataKey. */
+function flattenLeafEditors(editors: ReadonlyArray<EditorDefinition<ChartNode>>): EditorDefinition<ChartNode>[] {
+  return editors.flatMap((editor) => (editor.type === 'group' ? flattenLeafEditors(editor.editors) : [editor]));
+}
+
+const NO_OVERRIDES: ReadonlySet<string> = new Set();
 
 export const defaultEditorContainerStyles = css`
   --node-editor-row-gap: calc(18px * var(--ui-font-scale));
@@ -34,6 +48,7 @@ export const defaultEditorContainerStyles = css`
   .row {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    position: relative;
   }
 
   .row > :first-child {
@@ -393,6 +408,24 @@ export const defaultEditorContainerStyles = css`
     color: var(--foreground-muted);
     font-size: var(--ui-font-size-compact);
   }
+
+  /* Feature 005 C2: read-only "overridden" indicator on a field whose node value overrides its
+     Preset/Skill/Profile composition. */
+  .override-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0 6px;
+    border-radius: 8px;
+    corner-shape: squircle;
+    background: var(--warning, #d98e00);
+    color: var(--grey-darkest, #1a1a1a);
+    font-size: var(--ui-font-size-xs, 10px);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.6;
+    user-select: none;
+    pointer-events: none;
+  }
 `;
 
 export const DefaultNodeEditor: FC<
@@ -459,11 +492,55 @@ export const DefaultNodeEditor: FC<
     };
   }, [editorLoadKey, editorRefreshNonce, getUIContext, node, projectNodeRegistry]);
 
-  const editors = editorState?.editorLoadKey === editorLoadKey ? editorState.editors : [];
+  const editors = useMemo(
+    () => (editorState?.editorLoadKey === editorLoadKey ? editorState.editors : []),
+    [editorState, editorLoadKey],
+  );
 
   const [showOverrides, setShowOverrides] = useAtom(showModelConfigOverridesState);
   // Only nodes that actually declare an advanced editor get the gate + toggle — no chrome elsewhere.
   const hasAdvancedEditor = editors.some((editor) => editor.advanced);
+
+  const project = useAtomValue(projectState);
+  // Feature 005 C2: read-only "overridden" badges. Compute which model-config fields the node's own
+  // value overrides vs its Preset/Skill/Profile composition (project-scoped source, same as the
+  // selectors), once per node. Input-wired fields are excluded (the wire drives them, not an override).
+  const overriddenDataKeys = useMemo<ReadonlySet<string>>(() => {
+    if (editors.length === 0) {
+      return NO_OVERRIDES;
+    }
+    const data = node.data as Record<string, unknown>;
+    const composed = describeNodeComposition(
+      { modelConfig: getEditorModelConfig(project) },
+      {
+        llmPresetId: data.llmPresetId as string | undefined,
+        llmProfileId: data.llmProfileId as string | undefined,
+        llmSkillId: data.llmSkillId as string | undefined,
+      },
+    );
+
+    let defaults: Record<string, unknown> = {};
+    try {
+      defaults = projectNodeRegistry.createDynamic(node.type).data as Record<string, unknown>;
+    } catch {
+      // Unknown type / not creatable — fall back to no defaults; behavior fields then never badge.
+    }
+
+    const overridden = computeOverriddenModelConfigFields(composed, data, defaults);
+    if (overridden.size === 0) {
+      return NO_OVERRIDES;
+    }
+
+    // Exclude input-wired fields: the wire drives them, so they aren't node overrides.
+    for (const editor of flattenLeafEditors(editors)) {
+      const toggleKey = editor.type !== 'group' ? editor.useInputToggleDataKey : undefined;
+      const dataKey = 'dataKey' in editor ? (editor.dataKey as string | undefined) : undefined;
+      if (toggleKey && dataKey && data[toggleKey]) {
+        overridden.delete(dataKey);
+      }
+    }
+    return overridden;
+  }, [editors, node, project, projectNodeRegistry]);
 
   const renderEditorField = (editor: EditorDefinition<ChartNode>, index: number) => {
     const isDisabled = editor.disableIf?.(node.data) ?? false;
@@ -480,6 +557,7 @@ export const DefaultNodeEditor: FC<
         isDisabled={isDisabled}
         onClose={onClose}
         onRefreshEditors={refreshEditors}
+        overriddenDataKeys={overriddenDataKeys}
       />
     );
   };
