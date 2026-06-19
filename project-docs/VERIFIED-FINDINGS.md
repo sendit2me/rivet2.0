@@ -309,6 +309,32 @@ Verified on `feature/005-model-config-ui` (off 001–004). Confirms SPEC 005 §2
   (`~/project/ui-testing/tests/model-config-ui.spec.ts`: author extraBody/overrides/extends, toggle Show-overrides) are
   noted for the post-merge ui-testing run, not run here.
 
+### J.3 Feature 005 Phase C2 anchors — override badges (read-only)  *(verified 2026-06-19, implemented)*
+
+- **[C2] Composition anchor — `describeNodeComposition` is a thin wrapper.** `resolveNodeModelComposition`
+  (`model/LlmPresetResolution.ts`) composes `Preset.overrides > Skill > Profile` and does **not** fold in the node's
+  own per-field values (those apply downstream in `process()` via `applySkillParams` + `resolveChatNodeConnection`), so
+  its output is the **composed-sans-node** baseline. `describeNodeComposition(settings, {llmPresetId,llmProfileId,llmSkillId})`
+  re-keys it to a per-field map and **omits the node's own `extraBody`** (so composed `extraBody` = Skill < Preset.override).
+  Each value is `undefined` when the composition has no opinion → nothing to override → no badge.
+- **[C2] Override rule mirrors the runtime** (`computeOverriddenModelConfigFields(composed, data, defaults)` → `Set<dataKey>`):
+  behavior fields (`SKILL_PARAM_FIELDS`) badge iff composed defined AND node value ≠ its **default** (the `applySkillParams`
+  fill rule) AND ≠ composed; `undefined`/unset inherits. Connection (`model` = `overrideModel||model`, `endpoint`) badge iff
+  composed defined AND node **truthy** AND ≠ composed. `headers` badge iff a node key **shadows** a composed key with a
+  different value (additive/same = no badge). `extraBody` badge iff composed non-empty AND node non-empty AND not deep-equal
+  (`lodash isEqual`). Pure; lives in core beside the resolution (reuses the chain, no merge re-impl).
+- **[C2] App wiring (read-only).** `DefaultNodeEditor` computes the composed map from `getEditorModelConfig(project)` (the
+  **same project-scoped source** the selectors use — global excluded by design, matching "overriding your preset/skill/profile"),
+  the node defaults from `projectNodeRegistry.createDynamic(node.type).data`, the overridden `Set` once via the core helper,
+  then **excludes input-wired fields** (`data[editor.useInputToggleDataKey]`) and threads `overriddenDataKeys` down.
+  `DefaultNodeEditorField` renders a read-only `.override-badge` span (no handlers) when its `dataKey` is in the set. No node
+  data / composition / request is touched — the byte-identical baselines stay green (the read-only proof).
+- **[C2] Dual keys** — `model` badges via the effective value (`overrideModel || model`) on the primary row; the override-* row
+  isn't double-badged.
+- **[C2] Validation** — app `tsc` + `vite build` + lint green; core build + lint green; **app 1139 / core 720** green
+  (new: core `describeNodeComposition.test.ts`, app `overrideBadge.test.ts`). Playwright deltas (badge appears when a node
+  field overrides its preset; clears when matched / unset / wired) noted for the post-merge ui-testing run. **Feature 005 complete.**
+
 ## K. Feature 006 anchors — project-embedded model-config / portability  *(verified 2026-06-18, implemented)*
 
 > Verified against the working tree on `feature/006-project-embedded-model-config` (off `main` —

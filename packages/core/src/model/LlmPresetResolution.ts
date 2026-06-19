@@ -1,6 +1,7 @@
+import { isEqual } from 'lodash-es';
 import type { LlmPreset, LlmPresetOverrides, Settings } from './Settings.js';
 import { resolveProfile, type ResolvedProfile } from './LlmProfileResolution.js';
-import { resolveSkill, type ResolvedSkill } from './LlmSkillResolution.js';
+import { resolveSkill, SKILL_PARAM_FIELDS, type ResolvedSkill } from './LlmSkillResolution.js';
 import { deepMerge } from '../utils/deepMerge.js';
 
 /**
@@ -169,4 +170,165 @@ export function resolveNodeModelComposition(
     skill: applyPresetOverridesToSkill(skill, preset.overrides),
     extraBody,
   };
+}
+
+/**
+ * The per-field model-config values a node's Preset/Skill/Profile (+ preset overrides) compose to,
+ * **excluding the node's own field values** — the baseline a node is compared against for the
+ * Feature 005 C2 "overridden" badge. Each value is `undefined` when the composition has no opinion
+ * on that field (so the node has nothing to override → no badge). Read-only / no execution effect.
+ */
+export interface ComposedModelConfigFields {
+  // Connection (from the composed Profile)
+  model?: string;
+  endpoint?: string;
+  headers?: Record<string, string>;
+  // Behavior (from the composed Skill) — the SKILL_PARAM_FIELDS set
+  temperature?: number;
+  top_p?: number;
+  useTopP?: boolean;
+  maxTokens?: number;
+  reasoningEffort?: '' | 'low' | 'medium' | 'high';
+  toolChoice?: 'none' | 'auto' | 'function';
+  responseFormat?: '' | 'text' | 'json' | 'json_schema';
+  stop?: string;
+  // Behavior-axis body params (Skill < Preset.override), sans the node's own extraBody
+  extraBody?: Record<string, unknown>;
+}
+
+/**
+ * Compute the composed-**sans-node** per-field values (Feature 005 C2). A thin re-keying of
+ * {@link resolveNodeModelComposition} — the node's own per-field values are applied downstream in
+ * `process()` (via `applySkillParams` / `resolveChatNodeConnection`), so the composition output is
+ * already the node-excluded baseline. The node's own `extraBody` is deliberately omitted so the
+ * composed `extraBody` is Skill < Preset.override only. Pure (apart from the optional trace).
+ */
+export function describeNodeComposition(
+  settings: Pick<Settings, 'modelConfig'>,
+  selectors: Pick<NodeModelSelectors, 'llmPresetId' | 'llmProfileId' | 'llmSkillId'>,
+  onTrace?: (message: string) => void,
+): ComposedModelConfigFields {
+  const composition = resolveNodeModelComposition(
+    settings,
+    {
+      llmPresetId: selectors.llmPresetId,
+      llmProfileId: selectors.llmProfileId,
+      llmSkillId: selectors.llmSkillId,
+    },
+    onTrace,
+  );
+
+  return {
+    model: composition.profile.defaultModel,
+    endpoint: composition.profile.endpoint,
+    headers: composition.profile.headers,
+    temperature: composition.skill.temperature,
+    top_p: composition.skill.top_p,
+    useTopP: composition.skill.useTopP,
+    maxTokens: composition.skill.maxTokens,
+    reasoningEffort: composition.skill.reasoningEffort,
+    toolChoice: composition.skill.toolChoice,
+    responseFormat: composition.skill.responseFormat,
+    stop: composition.skill.stop,
+    extraBody: Object.keys(composition.extraBody).length > 0 ? composition.extraBody : undefined,
+  };
+}
+
+function flattenNodeHeaders(headers: unknown): Record<string, string> {
+  if (!Array.isArray(headers)) {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const pair of headers) {
+    if (pair && typeof pair === 'object' && typeof (pair as { key?: unknown }).key === 'string') {
+      const key = (pair as { key: string }).key;
+      if (key.trim() !== '') {
+        out[key] = String((pair as { value?: unknown }).value ?? '');
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Decide which of a Chat node's model-config fields are **overridden** — the node's own value wins
+ * over, and differs from, the composed Preset/Skill/Profile value (Feature 005 C2). Returns the set
+ * of node data keys to badge. Pure and read-only; mirrors the runtime precedence exactly so the
+ * badge matches what executes:
+ *
+ * - **Behavior fields** ({@link SKILL_PARAM_FIELDS}) — the node wins iff its value **differs from its
+ *   default** (`applySkillParams` fills a left-at-default field from the Skill). Badge iff the
+ *   composition has a value AND node ≠ default AND node ≠ composed.
+ * - **Connection** (`model` = `overrideModel || model`, `endpoint`) — the node wins iff **truthy**
+ *   (`node.x || profile.x`). Badge iff composed defined AND node truthy AND node ≠ composed.
+ * - **`headers`** — a merge: badge iff a node header key **shadows** a composed key with a different
+ *   value (purely-additive node headers, or same value, are not overrides).
+ * - **`extraBody`** — deep-merge: badge iff composed is non-empty AND node is non-empty AND they are
+ *   not deep-equal. An unset / cleared (`undefined`/`{}`) node value inherits → no badge.
+ *
+ * The caller (the node editor) additionally excludes input-wired fields. `data`/`defaults` are the
+ * node's current and default data (`ChatNodeData`-shaped).
+ */
+export function computeOverriddenModelConfigFields(
+  composed: ComposedModelConfigFields,
+  data: Record<string, unknown>,
+  defaults: Record<string, unknown>,
+): Set<string> {
+  const overridden = new Set<string>();
+
+  // Behavior — node wins iff it differs from its default (the applySkillParams rule).
+  for (const field of SKILL_PARAM_FIELDS) {
+    const composedValue = composed[field];
+    if (composedValue === undefined) {
+      continue; // composition has no opinion → nothing to override
+    }
+    const nodeValue = data[field];
+    if (nodeValue === undefined) {
+      continue; // unset → inherits (the C1 cleared-value rail) → not an override
+    }
+    if (nodeValue === defaults[field]) {
+      continue; // left at default → the Skill fills it → not an override
+    }
+    if (!isEqual(nodeValue, composedValue)) {
+      overridden.add(field);
+    }
+  }
+
+  // Connection — node wins iff truthy (node.x || profile.x).
+  const overrideModel = typeof data.overrideModel === 'string' ? data.overrideModel.trim() : '';
+  const effectiveModel = overrideModel !== '' ? overrideModel : (data.model as string | undefined);
+  if (composed.model !== undefined && effectiveModel && effectiveModel !== composed.model) {
+    overridden.add('model');
+  }
+
+  const nodeEndpoint = data.endpoint as string | undefined;
+  if (composed.endpoint !== undefined && nodeEndpoint && nodeEndpoint !== composed.endpoint) {
+    overridden.add('endpoint');
+  }
+
+  // Headers — shadow rule: a node key overriding a composed key with a different value.
+  if (composed.headers && Object.keys(composed.headers).length > 0) {
+    const nodeHeaders = flattenNodeHeaders(data.headers);
+    for (const [key, value] of Object.entries(nodeHeaders)) {
+      if (key in composed.headers && composed.headers[key] !== value) {
+        overridden.add('headers');
+        break;
+      }
+    }
+  }
+
+  // extraBody — object deep-merge; node value inherits when unset/empty.
+  const composedExtra = composed.extraBody;
+  const nodeExtra = data.extraBody as Record<string, unknown> | undefined;
+  if (
+    composedExtra &&
+    Object.keys(composedExtra).length > 0 &&
+    nodeExtra &&
+    Object.keys(nodeExtra).length > 0 &&
+    !isEqual(nodeExtra, composedExtra)
+  ) {
+    overridden.add('extraBody');
+  }
+
+  return overridden;
 }
