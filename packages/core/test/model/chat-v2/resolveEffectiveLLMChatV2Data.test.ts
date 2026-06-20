@@ -207,6 +207,48 @@ describe('resolveEffectiveLLMChatV2Data — extends resolves before the provider
   });
 });
 
+describe('resolveEffectiveLLMChatV2Data — headers per-key merge (not replace)', () => {
+  const profile: LlmProfile = {
+    id: 'prof',
+    name: 'P',
+    provider: 'openai',
+    headers: { authorization: 'Bearer profile', 'x-team': 'qa' },
+  };
+
+  it('a node header no longer drops the profile connection headers (per-key merge, node wins)', () => {
+    const result = resolveEffectiveLLMChatV2Data(
+      { profiles: [profile] },
+      { llmProfileId: 'prof' },
+      node({ headers: [{ key: 'x-team', value: 'override' }, { key: 'x-trace', value: 'on' }] }),
+    );
+    const asRecord = Object.fromEntries(result.headers.map((h) => [h.key, h.value]));
+    assert.equal(asRecord['authorization'], 'Bearer profile'); // profile header preserved
+    assert.equal(asRecord['x-team'], 'override'); // node wins on the shared key
+    assert.equal(asRecord['x-trace'], 'on'); // node-only header kept
+  });
+
+  it('profile-only headers apply when the node has none', () => {
+    const result = resolveEffectiveLLMChatV2Data({ profiles: [profile] }, { llmProfileId: 'prof' }, node());
+    assert.deepEqual(
+      result.headers.sort((a, b) => a.key.localeCompare(b.key)),
+      [
+        { key: 'authorization', value: 'Bearer profile' },
+        { key: 'x-team', value: 'qa' },
+      ],
+    );
+  });
+
+  it('rail-safe: with no Profile/override headers layered, the node headers are untouched', () => {
+    const nodeHeaders = [{ key: 'x-own', value: '1' }];
+    const result = resolveEffectiveLLMChatV2Data(
+      { skills: [{ id: 's', name: 'S', base: { temperature: 0.1 } }] },
+      { llmSkillId: 's' },
+      node({ headers: nodeHeaders }),
+    );
+    assert.deepEqual(result.headers, nodeHeaders);
+  });
+});
+
 describe('resolveEffectiveLLMChatV2Data — extraBody escape hatch (custom-only)', () => {
   it('serializes merged extraBody into extraProviderOptions for a custom provider', () => {
     const skill: LlmSkill = {

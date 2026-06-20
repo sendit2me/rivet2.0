@@ -76,6 +76,10 @@ export function resolveEffectiveLLMChatV2Data(
   const overlay = buildOverlay(provider, profile, skill, overrides);
   const effective = applyOverlay(nodeData, overlay, provider);
 
+  // Connection headers: per-key merge (Profile < Preset.overrides < Node) instead of replace, so a
+  // node header does not drop the profile's connection headers. Self-guards on layered headers.
+  applyHeadersMerge(effective, nodeData, profile, overrides);
+
   // Escape hatch (D9): custom-provider only. Merge model-config extraBody into the node's raw
   // `extraProviderOptions` (Node > Preset.overrides > providers.custom > base) with stable key order.
   if (provider === 'custom') {
@@ -238,10 +242,13 @@ function mapReasoningLevel(level: LlmReasoningLevel, provider: ChatV2Provider): 
   }
 }
 
-/** Copy defined keys from `src` into `target`, skipping `provider` (Profile-owned) and `extraBody` (escape hatch). */
+/**
+ * Copy defined keys from `src` into `target`, skipping `provider` (Profile-owned), `extraBody`
+ * (escape hatch), and `headers` (per-key merge) — all three are special-cased outside the overlay.
+ */
 function assignDefined(target: Partial<LLMChatV2NodeData>, src: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(src)) {
-    if (value === undefined || key === 'provider' || key === 'extraBody') {
+    if (value === undefined || key === 'provider' || key === 'extraBody' || key === 'headers') {
       continue;
     }
     (target as Record<string, unknown>)[key] = value;
@@ -250,6 +257,42 @@ function assignDefined(target: Partial<LLMChatV2NodeData>, src: Record<string, u
 
 function recordToHeaderArray(headers: Record<string, string>): { key: string; value: string }[] {
   return Object.entries(headers).map(([key, value]) => ({ key, value }));
+}
+
+function headerArrayToRecord(headers: { key: string; value: string }[] | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const { key, value } of headers ?? []) {
+    if (key.trim() !== '') {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+/**
+ * Per-key header merge across the connection layers — Profile base < Preset.overrides < Node, the
+ * later layer winning per key (mirrors how `extraBody` is special-cased). So a node that adds one
+ * header no longer drops the Profile's connection headers (the replace-vs-merge fix). Rail-safe: only
+ * engages when a Profile or a Preset override actually contributes headers (a selector is set); with
+ * neither, `effective.headers` is left as the node's own.
+ */
+function applyHeadersMerge(
+  effective: LLMChatV2NodeData,
+  nodeData: LLMChatV2NodeData,
+  profile: ResolvedProfile | undefined,
+  overrides: LlmPresetOverrides | undefined,
+): void {
+  const profileHeaders = profile?.headers;
+  const overrideHeaders = overrides?.headers ? headerArrayToRecord(overrides.headers) : undefined;
+  if (!profileHeaders && !overrideHeaders) {
+    return; // Nothing layered → leave the node's own headers untouched.
+  }
+  const merged: Record<string, string> = {
+    ...profileHeaders,
+    ...overrideHeaders,
+    ...headerArrayToRecord(nodeData.headers), // Node wins per key.
+  };
+  effective.headers = recordToHeaderArray(merged);
 }
 
 /**
@@ -272,7 +315,8 @@ function buildOverlay(
     if (profile.apiKeySource !== undefined) overlay.apiKeySource = profile.apiKeySource;
     if (profile.customProviderApiKeyEnvVarName !== undefined)
       overlay.customProviderApiKeyEnvVarName = profile.customProviderApiKeyEnvVarName;
-    if (profile.headers !== undefined) overlay.headers = recordToHeaderArray(profile.headers);
+    // `headers` is NOT placed in the overlay — it is per-key merged in applyHeadersMerge (so a node
+    // header no longer drops the profile's connection headers). Provider/extraBody are likewise special.
     if (profile.defaultModel !== undefined) overlay.model = profile.defaultModel;
   }
 
