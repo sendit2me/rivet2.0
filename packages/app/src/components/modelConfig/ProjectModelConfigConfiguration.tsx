@@ -112,7 +112,7 @@ export const ProjectModelConfigConfiguration: FC = () => {
 
   // --- Profiles ---
   const addProfile = () => {
-    const entity: LlmProfile = { id: nanoid(), name: 'New profile' };
+    const entity: LlmProfile = { id: nanoid(), name: 'New profile', provider: 'openai' };
     writeAxis('profiles', [...profiles, entity]);
     setEditing({ axis: 'profiles', id: entity.id });
   };

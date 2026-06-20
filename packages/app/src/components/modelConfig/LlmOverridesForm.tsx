@@ -1,14 +1,7 @@
 import { type FC } from 'react';
 import { type LlmPresetOverrides } from '@valerypopoff/rivet2-core';
 import { modelConfigFormStyles } from './modelConfigFormStyles.js';
-import {
-  ConnectionFields,
-  BehaviorFields,
-  CONNECTION_KEYS,
-  BEHAVIOR_KEYS,
-  mergeKeys,
-  pickKeys,
-} from './modelConfigFields.js';
+import { OverrideFields, OVERRIDE_KEYS, mergeKeys, pickKeys } from './modelConfigFields.js';
 import { JsonObjectField } from './JsonObjectField.js';
 
 /**
@@ -29,17 +22,9 @@ export const LlmOverridesForm: FC<{
 
   return (
     <div css={modelConfigFormStyles}>
-      <ConnectionFields
-        value={pickKeys(overrides, CONNECTION_KEYS)}
-        onChange={(conn) => emit(mergeKeys(overrides, CONNECTION_KEYS, conn))}
-        mode="override"
-        idPrefix="override"
-        isReadonly={isReadonly}
-      />
-      <BehaviorFields
-        value={pickKeys(overrides, BEHAVIOR_KEYS)}
-        onChange={(behavior) => emit(mergeKeys(overrides, BEHAVIOR_KEYS, behavior))}
-        mode="override"
+      <OverrideFields
+        value={pickKeys(overrides, OVERRIDE_KEYS)}
+        onChange={(fields) => emit(mergeKeys(overrides, OVERRIDE_KEYS, fields))}
         idPrefix="override"
         isReadonly={isReadonly}
       />

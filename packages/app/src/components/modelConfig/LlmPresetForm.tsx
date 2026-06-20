@@ -1,7 +1,6 @@
 import { type FC } from 'react';
 import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
-import Toggle from '@atlaskit/toggle';
 import { type LlmPreset, type LlmProfile, type LlmSkill } from '@valerypopoff/rivet2-core';
 import { LlmSelectorField } from '../editors/LlmSelectorEditors.js';
 import { modelConfigFormStyles } from './modelConfigFormStyles.js';
@@ -57,19 +56,6 @@ export const LlmPresetForm: FC<{
         helperMessage="The behavior (system prompt / sampling) this preset applies. Leave None for connection-only."
         onChange={(selected) => update({ skillId: selected || undefined })}
       />
-
-      <Field name="preset-is-default" label="Default preset" isDisabled={isReadonly}>
-        {() => (
-          <div className="model-config-form-row-inline">
-            <Toggle
-              isChecked={value.isDefault ?? false}
-              isDisabled={isReadonly}
-              onChange={(e) => update({ isDefault: e.target.checked || undefined })}
-            />
-            <span>Apply to nodes that select nothing</span>
-          </div>
-        )}
-      </Field>
 
       <div className="model-config-form-subsection">
         <div className="model-config-form-subsection-title">Overrides (advanced)</div>

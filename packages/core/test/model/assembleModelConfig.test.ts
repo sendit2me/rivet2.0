@@ -4,7 +4,7 @@ import { assembleModelConfig, mergeModelConfig } from '../../src/model/assembleM
 import type { Project } from '../../src/model/Project.js';
 import type { LlmProfile, ModelConfig, Settings } from '../../src/model/Settings.js';
 
-const profile = (id: string, defaultModel: string): LlmProfile => ({ id, name: id, defaultModel });
+const profile = (id: string, defaultModel: string): LlmProfile => ({ id, name: id, provider: 'openai', defaultModel });
 
 function project(modelConfig?: ModelConfig): Project {
   return {

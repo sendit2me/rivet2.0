@@ -55,26 +55,26 @@ test('the entity forms and shared field groups are presentational — no store a
   }
 });
 
-test('connection/behavior fields are generic and shared by the forms', () => {
-  // Generic OpenAI-compatible connection fields live in the shared group (never oMLX-shaped).
-  assert.match(fields, /API endpoint/);
-  assert.match(fields, /API key/);
+test('connection/base fields are the chat-v2 fan-out shape and shared by the forms', () => {
+  // Provider-aware connection fields live in the shared group (never server-branded).
+  assert.match(fields, /Provider/);
+  assert.match(fields, /Base URL/);
   assert.doesNotMatch(fields, /oMLX|llama-server|Ollama|vLLM/i);
-  // Profile/Skill forms compose the shared groups (pure extraction).
-  assert.match(profileForm, /<ConnectionFields/);
-  assert.match(skillForm, /<BehaviorFields/);
+  // Profile/Skill forms compose the shared chat-v2 groups (pure extraction).
+  assert.match(profileForm, /<ProfileConnectionFields/);
+  assert.match(skillForm, /<SkillBaseFields/);
   // The preset editor reuses the Phase A selector (consistent picker on node + preset).
   assert.match(presetForm, /import \{ LlmSelectorField \} from '\.\.\/editors\/LlmSelectorEditors\.js';/);
 });
 
-test('C1 ships the deferred object editors via the shared JSON editor', () => {
-  // Skill extraBody and the preset overrides editor are wired (the Phase C deferrals, now shipped).
+test('forms wire the shared JSON editor for the extraBody escape hatch', () => {
+  // Skill base + per-provider blocks carry extraBody via the shared JSON editor (custom-provider hatch).
   assert.match(skillForm, /import \{ JsonObjectField \}/);
-  assert.match(skillForm, /update\(\{ extraBody: next \}\)/);
+  assert.match(skillForm, /extraBody/);
   assert.match(presetForm, /import \{ LlmOverridesForm \}/);
   assert.match(presetForm, /<LlmOverridesForm/);
-  // The overrides editor runs the shared groups in override mode + the JSON editor for extraBody.
-  assert.match(overridesForm, /mode="override"/);
+  // The overrides editor runs the shared override-mode group + the JSON editor for extraBody.
+  assert.match(overridesForm, /<OverrideFields/);
   assert.match(overridesForm, /import \{ JsonObjectField \}/);
 });
 
