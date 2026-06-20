@@ -1,12 +1,18 @@
+import type { ChatV2Provider } from './chat-v2/chatV2Types.js';
+import type { LLMChatV2ApiKeySource, LLMChatV2NodeData } from './chat-v2/llmChatV2NodeData.js';
+
 /**
- * A reusable, named connection bundle (endpoint + credentials + headers + default model)
- * selectable per node via the model-config selectors.
- *
- * Profiles are the "connection" axis of the model-configuration layer. They are orthogonal
- * to Skills (behavior, Feature 002). Default-selection (which profile to use when a node
- * picks none) is intentionally NOT modeled here — that belongs to the Preset layer
- * (Feature 003). When no profile is selected, resolution falls back to the global settings
- * fields below, byte-identically to today.
+ * Coarse, provider-agnostic reasoning effort carried on a Skill's {@link SkillBase}. The resolution
+ * maps it to the resolved provider's effort field as a **fallback** (openai/google take all four;
+ * anthropic has no `minimal`, so `minimal` is left unset there). An explicit provider-block effort
+ * value always wins. See `resolveEffectiveLLMChatV2Data`.
+ */
+export type LlmReasoningLevel = '' | 'minimal' | 'low' | 'medium' | 'high';
+
+/**
+ * A reusable, named **connection** bundle (the model-config "connection" axis), re-targeted onto
+ * chat-v2 (DECISIONS D8). A Profile owns transport only — *which vendor surface*, where, with what
+ * credentials — plus a **fallback** model. Behaviour and the per-request model live on the Skill.
  */
 export interface LlmProfile {
   /** Stable unique id, referenced by nodes via `llmProfileId`. */
@@ -16,24 +22,81 @@ export interface LlmProfile {
   /** Optional parent profile id to inherit from (single-axis inheritance; cycle-guarded). */
   extends?: string;
 
-  endpoint?: string;
-  apiKey?: string;
-  organization?: string;
+  /** Which vendor surface this connection targets. chat-v2 is provider-aware (DECISIONS D6). */
+  provider: ChatV2Provider;
+  /** Hosted-provider base URL override (openai / anthropic / google). */
+  baseURL?: string;
+  /** Custom OpenAI-compatible provider base URL (used when `provider === 'custom'`). */
+  customProviderBaseURL?: string;
+  /** Where the API key comes from: an environment variable (default) or a node input port. */
+  apiKeySource?: LLMChatV2ApiKeySource;
+  /** Env-var name holding the custom provider's API key (when `apiKeySource === 'environment'`). */
+  customProviderApiKeyEnvVarName?: string;
   headers?: Record<string, string>;
-  /** Used when a node leaves its model field blank. */
+  /** Fallback model when a node leaves Model blank and no Skill provider block sets one (§4 precedence). */
   defaultModel?: string;
 }
 
 /**
- * A reusable, named *behavior* bundle (the "Skill" axis), composable onto any
- * {@link LlmProfile}. Where a Profile owns the connection, a Skill owns behavior: a
- * pre-prompt plus sampling / effort / format overrides. Default is No-Skill (passthrough),
- * which is byte-identical to base behavior.
- *
- * Pure behavior — **no selection metadata**. A Skill does not carry `isDefault` or a
- * `preferredProfileId`; default-selection and Profile×Skill bundling live at the Preset
- * layer (Feature 003). Each field is optional; an omitted field inherits the lower layer
- * (the node's value / its default). See SPEC 002 §4 for the precedence and "node-set" rule.
+ * The provider-agnostic core of a {@link LlmSkill}: sampling / format params shared across vendors,
+ * plus a coarse {@link LlmReasoningLevel} and the generic `extraBody` escape hatch. Type-locked to
+ * the chat-v2 node shape via `Pick<LLMChatV2NodeData, …>` so it never drifts from the runtime fields.
+ */
+export type SkillBase = Partial<
+  Pick<
+    LLMChatV2NodeData,
+    | 'temperature'
+    | 'maxTokens'
+    | 'topP'
+    | 'topK'
+    | 'presencePenalty'
+    | 'frequencyPenalty'
+    | 'stopSequences'
+    | 'seed'
+    | 'responseFormat'
+  >
+> & {
+  /** Coarse reasoning effort, mapped to the resolved provider's effort field (see {@link LlmReasoningLevel}). */
+  reasoningLevel?: LlmReasoningLevel;
+  /** Generic per-request body params; applied (custom-provider only) via the `extraProviderOptions` escape hatch (D9). */
+  extraBody?: Record<string, unknown>;
+};
+
+/**
+ * A per-provider extension block on a {@link LlmSkill}: the provider-specific subset of the chat-v2
+ * node fields (model, effort, provider toggles, …), type-locked via `Pick<LLMChatV2NodeData, …>` and
+ * excluding the `use*Input` node-port machinery. A `Partial`, so a block sets only what it overrides.
+ */
+export type ProviderSkillBlock = Partial<
+  Pick<
+    LLMChatV2NodeData,
+    | 'model'
+    | 'openAIReasoningEffort'
+    | 'openAIReasoningSummary'
+    | 'openAIPreviousResponseId'
+    | 'enableOpenAIWebSearch'
+    | 'openAIWebSearchContextSize'
+    | 'enableOpenAICodeInterpreter'
+    | 'anthropicThinkingMode'
+    | 'anthropicThinkingBudget'
+    | 'anthropicEffort'
+    | 'anthropicCacheControlTtl'
+    | 'googleThinkingBudget'
+    | 'googleThinkingLevel'
+    | 'googleIncludeThoughts'
+    | 'enableGoogleSearchGrounding'
+    | 'enableGoogleUrlContext'
+  >
+> & {
+  /** Generic per-request body params for this provider (custom-only passthrough; D9). */
+  extraBody?: Record<string, unknown>;
+};
+
+/**
+ * A reusable, named **behaviour + model** bundle (the "Skill" axis), re-targeted onto chat-v2 as a
+ * generic `base` plus per-provider extension `providers` blocks — the base → provider fan-out
+ * (DECISIONS D7). Resolution applies `base`, then the resolved provider's block (which wins), then
+ * the node. The `extends` chain resolves **before** the provider overlay (two orthogonal axes).
  */
 export interface LlmSkill {
   /** Stable unique id, referenced by nodes via `llmSkillId`. */
@@ -43,84 +106,40 @@ export interface LlmSkill {
   /** Optional parent skill id to inherit from (single-axis inheritance; cycle-guarded). */
   extends?: string;
 
-  /** Prepended into the message array at run time as a system message (the "pre-prompt"). */
-  systemPrompt?: string;
-
-  // Behavior / sampling overrides (all optional; omitted = inherit the node's value/default).
-  temperature?: number;
-  top_p?: number;
-  useTopP?: boolean;
-  maxTokens?: number;
-  reasoningEffort?: '' | 'low' | 'medium' | 'high';
-  toolChoice?: 'none' | 'auto' | 'function';
-  responseFormat?: '' | 'text' | 'json' | 'json_schema';
-  stop?: string;
-
-  /**
-   * Structured per-request body params carried on the behavior axis (Feature 004). Deep-merged
-   * (Node > Preset.override > Skill) and applied to the request body, winning over managed optional
-   * params but never over connection/transport (endpoint, model, messages, stream). Lets a Skill
-   * carry e.g. `{ chat_template_kwargs: { enable_thinking: false } }`.
-   */
-  extraBody?: Record<string, unknown>;
+  /** Provider-agnostic params (sampling / format / coarse reasoning / extraBody). */
+  base?: SkillBase;
+  /** Per-provider extension blocks; only the resolved provider's block is applied. */
+  providers?: Partial<Record<ChatV2Provider, ProviderSkillBlock>>;
 }
 
 /**
- * Whitelisted fields a {@link LlmPreset} may override on top of its resolved Profile + Skill.
- * This is the **full union** of {@link LlmProfile}'s value fields (connection) and
- * {@link LlmSkill}'s value fields (behavior) — a Preset can tweak anything its profile or skill
- * carries — but it is *closed*: it deliberately excludes node machinery (`useModelInput`,
- * `cache`, the `use<Field>Input` toggles, …) so a Preset can never reach into node internals.
+ * The fields a {@link LlmPreset} may override on top of its resolved Profile + Skill — a closed
+ * `Partial` over the **effective chat-v2 config**, excluding the `use*Input` node-port machinery, plus
+ * the object-valued `extraBody` (merged via the escape hatch). Sits just below the node in precedence.
  */
-export interface LlmPresetOverrides {
-  // Connection (from LlmProfile)
-  endpoint?: string;
-  apiKey?: string;
-  organization?: string;
-  headers?: Record<string, string>;
-  defaultModel?: string;
-
-  // Behavior (from LlmSkill)
-  systemPrompt?: string;
-  temperature?: number;
-  top_p?: number;
-  useTopP?: boolean;
-  maxTokens?: number;
-  reasoningEffort?: '' | 'low' | 'medium' | 'high';
-  toolChoice?: 'none' | 'auto' | 'function';
-  responseFormat?: '' | 'text' | 'json' | 'json_schema';
-  stop?: string;
-
-  /** Behavior-axis body params (Feature 004); deep-merged over the Skill's `extraBody`. See {@link LlmSkill.extraBody}. */
+export type LlmPresetOverrides = Partial<Omit<LLMChatV2NodeData, `use${string}Input`>> & {
   extraBody?: Record<string, unknown>;
-}
+};
 
 /**
- * A one-pick **composition** — the friendly "local-Qwen-developer" entry. A Preset references a
- * Profile (connection) and an optional Skill (behavior), plus an optional whitelisted `overrides`
- * layer, so a single node selection applies both. The engine stays orthogonal: a Preset *expands*
- * to Profile + Skill; it is not a new axis.
+ * A one-pick **composition** — the friendly "agent" entry. A Preset references a Profile (connection)
+ * and an optional Skill (behaviour + model), plus an optional `overrides` layer, so a single node
+ * selection applies all three. The engine stays orthogonal: a Preset *expands* to Profile + Skill.
  *
- * Precedence across the whole stack (SPEC 003 §3):
- * `Node-level field > Preset.overrides > Skill > Profile > Global`.
- *
- * `isDefault` is the home for default-selection (deliberately dropped from Profiles/Skills). A
- * default preset applies **only when a node selects nothing on any axis** (no preset/profile/skill);
- * with no `isDefault` preset defined, behavior is byte-identical to the no-Preset path.
+ * Precedence (SPEC 008 §4):
+ * `Node > Preset.overrides > Skill.providers[provider] > Skill.base > Profile`.
  */
 export interface LlmPreset {
   /** Stable unique id, referenced by nodes via `llmPresetId`. */
   id: string;
-  /** Human label, e.g. "local-Qwen-developer". */
+  /** Human label, e.g. "Coder (local Qwen)". */
   name: string;
   /** Required Profile (connection) this preset expands to. */
   profileId: string;
-  /** Optional Skill (behavior); omitted = No-Skill. */
+  /** Optional Skill (behaviour + model); omitted = No-Skill. */
   skillId?: string;
   /** Field overrides applied on top of the resolved profile + skill (highest below the node). */
   overrides?: LlmPresetOverrides;
-  /** Marks the preset applied to a node that selects nothing. First wins if several are flagged. */
-  isDefault?: boolean;
 }
 
 export interface Settings<PluginSettings = Record<string, Record<string, unknown>>> {

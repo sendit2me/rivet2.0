@@ -4,16 +4,15 @@ import TextField from '@atlaskit/textfield';
 import { type LlmProfile } from '@valerypopoff/rivet2-core';
 import { LlmSelectorField } from '../editors/LlmSelectorEditors.js';
 import { modelConfigFormStyles } from './modelConfigFormStyles.js';
-import { ConnectionFields, CONNECTION_KEYS, mergeKeys, pickKeys } from './modelConfigFields.js';
+import { ProfileConnectionFields, PROFILE_CONNECTION_KEYS, mergeKeys, pickKeys } from './modelConfigFields.js';
 
 /**
- * Presentational editor for one LLM **Profile** (the connection axis). Pure: `value` in, `onChange`
- * out — it never reads or writes any store, so the deferred global-library panel can reuse it
- * verbatim against a different store. Persistence (the project store write + flush) lives in the panel.
+ * Presentational editor for one LLM **Profile** (the connection axis, chat-v2 shape). Pure: `value`
+ * in, `onChange` out — it never reads or writes any store, so the deferred global-library panel can
+ * reuse it verbatim. Persistence (the project store write + flush) lives in the panel.
  *
- * Connection fields come from the shared {@link ConnectionFields} group (also used by the preset
- * overrides editor) and are GENERIC OpenAI-compatible (API endpoint / Model / API key / headers) —
- * never server-specific. Server-specific body params are `extraBody` (on Skills / overrides).
+ * Connection fields come from the shared {@link ProfileConnectionFields} group: provider, the right
+ * base URL, key source, fallback model, headers. The per-request model + behaviour live on the Skill.
  */
 export const LlmProfileForm: FC<{
   value: LlmProfile;
@@ -38,10 +37,9 @@ export const LlmProfileForm: FC<{
         )}
       </Field>
 
-      <ConnectionFields
-        value={pickKeys(value, CONNECTION_KEYS)}
-        onChange={(conn) => onChange(mergeKeys(value, CONNECTION_KEYS, conn))}
-        mode="direct"
+      <ProfileConnectionFields
+        value={pickKeys(value, PROFILE_CONNECTION_KEYS)}
+        onChange={(conn) => onChange(mergeKeys(value, PROFILE_CONNECTION_KEYS, conn))}
         idPrefix="profile"
         isReadonly={isReadonly}
       />

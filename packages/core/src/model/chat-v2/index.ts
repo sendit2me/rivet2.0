@@ -7,4 +7,5 @@ export * from './chatV2Types.js';
 export * from './messageConverter.js';
 export * from './modelRegistry.js';
 export * from './providerOptions.js';
+export * from './resolveEffectiveLLMChatV2Data.js';
 export * from './toolConverter.js';

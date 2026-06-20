@@ -1,51 +1,64 @@
 import { type FC, type ReactNode } from 'react';
 import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
-import TextArea from '@atlaskit/textarea';
 import Select from '@atlaskit/select';
 import Toggle from '@atlaskit/toggle';
 import { css } from '@emotion/react';
-import { type LlmPresetOverrides } from '@valerypopoff/rivet2-core';
 import { entries } from '../../utils/typeSafety.js';
 import { KeyValuePairs } from '../editors/KeyValuePairEditor.js';
 
 /**
- * Shared, store-free field groups for the model-config forms (Feature 005 Phase C1). One definition
- * of the connection and behavior fields, used three ways:
- *  - `LlmProfileForm` → ConnectionFields, `mode='direct'`
- *  - `LlmSkillForm`   → BehaviorFields, `mode='direct'`
- *  - `LlmOverridesForm` (preset overrides) → both, `mode='override'`
+ * Shared, store-free field groups for the model-config forms, re-targeted onto the chat-v2 fan-out
+ * shape (Feature 008). One definition of the connection / base / override fields, used by:
+ *  - `LlmProfileForm`     → ProfileConnectionFields, `mode='direct'`
+ *  - `LlmSkillForm`       → SkillBaseFields, `mode='direct'`
+ *  - `LlmOverridesForm`   → OverrideFields, `mode='override'`
  *
  * **Direct vs override (the load-bearing distinction).** A Profile/Skill carries values; an absent
  * field just means "unset". A Preset's `overrides` is a *partial* where **absent key = inherit**, so
- * "not overridden" must be distinguishable from "set to empty/zero/false". In `override` mode every
- * scalar field gets a per-field presence **toggle**: ON writes the key, OFF removes it; the editor
- * reads/writes by key PRESENCE, not by value. Enums with an explicit "Inherit" option and the
- * record field (headers) express inherit by their own empty state, so they need no extra toggle.
+ * "not overridden" must stay distinguishable from "set to empty/zero". In `override` mode every scalar
+ * gets a per-field presence **toggle**: ON writes the key, OFF removes it; the editor reads/writes by
+ * key PRESENCE, not value. Enums with an explicit "Inherit" option express inherit by their empty state.
+ *
+ * Authoring UX here is intentionally **functional-minimal** (008a): provider-aware connection, the
+ * generic Skill base, and common overrides. Polished provider-block authoring is deferred to the
+ * 009-era selection UX.
  */
 
 export type ModelConfigFieldMode = 'direct' | 'override';
 
-export type ConnectionValues = Pick<
-  LlmPresetOverrides,
-  'endpoint' | 'apiKey' | 'organization' | 'headers' | 'defaultModel'
->;
-export type BehaviorValues = Pick<
-  LlmPresetOverrides,
-  'systemPrompt' | 'temperature' | 'top_p' | 'useTopP' | 'maxTokens' | 'reasoningEffort' | 'toolChoice' | 'responseFormat' | 'stop'
->;
+export const PROFILE_CONNECTION_KEYS = [
+  'provider',
+  'baseURL',
+  'customProviderBaseURL',
+  'apiKeySource',
+  'customProviderApiKeyEnvVarName',
+  'defaultModel',
+  'headers',
+] as const;
 
-export const CONNECTION_KEYS = ['endpoint', 'apiKey', 'organization', 'headers', 'defaultModel'] as const;
-export const BEHAVIOR_KEYS = [
-  'systemPrompt',
+export const SKILL_BASE_KEYS = [
   'temperature',
-  'top_p',
-  'useTopP',
   'maxTokens',
-  'reasoningEffort',
-  'toolChoice',
+  'topP',
+  'topK',
+  'presencePenalty',
+  'frequencyPenalty',
+  'seed',
   'responseFormat',
-  'stop',
+  'reasoningLevel',
+] as const;
+
+export const OVERRIDE_KEYS = [
+  'model',
+  'temperature',
+  'maxTokens',
+  'topP',
+  'topK',
+  'presencePenalty',
+  'frequencyPenalty',
+  'seed',
+  'responseFormat',
 ] as const;
 
 /** Take only `keys` that are present (defined) on `obj`. */
@@ -233,37 +246,21 @@ const NumberRow: FC<{ h: GroupHelpers; field: string; label: string }> = ({ h, f
   </OverridableRow>
 );
 
-const BoolRow: FC<{ h: GroupHelpers; field: string; label: string }> = ({ h, field, label }) => (
-  <OverridableRow
-    mode={h.mode}
-    name={`${h.idPrefix}-${field}`}
-    label={label}
-    present={h.present(field)}
-    isReadonly={h.isReadonly}
-    onPresent={(on) => h.setPresent(field, on, false)}
-  >
-    {(disabled) => (
-      <Toggle
-        isChecked={Boolean(h.value[field])}
-        isDisabled={disabled}
-        onChange={(e) => h.set(field, e.target.checked)}
-      />
-    )}
-  </OverridableRow>
-);
-
 type EnumOption = { label: string; value: string };
 
 /** Enum select. In direct mode the "Inherit" ('') option expresses absence; in override mode the
  *  presence toggle does, so the Inherit option is dropped. */
-const EnumRow: FC<{ h: GroupHelpers; field: string; label: string; options: EnumOption[]; clearable?: boolean }> = ({
-  h,
-  field,
-  label,
-  options,
-  clearable,
-}) => {
-  const concreteOptions = h.mode === 'override' ? options.filter((o) => o.value !== '') : options;
+const EnumRow: FC<{
+  h: GroupHelpers;
+  field: string;
+  label: string;
+  options: EnumOption[];
+  /** When true an empty value is allowed in direct mode (no Inherit option to drop on override). */
+  clearable?: boolean;
+  /** Keep the empty option even in direct mode (e.g. a required enum that defaults to a concrete value). */
+  alwaysConcrete?: boolean;
+}> = ({ h, field, label, options, clearable, alwaysConcrete }) => {
+  const concreteOptions = h.mode === 'override' || alwaysConcrete ? options.filter((o) => o.value !== '') : options;
   const current = (h.value[field] as string) ?? '';
   return (
     <OverridableRow
@@ -282,8 +279,8 @@ const EnumRow: FC<{ h: GroupHelpers; field: string; label: string; options: Enum
           value={concreteOptions.find((o) => o.value === current) ?? null}
           onChange={(o) => {
             const picked = (o as EnumOption | null)?.value;
-            // direct: '' / cleared → omit; override (toggle present) → keep the picked concrete value.
-            h.set(field, h.mode === 'override' ? picked : picked || undefined);
+            // direct: '' / cleared → omit (or keep if alwaysConcrete); override → keep the picked value.
+            h.set(field, h.mode === 'override' || alwaysConcrete ? picked : picked || undefined);
           }}
         />
       )}
@@ -291,16 +288,22 @@ const EnumRow: FC<{ h: GroupHelpers; field: string; label: string; options: Enum
   );
 };
 
-const REASONING_EFFORT_OPTIONS: EnumOption[] = [
+const PROVIDER_OPTIONS: EnumOption[] = [
+  { label: 'OpenAI', value: 'openai' },
+  { label: 'Anthropic', value: 'anthropic' },
+  { label: 'Google', value: 'google' },
+  { label: 'Custom provider', value: 'custom' },
+];
+const API_KEY_SOURCE_OPTIONS: EnumOption[] = [
+  { label: 'Environment', value: 'environment' },
+  { label: 'Input port', value: 'input' },
+];
+const REASONING_LEVEL_OPTIONS: EnumOption[] = [
   { label: 'Inherit', value: '' },
+  { label: 'Minimal', value: 'minimal' },
   { label: 'Low', value: 'low' },
   { label: 'Medium', value: 'medium' },
   { label: 'High', value: 'high' },
-];
-const TOOL_CHOICE_OPTIONS: EnumOption[] = [
-  { label: 'None', value: 'none' },
-  { label: 'Auto', value: 'auto' },
-  { label: 'Function', value: 'function' },
 ];
 const RESPONSE_FORMAT_OPTIONS: EnumOption[] = [
   { label: 'Inherit', value: '' },
@@ -309,14 +312,15 @@ const RESPONSE_FORMAT_OPTIONS: EnumOption[] = [
   { label: 'JSON schema', value: 'json_schema' },
 ];
 
-export const ConnectionFields: FC<{
+/** Profile connection fields (chat-v2): provider, the right base URL, key source, model, headers. */
+export const ProfileConnectionFields: FC<{
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
-  mode: ModelConfigFieldMode;
   idPrefix: string;
   isReadonly?: boolean;
-}> = ({ value, onChange, mode, idPrefix, isReadonly = false }) => {
-  const h = makeHelpers(value, onChange, mode, isReadonly, idPrefix);
+}> = ({ value, onChange, idPrefix, isReadonly = false }) => {
+  const h = makeHelpers(value, onChange, 'direct', isReadonly, idPrefix);
+  const isCustom = value.provider === 'custom';
   const headerPairs = entries((value.headers ?? {}) as Record<string, string>).map(([key, val]) => ({ key, value: val }));
   const commitHeaders = (pairs: { key: string; value: string }[]) => {
     const headers = Object.fromEntries(pairs.filter(({ key }) => key.trim() !== '').map(({ key, value: v }) => [key, v]));
@@ -325,15 +329,32 @@ export const ConnectionFields: FC<{
 
   return (
     <div css={styles}>
-      <StringRow
-        h={h}
-        field="endpoint"
-        label="API endpoint"
-        placeholder="https://host/v1/chat/completions — leave blank to use the global endpoint"
-      />
-      <StringRow h={h} field="defaultModel" label="Model" placeholder="Default model when a node leaves its Model blank" />
-      <StringRow h={h} field="apiKey" label="API key" placeholder="Leave blank to use the global key" password />
-      <StringRow h={h} field="organization" label="Organization (optional)" />
+      <EnumRow h={h} field="provider" label="Provider" options={PROVIDER_OPTIONS} alwaysConcrete />
+      {isCustom ? (
+        <>
+          <StringRow
+            h={h}
+            field="customProviderBaseURL"
+            label="Provider base URL"
+            placeholder="http://host:port/v1 — required for a custom OpenAI-compatible provider"
+          />
+          <StringRow
+            h={h}
+            field="customProviderApiKeyEnvVarName"
+            label="API key env var (optional)"
+            placeholder="e.g. CUSTOM_PROVIDER_API_KEY"
+          />
+        </>
+      ) : (
+        <StringRow
+          h={h}
+          field="baseURL"
+          label="Base URL (optional)"
+          placeholder="Leave blank to use the provider default endpoint"
+        />
+      )}
+      <EnumRow h={h} field="apiKeySource" label="API key source" options={API_KEY_SOURCE_OPTIONS} alwaysConcrete />
+      <StringRow h={h} field="defaultModel" label="Fallback model (optional)" placeholder="Used when the node and skill leave Model blank" />
       <KeyValuePairs
         label="Headers"
         name={`${idPrefix}-headers`}
@@ -349,46 +370,47 @@ export const ConnectionFields: FC<{
   );
 };
 
-export const BehaviorFields: FC<{
+/** Skill base fields (chat-v2): the provider-agnostic sampling / format params + coarse reasoning. */
+export const SkillBaseFields: FC<{
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
-  mode: ModelConfigFieldMode;
-  idPrefix: string;
   isReadonly?: boolean;
-}> = ({ value, onChange, mode, idPrefix, isReadonly = false }) => {
-  const h = makeHelpers(value, onChange, mode, isReadonly, idPrefix);
-
+}> = ({ value, onChange, isReadonly = false }) => {
+  const h = makeHelpers(value, onChange, 'direct', isReadonly, 'skill-base');
   return (
     <div css={styles}>
-      <OverridableRow
-        mode={mode}
-        name={`${idPrefix}-systemPrompt`}
-        label="System prompt (optional)"
-        present={h.present('systemPrompt')}
-        isReadonly={isReadonly}
-        onPresent={(on) => h.setPresent('systemPrompt', on, '')}
-      >
-        {(disabled) => (
-          <TextArea
-            value={(value.systemPrompt as string) ?? ''}
-            minimumRows={3}
-            isReadOnly={disabled}
-            placeholder="Prepended as a system message at run time."
-            onChange={(e) => {
-              const raw = (e.target as HTMLTextAreaElement).value;
-              h.set('systemPrompt', mode === 'override' ? raw : raw.trim() === '' ? undefined : raw);
-            }}
-          />
-        )}
-      </OverridableRow>
       <NumberRow h={h} field="temperature" label="Temperature (optional)" />
-      <NumberRow h={h} field="top_p" label="Top P (optional)" />
-      <BoolRow h={h} field="useTopP" label="Use Top P instead of Temperature" />
       <NumberRow h={h} field="maxTokens" label="Max tokens (optional)" />
-      <EnumRow h={h} field="reasoningEffort" label="Reasoning effort (optional)" options={REASONING_EFFORT_OPTIONS} />
-      <EnumRow h={h} field="toolChoice" label="Tool choice (optional)" options={TOOL_CHOICE_OPTIONS} clearable />
+      <NumberRow h={h} field="topP" label="Top P (optional)" />
+      <NumberRow h={h} field="topK" label="Top K (optional)" />
+      <NumberRow h={h} field="presencePenalty" label="Presence penalty (optional)" />
+      <NumberRow h={h} field="frequencyPenalty" label="Frequency penalty (optional)" />
+      <NumberRow h={h} field="seed" label="Seed (optional)" />
       <EnumRow h={h} field="responseFormat" label="Response format (optional)" options={RESPONSE_FORMAT_OPTIONS} />
-      <StringRow h={h} field="stop" label="Stop sequence (optional)" />
+      <EnumRow h={h} field="reasoningLevel" label="Reasoning level (optional)" options={REASONING_LEVEL_OPTIONS} />
+    </div>
+  );
+};
+
+/** Preset-override fields (chat-v2): common effective fields, each gated by a presence toggle. */
+export const OverrideFields: FC<{
+  value: Record<string, unknown>;
+  onChange: (next: Record<string, unknown>) => void;
+  idPrefix: string;
+  isReadonly?: boolean;
+}> = ({ value, onChange, idPrefix, isReadonly = false }) => {
+  const h = makeHelpers(value, onChange, 'override', isReadonly, idPrefix);
+  return (
+    <div css={styles}>
+      <StringRow h={h} field="model" label="Model" />
+      <NumberRow h={h} field="temperature" label="Temperature" />
+      <NumberRow h={h} field="maxTokens" label="Max tokens" />
+      <NumberRow h={h} field="topP" label="Top P" />
+      <NumberRow h={h} field="topK" label="Top K" />
+      <NumberRow h={h} field="presencePenalty" label="Presence penalty" />
+      <NumberRow h={h} field="frequencyPenalty" label="Frequency penalty" />
+      <NumberRow h={h} field="seed" label="Seed" />
+      <EnumRow h={h} field="responseFormat" label="Response format" options={RESPONSE_FORMAT_OPTIONS} />
     </div>
   );
 };
