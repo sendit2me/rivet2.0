@@ -1,0 +1,117 @@
+version: 4
+data:
+  attachedData:
+    trivet:
+      testSuites: []
+      version: 1
+  graphs:
+    oc3uDAFQucCkALUG9q3vi:
+      metadata:
+        description: ""
+        id: oc3uDAFQucCkALUG9q3vi
+        name: Untitled Graph
+      nodes:
+        '[tP2MRWEVq30BV1xs2a0k0]:llmChatV2 "LLM Chat"':
+          data:
+            anthropicCacheControlTtl: ""
+            anthropicEffort: ""
+            anthropicThinkingMode: ""
+            apiKeySource: environment
+            autoContinueToolCalls: false
+            baseURL: ""
+            cache: false
+            customProviderApiKeyEnvVarName: CUSTOM_PROVIDER_API_KEY
+            customProviderBaseURL: ""
+            enableGoogleSearchGrounding: false
+            enableGoogleUrlContext: false
+            enableOpenAICodeInterpreter: false
+            enableOpenAIWebSearch: false
+            extraProviderOptions: ""
+            googleIncludeThoughts: false
+            googleThinkingLevel: ""
+            headers: []
+            llmPresetId: gB9FOjScdoA_Jqs735vbC
+            llmProfileId: ""
+            llmSkillId: ""
+            maxTokens: 1024
+            maxToolRounds: 3
+            model: gpt-5
+            openAIPreviousResponseId: ""
+            openAIReasoningEffort: ""
+            openAIReasoningSummary: ""
+            openAIWebSearchContextSize: medium
+            outputReasoning: false
+            outputRequestStatus: false
+            outputUsage: false
+            parallelToolCalls: false
+            provider: openai
+            responseFormat: ""
+            responseSchemaDescription: ""
+            responseSchemaName: ""
+            retryOnNon200: false
+            retryOnNon200CooldownMs: 0
+            retryOnNon200RepeatTimes: 1
+            stopSequences: []
+            temperature: 0.5
+            toolChoice: ""
+            toolChoiceFunction: ""
+            topP: 1
+            useAnthropicThinkingBudgetInput: false
+            useAsGraphPartialOutput: true
+            useBaseURLInput: false
+            useCustomProviderBaseURLInput: false
+            useExtraProviderOptionsInput: false
+            useFrequencyPenaltyInput: false
+            useGoogleThinkingBudgetInput: false
+            useHeadersInput: false
+            useMaxTokensInput: false
+            useModelInput: false
+            useOpenAIPreviousResponseIdInput: false
+            usePresencePenaltyInput: false
+            useResponseSchemaDescriptionInput: false
+            useResponseSchemaNameInput: false
+            useSeedInput: false
+            useStopSequencesInput: false
+            useTemperatureInput: false
+            useToolCalling: false
+            useTopKInput: false
+            useTopPInput: false
+          visualData: 430/520/290/null//
+  metadata:
+    description: ""
+    id: 5Lm8fTXhKz0nCxZ1c4lPR
+    mainGraphId: oc3uDAFQucCkALUG9q3vi
+    title: Chat-v2 ModelConfig Sample
+  modelConfig:
+    presets:
+      - id: gB9FOjScdoA_Jqs735vbC
+        name: Coder (oMLX)
+        overrides:
+          maxTokens: 0
+        profileId: UQ7WZwUFxp-_IXI_r7tDc
+        skillId: EfuywiGNgOjdn68clcCWi
+    profiles:
+      - customProviderBaseURL: http://host.lima.internal:9090/v1
+        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        id: UQ7WZwUFxp-_IXI_r7tDc
+        name: oMLX Local
+        provider: custom
+      - defaultModel: gpt-5
+        id: liDkuoG43TvMKXeOzQkWU
+        name: OpenAI
+        provider: openai
+    skills:
+      - base:
+          maxTokens: 2048
+          reasoningLevel: low
+          temperature: 0.2
+        id: EfuywiGNgOjdn68clcCWi
+        name: No-think
+        providers:
+          custom:
+            extraBody:
+              chat_template_kwargs:
+                enable_thinking: false
+            model: Qwen3.6-35B-A3B-nvfp4
+  plugins: []
+  references: []

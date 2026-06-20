@@ -8,6 +8,7 @@
   "license": "MIT",
   "description": "Playwright UI tests for the Rivet fork's chat-v2 model-config UI (in-repo seed).",
   "devDependencies": {
-    "@playwright/test": "^1.61.0"
+    "@playwright/test": "^1.61.0",
+    "yaml": "^2.9.0"
   }
 }
