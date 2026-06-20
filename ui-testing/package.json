@@ -1,0 +1,13 @@
+{
+  "name": "@valerypopoff/rivet-ui-testing",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test"
+  },
+  "license": "MIT",
+  "description": "Playwright UI tests for the Rivet fork's chat-v2 model-config UI (in-repo seed).",
+  "devDependencies": {
+    "@playwright/test": "^1.61.0"
+  }
+}
