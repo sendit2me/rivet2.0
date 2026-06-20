@@ -1,6 +1,6 @@
 /**
  * A reusable, named connection bundle (endpoint + credentials + headers + default model)
- * selectable per node via `ChatNodeConfigData.llmProfileId`.
+ * selectable per node via the model-config selectors.
  *
  * Profiles are the "connection" axis of the model-configuration layer. They are orthogonal
  * to Skills (behavior, Feature 002). Default-selection (which profile to use when a node

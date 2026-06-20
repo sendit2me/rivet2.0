@@ -1,8 +1,7 @@
 import type { ChartNode, ProcessId } from '@valerypopoff/rivet2-core';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import CopyIcon from 'majesticons/line/clipboard-line.svg?react';
 import ExpandIcon from 'majesticons/line/maximize-line.svg?react';
-import FlaskIcon from 'majesticons/line/flask-line.svg?react';
 import type { FC, MouseEvent } from 'react';
 import { useMemo } from 'react';
 import ExpandDownStopIcon from '../../assets/icons/expand-down-stop.svg?react';
@@ -11,7 +10,6 @@ import { useNodeIO } from '../../hooks/useGetNodeIO.js';
 import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { useUnknownNodeComponentDescriptorFor } from '../../hooks/useNodeTypes.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
-import { promptDesignerAttachedChatNodeState } from '../../state/promptDesigner.js';
 import {
   type NodeRunDataWithRefs,
   type ProcessDataForNode,
@@ -25,7 +23,6 @@ import {
   getSelectedGraphRunId,
   getSelectedProcessPageIndex,
 } from '../../state/selectors/executionSelectors.js';
-import { overlayOpenState } from '../../state/ui.js';
 import { Tooltip } from '../Tooltip.js';
 import { CodeNodeErrorOutput } from '../nodes/CodeNode.js';
 import {
@@ -145,17 +142,7 @@ const NodeOutputSingleProcess: FC<{
   const dataRefs = useDataRefs();
   const { Output, OutputSimple, getCopyValueData } = useUnknownNodeComponentDescriptorFor(node);
 
-  const setOverlayOpen = useSetAtom(overlayOpenState);
-  const setPromptDesignerAttachedNode = useSetAtom(promptDesignerAttachedChatNodeState);
   const io = useNodeIO(node.id);
-
-  const handleOpenPromptDesigner = () => {
-    setOverlayOpen('promptDesigner');
-    setPromptDesignerAttachedNode({
-      nodeId: node.id,
-      processId,
-    });
-  };
 
   const handleOutputActionMouseDown = useStableCallback((event: MouseEvent<HTMLDivElement>) => {
     // Output controls are hover affordances. Do not let clicking them focus the
@@ -238,16 +225,9 @@ const NodeOutputSingleProcess: FC<{
   });
   const hasBody = body != null;
   const contentKey = getNodeOutputContentKey(processId, data, content.contentKeyKind);
-  const hasPromptDesignerAction = node.type === 'chat';
 
   return (
-    <div
-      className={
-        hasPromptDesignerAction
-          ? 'node-output-inner has-output-actions has-prompt-designer-action'
-          : 'node-output-inner has-output-actions'
-      }
-    >
+    <div className="node-output-inner has-output-actions">
       <div className="overlay-buttons" onMouseDown={handleOutputActionMouseDown} onClick={handleOutputActionClick}>
         <Tooltip content="Unfold output">
           <div
@@ -266,13 +246,6 @@ const NodeOutputSingleProcess: FC<{
           </div>
         </Tooltip>
 
-        {hasPromptDesignerAction && (
-          <Tooltip content="Open chat in Prompt Designer">
-            <div className="prompt-designer-button" onClick={handleOpenPromptDesigner}>
-              <FlaskIcon />
-            </div>
-          </Tooltip>
-        )}
         <Tooltip content="Show full output">
           <div
             className="expand-button"

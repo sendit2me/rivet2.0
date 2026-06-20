@@ -8,13 +8,12 @@ import { useStableCallback } from '../../hooks/useStableCallback.js';
 import { useUnknownNodeComponentDescriptorFor } from '../../hooks/useNodeTypes.js';
 import { useDependsOnPlugins } from '../../hooks/useDependsOnPlugins.js';
 import { type HorizontalModalBounds } from '../../utils/fullScreenModalBounds.js';
-import { promptDesignerAttachedChatNodeState } from '../../state/promptDesigner.js';
 import { graphMetadataState, nodesByIdState } from '../../state/graph.js';
 import { lastRunDataState, resolvedGraphSelectionState, selectedProcessPageState } from '../../state/dataFlow.js';
 import { showNodeRunDurationsState } from '../../state/settings.js';
 import { filterProcessDataForSelection, getSelectedProcessPageIndex } from '../../state/selectors/executionSelectors.js';
 import { fullscreenOutputNodeState, hoveringNodeState } from '../../state/graphBuilder.js';
-import { fullscreenOutputModalBoundsState, overlayOpenState } from '../../state/ui.js';
+import { fullscreenOutputModalBoundsState } from '../../state/ui.js';
 import { useDataRefs } from '../../providers/ProvidersContext.js';
 import { FullScreenModal } from '../FullScreenModal.js';
 import { CodeNodeErrorOutput } from '../nodes/CodeNode.js';
@@ -280,9 +279,6 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
   const [wrapLines, toggleWrapLines] = useToggle(true);
   const [renderMarkdown, toggleRenderMarkdown] = useToggle(defaultRenderMarkdown ?? false);
 
-  const setOverlayOpen = useSetAtom(overlayOpenState);
-  const setPromptDesignerAttachedNode = useSetAtom(promptDesignerAttachedChatNodeState);
-
   const io = useNodeIO(node.id);
 
   const outputViewModel = useMemo(
@@ -297,18 +293,6 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
     [dataRefs, filteredOutput, node.type, selectedPage, showNodeRunDurations],
   );
   const { data, processId } = outputViewModel;
-
-  const handleOpenPromptDesigner = () => {
-    if (!processId) {
-      return;
-    }
-
-    setOverlayOpen('promptDesigner');
-    setPromptDesignerAttachedNode({
-      nodeId: node.id,
-      processId,
-    });
-  };
 
   const copySource = getNodeOutputCopySource(outputViewModel.content);
   const handleCopyToClipboard = useStableCallback(() =>
@@ -480,7 +464,6 @@ const NodeFullscreenOutput: FC<{ node: ChartNode }> = ({ node }) => {
           onSearchInputKeyDown={handleSearchInputKeyDown}
           onCopyValue={handleCopyToClipboard}
           onCopyJson={handleCopyToClipboardJson}
-          onOpenPromptDesigner={node.type === 'chat' ? handleOpenPromptDesigner : undefined}
         />
       </header>
 

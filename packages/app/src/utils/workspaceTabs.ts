@@ -22,20 +22,11 @@ export const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
   { key: 'dataStudio', label: 'Data Studio', className: 'data-studio', targetOverlay: 'dataStudio' },
 ];
 
-export const PROMPT_DESIGNER_TAB: WorkspaceTabDefinition = {
-  key: 'promptDesigner',
-  label: 'Prompt Designer',
-  className: 'prompt-designer-menu',
-  targetOverlay: 'promptDesigner',
-};
-
 export function getVisibleWorkspaceTabs({
   chatViewerAvailable,
-  openOverlay,
   welcomeScreenAvailable = false,
 }: {
   chatViewerAvailable: boolean;
-  openOverlay: OverlayKey | undefined;
   welcomeScreenAvailable?: boolean;
 }): WorkspaceTabDefinition[] {
   const workspaceTabs: WorkspaceTabDefinition[] = WORKSPACE_TABS.filter((tab) => {
@@ -50,9 +41,5 @@ export function getVisibleWorkspaceTabs({
     workspaceTabs.unshift(WELCOME_SCREEN_TAB);
   }
 
-  if (openOverlay !== 'promptDesigner') {
-    return workspaceTabs;
-  }
-
-  return [...workspaceTabs, PROMPT_DESIGNER_TAB];
+  return workspaceTabs;
 }

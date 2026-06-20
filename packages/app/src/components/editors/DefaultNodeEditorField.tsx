@@ -36,10 +36,8 @@ export const DefaultNodeEditorField: FC<
   SharedEditorProps & {
     editor: EditorDefinition<ChartNode>;
     editorKey: string;
-    /** Model-config data keys the node overrides vs its Preset/Skill/Profile (Feature 005 C2, read-only). */
-    overriddenDataKeys?: ReadonlySet<string>;
   }
-> = ({ node, onChange, editor, editorKey, isReadonly, isDisabled, onClose, onRefreshEditors, overriddenDataKeys }) => {
+> = ({ node, onChange, editor, editorKey, isReadonly, isDisabled, onClose, onRefreshEditors }) => {
   const data = node.data as Record<string, unknown>;
 
   if (editor.hideIf?.(node.data)) {
@@ -86,9 +84,6 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'directoryBrowser' }, (editor) => <DefaultDirectoryBrowserEditor {...sharedProps} editor={editor} />)
     .exhaustive();
 
-  const fieldDataKey = 'dataKey' in editor ? (editor.dataKey as string | undefined) : undefined;
-  const isOverridden = Boolean(fieldDataKey && overriddenDataKeys?.has(fieldDataKey));
-
   const sideControlDataKey = editor.type !== 'group' ? editor.useInputToggleDataKey : undefined;
   const hasSideControl = Boolean(sideControlDataKey);
   const isUsingInputPort = sideControlDataKey ? Boolean(data[sideControlDataKey]) : false;
@@ -122,11 +117,6 @@ export const DefaultNodeEditorField: FC<
 
   return (
     <div className={clsx('row', editor.type, hasSideControl && 'has-side-control', editor.advanced && 'advanced-editor')}>
-      {isOverridden && (
-        <span className="override-badge" title="This field's value overrides the selected Preset/Skill/Profile.">
-          overridden
-        </span>
-      )}
       {input}
       {toggle}
     </div>

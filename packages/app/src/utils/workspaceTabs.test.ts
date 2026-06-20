@@ -5,7 +5,6 @@ import { getVisibleWorkspaceTabs } from './workspaceTabs.js';
 test('workspace tabs show project-independent workspaces', () => {
   const tabs = getVisibleWorkspaceTabs({
     chatViewerAvailable: true,
-    openOverlay: undefined,
   });
 
   assert.deepEqual(
@@ -17,7 +16,6 @@ test('workspace tabs show project-independent workspaces', () => {
 test('workspace tabs hide Chat Viewer when there are no renderable chat rows', () => {
   const tabs = getVisibleWorkspaceTabs({
     chatViewerAvailable: false,
-    openOverlay: undefined,
   });
 
   assert.deepEqual(
@@ -26,22 +24,9 @@ test('workspace tabs hide Chat Viewer when there are no renderable chat rows', (
   );
 });
 
-test('workspace tabs show active Prompt Designer only while it is open', () => {
-  const tabs = getVisibleWorkspaceTabs({
-    chatViewerAvailable: false,
-    openOverlay: 'promptDesigner',
-  });
-
-  assert.deepEqual(
-    tabs.map((tab) => tab.key),
-    ['trivet', 'dataStudio', 'promptDesigner'],
-  );
-});
-
 test('workspace tabs show Welcome screen only in no-project mode', () => {
   const tabs = getVisibleWorkspaceTabs({
     chatViewerAvailable: false,
-    openOverlay: undefined,
     welcomeScreenAvailable: true,
   });
 
