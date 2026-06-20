@@ -73,7 +73,6 @@ export type ProviderSkillBlock = Partial<
     | 'model'
     | 'openAIReasoningEffort'
     | 'openAIReasoningSummary'
-    | 'openAIPreviousResponseId'
     | 'enableOpenAIWebSearch'
     | 'openAIWebSearchContextSize'
     | 'enableOpenAICodeInterpreter'
@@ -114,10 +113,14 @@ export interface LlmSkill {
 
 /**
  * The fields a {@link LlmPreset} may override on top of its resolved Profile + Skill — a closed
- * `Partial` over the **effective chat-v2 config**, excluding the `use*Input` node-port machinery, plus
- * the object-valued `extraBody` (merged via the escape hatch). Sits just below the node in precedence.
+ * `Partial` over the **effective chat-v2 config**, plus the object-valued `extraBody` (merged via the
+ * escape hatch). Sits just below the node in precedence. Excludes the `use*Input` node-port
+ * machinery, the Profile-owned `provider`, and the model-config selector ids themselves (a Preset
+ * must never set `llm*Id` — that would pollute the effective data / recurse).
  */
-export type LlmPresetOverrides = Partial<Omit<LLMChatV2NodeData, `use${string}Input`>> & {
+export type LlmPresetOverrides = Partial<
+  Omit<LLMChatV2NodeData, `use${string}Input` | 'provider' | 'llmPresetId' | 'llmProfileId' | 'llmSkillId'>
+> & {
   extraBody?: Record<string, unknown>;
 };
 
