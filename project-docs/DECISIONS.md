@@ -200,3 +200,28 @@ LLM Chat node is request-identical to a vanilla one. This replaces the retired l
 rail (D3's `{endpoint, apiKey, organization, headers, model}` invariant on `ChatNodeBase`). The
 refined precedence: `Node > Preset.overrides > Skill.providers[provider] > Skill.base > Profile >
 Global`.
+
+---
+
+## D12 — Known limitations of the 008 resolution (accepted)
+
+**Status:** Accepted (2026-06-20)
+
+Two limitations are accepted for Feature 008, recorded so they are not re-discovered as bugs:
+
+- **`gpt-5` model-default collision.** The pre-pass decides "the node wins this field" by the
+  differs-from-default heuristic (`resolveEffectiveLLMChatV2Data` / the legacy `applySkillParams`
+  rule). `createLLMChatV2NodeData()` defaults `model: 'gpt-5'`, so a node a user *genuinely* left at
+  `gpt-5` is treated as unset and a Skill/Profile model fills it. This is legacy-consistent and does
+  **not** bite the oMLX path (custom providers always use a custom model string, never `gpt-5`). The
+  proper fix — per-field presence tracking (an explicit "set" marker rather than differs-from-default)
+  — is a future revisit, only if a real workflow hits it.
+- **`stopSequences` authoring deferred.** The 008a authoring forms do not yet surface
+  `SkillBase.stopSequences` (a `string[]`); it resolves correctly if authored in a serialized project,
+  but there is no form control. Drop-in when the 009-era authoring UX lands.
+
+**Also recorded (editor-only, opt-in; not fixed in 008b).** The LLM Chat editor output cache key is
+computed from node data, so it does **not** invalidate when a *referenced* Skill/Profile/Preset's
+content changes — only when the selector id changes. A cached node can serve stale output after a
+Skill edit. Low priority (opt-in caching, editor-only); the clean fix folds the resolved effective
+config into the cache key — a future tidy.

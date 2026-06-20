@@ -54,6 +54,12 @@ export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   retryOnNon200RepeatTimes?: number;
   retryOnNon200CooldownMs?: number;
   outputRequestStatus?: boolean;
+
+  // Model-config selectors (Feature 008). Unset by default → the resolution pre-pass is a no-op
+  // (the byte-identical rail). A selected Preset/Profile/Skill resolves into the node's effective data.
+  llmPresetId?: string;
+  llmProfileId?: string;
+  llmSkillId?: string;
 };
 
 export type LLMChatV2NodeData = LLMChatV2NodeConfigData;
@@ -123,6 +129,9 @@ export function createLLMChatV2NodeData(): LLMChatV2NodeData {
     retryOnNon200RepeatTimes: DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_REPEAT_TIMES,
     retryOnNon200CooldownMs: DEFAULT_LLM_CHAT_V2_RETRY_ON_NON_200_COOLDOWN_MS,
     outputRequestStatus: false,
+    llmPresetId: '',
+    llmProfileId: '',
+    llmSkillId: '',
   };
 }
 

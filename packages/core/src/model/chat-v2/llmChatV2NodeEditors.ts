@@ -58,6 +58,31 @@ async function getResolvedModelOptions(data: LLMChatV2NodeData, context: RivetUI
     : [{ value: data.model, label: `${data.model} (Current)` }, ...modelOptions];
 }
 
+function getModelConfigEditors(): LLMChatV2EditorDefinition {
+  // Plain dropdowns (Feature 008b); the tree-selector + progressive disclosure is Feature 009. The
+  // renderers (app `LlmSelectorEditors`) populate options from the project modelConfig (id + name).
+  return group('Model config', [
+    {
+      type: 'llmPresetSelector',
+      label: 'Preset',
+      dataKey: 'llmPresetId',
+      helperMessage: 'Apply a Preset (Profile + Skill + overrides). Profile / Skill below override its pieces.',
+    },
+    {
+      type: 'llmProfileSelector',
+      label: 'Profile',
+      dataKey: 'llmProfileId',
+      helperMessage: 'The connection (provider / endpoint / key) — replaces the preset profile when set.',
+    },
+    {
+      type: 'llmSkillSelector',
+      label: 'Skill',
+      dataKey: 'llmSkillId',
+      helperMessage: 'The behaviour + model — replaces the preset skill when set.',
+    },
+  ]);
+}
+
 function getModelEditors(modelOptions: { value: string; label: string }[]): LLMChatV2EditorDefinition {
   return group(
     'Model',
@@ -527,6 +552,7 @@ export async function getLLMChatV2Editors(
   context: RivetUIContext,
 ): Promise<EditorDefinition<LLMChatV2Node>[]> {
   return [
+    getModelConfigEditors(),
     getModelEditors(await getResolvedModelOptions(data, context)),
     ...getProviderEditors(),
     getParameterEditors(),

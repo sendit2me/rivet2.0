@@ -30,6 +30,7 @@ import {
 } from '../chat-v2/providerOptions.js';
 import { runChatV2Pipeline } from '../chat-v2/chatV2Pipeline.js';
 import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuation.js';
+import { resolveEffectiveLLMChatV2Data } from '../chat-v2/resolveEffectiveLLMChatV2Data.js';
 import { delegateToolCall } from './toolCallDelegation.js';
 
 export type {
@@ -273,8 +274,22 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
+    // Feature 008: resolve the node's Preset/Profile/Skill selectors into its effective data via the
+    // pure pre-pass, reading the 006-assembled `context.settings.modelConfig` (so headless/published
+    // runs resolve identically). With no selector set the rail returns `this.data` unchanged.
+    const effectiveData = resolveEffectiveLLMChatV2Data(
+      context.settings.modelConfig,
+      {
+        llmPresetId: this.data.llmPresetId,
+        llmProfileId: this.data.llmProfileId,
+        llmSkillId: this.data.llmSkillId,
+      },
+      this.data,
+      context.trace,
+    );
+
     const runtime = await resolveLLMChatV2RuntimeConfig({
-      data: this.data,
+      data: effectiveData,
       nodeId: this.chartNode.id,
       inputs,
       context,

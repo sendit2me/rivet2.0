@@ -242,6 +242,7 @@ describe('LLMChatV2NodeImpl', () => {
     const technicalDetailsGroup = editors.at(-1) as any;
 
     assert.deepEqual(groupLabels, [
+      'Model config',
       'Model',
       'OpenAI',
       'Anthropic',
