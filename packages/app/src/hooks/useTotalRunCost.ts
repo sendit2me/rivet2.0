@@ -60,11 +60,6 @@ export function useTotalRunCost() {
         continue;
       }
 
-      // Optimization for now
-      if ((node.type as BuiltInNodeType) !== 'chat') {
-        continue;
-      }
-
       const cost = nodeLastRunData.reduce((acc: number, curr) => {
         if (curr.data.status?.type !== 'ok') {
           return acc;

@@ -905,9 +905,6 @@ export const nodeStyles = css`
     --node-output-copy-icon-size: calc(var(--node-output-action-icon-size) * 0.9);
     --node-output-copy-icon-offset-x: 0.06em;
     --node-output-copy-icon-offset-y: var(--node-output-action-icon-offset-y);
-    --node-output-prompt-designer-icon-size: var(--node-output-action-icon-size);
-    --node-output-prompt-designer-icon-offset-x: var(--node-output-action-icon-offset-x);
-    --node-output-prompt-designer-icon-offset-y: var(--node-output-action-icon-offset-y);
     --node-output-fullscreen-icon-size: calc(var(--node-output-action-icon-size) * 0.85);
     --node-output-fullscreen-icon-offset-x: var(--node-output-action-icon-offset-x);
     --node-output-fullscreen-icon-offset-y: var(--node-output-action-icon-offset-y);
@@ -931,10 +928,6 @@ export const nodeStyles = css`
 
   .node-output-inner {
     max-height: var(--node-output-collapsed-max-height);
-  }
-
-  .node-output-inner.has-prompt-designer-action {
-    --node-output-action-exclusion-width: calc(120px * var(--ui-font-scale));
   }
 
   .multi-node-output {
@@ -1138,8 +1131,7 @@ export const nodeStyles = css`
 
   .copy-button,
   .expand-button,
-  .output-toggle-button,
-  .prompt-designer-button {
+  .output-toggle-button {
     width: var(--node-output-action-hit-size);
     height: var(--node-output-action-hit-size);
     display: flex;
@@ -1157,15 +1149,13 @@ export const nodeStyles = css`
 
   .node:is(:hover, .hovered, .showHoverControls) .copy-button,
   .node:is(:hover, .hovered, .showHoverControls) .expand-button,
-  .node:is(:hover, .hovered, .showHoverControls) .output-toggle-button,
-  .node:is(:hover, .hovered, .showHoverControls) .prompt-designer-button {
+  .node:is(:hover, .hovered, .showHoverControls) .output-toggle-button {
     opacity: var(--node-output-action-node-hover-opacity);
   }
 
   .node .copy-button:hover,
   .node .expand-button:hover,
-  .node .output-toggle-button:hover,
-  .node .prompt-designer-button:hover {
+  .node .output-toggle-button:hover {
     opacity: 1;
   }
 
@@ -1179,15 +1169,6 @@ export const nodeStyles = css`
     width: var(--node-output-copy-icon-size);
     height: var(--node-output-copy-icon-size);
     transform: translate(var(--node-output-copy-icon-offset-x), var(--node-output-copy-icon-offset-y));
-  }
-
-  .prompt-designer-button svg {
-    width: var(--node-output-prompt-designer-icon-size);
-    height: var(--node-output-prompt-designer-icon-size);
-    transform: translate(
-      var(--node-output-prompt-designer-icon-offset-x),
-      var(--node-output-prompt-designer-icon-offset-y)
-    );
   }
 
   .expand-button svg {

@@ -11,8 +11,6 @@ export const BUILT_IN_NODE_DOCUMENTATION_SLUGS = {
   audio: 'audio',
   boolean: 'bool',
   callGraph: 'call-graph',
-  chat: 'chat',
-  chatLoop: 'chat-loop',
   chunk: 'chunk',
   code: 'code',
   codeNew: 'code-new',

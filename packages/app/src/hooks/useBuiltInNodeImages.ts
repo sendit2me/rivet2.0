@@ -72,7 +72,6 @@ import delegateFunctionCallNodeImage from '../assets/node_images/delegate_functi
 import playAudioNodeImage from '../assets/node_images/play_audio_node.png';
 import documentNodeImage from '../assets/node_images/document_node.png';
 import readAllFilesNodeImage from '../assets/node_images/read_all_files_node.png';
-import chatLoopNodeImage from '../assets/node_images/chat_loop_node.png';
 import toMarkdownTableNodeImage from '../assets/node_images/to_markdown_table_node.png';
 import cronNodeImage from '../assets/node_images/cron_node.png';
 import loopUntilNodeImage from '../assets/node_images/loop_until_node.png';
@@ -86,7 +85,6 @@ import { type BuiltInNodeType } from '@valerypopoff/rivet2-core';
 export const useBuiltInNodeImages = (): Partial<Record<BuiltInNodeType, string>> => {
   return {
     text: textNodeImage,
-    chat: chatNodeImage,
     llmChatV2: chatNodeImage,
     chunk: chunkNodeImage,
     prompt: promptNodeImage,
@@ -163,7 +161,6 @@ export const useBuiltInNodeImages = (): Partial<Record<BuiltInNodeType, string>>
     playAudio: playAudioNodeImage,
     document: documentNodeImage,
     readAllFiles: readAllFilesNodeImage,
-    chatLoop: chatLoopNodeImage,
     toMarkdownTable: toMarkdownTableNodeImage,
     cron: cronNodeImage,
     loopUntil: loopUntilNodeImage,

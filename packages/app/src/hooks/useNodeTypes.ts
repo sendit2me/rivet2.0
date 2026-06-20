@@ -1,6 +1,5 @@
 import { type NodeOfType, type BuiltInNodeType, type ChartNode } from '@valerypopoff/rivet2-core';
 import { type FC, useMemo } from 'react';
-import { chatNodeDescriptor } from '../components/nodes/ChatNode.js';
 import { loopControllerNodeDescriptor } from '../components/nodes/LoopControllerNode.js';
 import { readDirectoryNodeDescriptor } from '../components/nodes/ReadDirectoryNode.js';
 import { subgraphNodeDescriptor } from '../components/nodes/SubGraphNode.js';
@@ -61,7 +60,6 @@ export type NodeComponentDescriptors = {
 };
 
 const overriddenDescriptors: Partial<NodeComponentDescriptors> = {
-  chat: chatNodeDescriptor,
   loopController: loopControllerNodeDescriptor,
   readDirectory: readDirectoryNodeDescriptor,
   subGraph: subgraphNodeDescriptor,

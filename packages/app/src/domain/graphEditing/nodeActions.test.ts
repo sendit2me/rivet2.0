@@ -81,7 +81,7 @@ test('createAddedNode leaves node colors untouched when default node colors are 
 
 test('duplicateNodeWithConnections clones nested node data independently', () => {
   const registry = createBuiltInRegistry();
-  const node = registry.createDynamic('chat');
+  const node = registry.createDynamic('llmChatV2');
   (node.data as any) = {
     nested: {
       temperature: 0.5,
@@ -102,7 +102,7 @@ test('duplicateNodeWithConnections clones nested node data independently', () =>
 
 test('duplicateNodeWithConnections places the copy below and to the right of the source node', () => {
   const registry = createBuiltInRegistry();
-  const node = registry.createDynamic('chat');
+  const node = registry.createDynamic('llmChatV2');
   node.visualData.x = 10;
   node.visualData.y = 20;
 
@@ -118,8 +118,8 @@ test('duplicateNodeWithConnections places the copy below and to the right of the
 
 test('createPastedNodes remaps node ids and internal connections from the new anchor position', () => {
   const registry = createBuiltInRegistry();
-  const source = registry.createDynamic('chat');
-  const target = registry.createDynamic('chat');
+  const source = registry.createDynamic('llmChatV2');
+  const target = registry.createDynamic('llmChatV2');
 
   source.visualData.x = 10;
   source.visualData.y = 20;
@@ -153,8 +153,8 @@ test('createPastedNodes remaps node ids and internal connections from the new an
 
 test('duplicateNodesWithConnections duplicates internal links and external incoming links for the dragged cohort', () => {
   const registry = createBuiltInRegistry();
-  const source = registry.createDynamic('chat');
-  const target = registry.createDynamic('chat');
+  const source = registry.createDynamic('llmChatV2');
+  const target = registry.createDynamic('llmChatV2');
   const external = registry.createDynamic('text');
 
   source.visualData.x = 10;

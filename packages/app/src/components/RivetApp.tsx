@@ -7,7 +7,6 @@ import { setGlobalTheme } from '@atlaskit/tokens';
 import { LeftSidebar } from './LeftSidebar.js';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { PromptDesignerRenderer } from './PromptDesigner.js';
 import { useGraphExecutor } from '../hooks/useGraphExecutor.js';
 import { useMenuCommands } from '../hooks/useMenuCommands.js';
 import { TrivetRenderer } from './trivet/Trivet.js';
@@ -207,7 +206,6 @@ export const RivetApp: FC = () => {
         <>
           <ProjectSelector mode="workspace" />
           <NoProject />
-          <PromptDesignerRenderer />
           <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />
@@ -238,7 +236,6 @@ export const RivetApp: FC = () => {
           <AppErrorBoundary context="Settings Modal" fallback={<div>Failed to render Settings</div>}>
             <SettingsModal />
           </AppErrorBoundary>
-          <PromptDesignerRenderer />
           <TrivetRenderer tryRunTests={tryRunTests} />
           <ChatViewerRenderer />
           <DataStudioRenderer />

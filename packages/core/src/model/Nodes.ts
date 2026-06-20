@@ -6,10 +6,6 @@ export * from './nodes/UserInputNode.js';
 import { textNode } from './nodes/TextNode.js';
 export * from './nodes/TextNode.js';
 
-import { chatNode } from './nodes/ChatNode.js';
-export * from './nodes/ChatNode.js';
-export * from './nodes/ChatNodeBase.js';
-
 import { llmChatV2Node } from './nodes/LLMChatV2Node.js';
 export * from './nodes/LLMChatV2Node.js';
 
@@ -238,9 +234,6 @@ export * from './nodes/PlayAudioNode.js';
 import { documentNode } from './nodes/DocumentNode.js';
 export * from './nodes/DocumentNode.js';
 
-import { chatLoopNode } from './nodes/ChatLoopNode.js';
-export * from './nodes/ChatLoopNode.js';
-
 import { readAllFilesNode } from './nodes/ReadAllFilesNode.js';
 export * from './nodes/ReadAllFilesNode.js';
 
@@ -274,7 +267,6 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(userInputNode)
     .register(textNode)
     .register(llmChatV2Node)
-    .register(chatNode)
     .register(promptNode)
     .register(extractRegexNode)
     .register(codeNode)
@@ -349,7 +341,6 @@ export const registerBuiltInNodes = (registry: NodeRegistration) => {
     .register(delegateFunctionCallNode)
     .register(playAudioNode)
     .register(documentNode)
-    .register(chatLoopNode)
     .register(readAllFilesNode)
     .register(toMarkdownTableNode)
     .register(cronNode)

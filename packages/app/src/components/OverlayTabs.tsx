@@ -130,7 +130,6 @@ export const OverlayTabs: FC<{
 
   const visibleWorkspaceTabs = getVisibleWorkspaceTabs({
     chatViewerAvailable,
-    openOverlay,
     welcomeScreenAvailable: showWelcomeScreen,
   });
 

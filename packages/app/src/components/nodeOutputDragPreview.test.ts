@@ -149,9 +149,7 @@ test('inline node output actions reserve flow space without moving their hit tar
   assert.ok(renderedDataOutputsStylesBlock);
   assert.ok(structuredNodeOutputStylesBlock);
 
-  assert.match(nodeInlineOutputSource, /const hasPromptDesignerAction = node\.type === 'chat';/);
-  assert.match(nodeInlineOutputSource, /'node-output-inner has-output-actions has-prompt-designer-action'/);
-  assert.match(nodeInlineOutputSource, /'node-output-inner has-output-actions'/);
+  assert.match(nodeInlineOutputSource, /className="node-output-inner has-output-actions"/);
   assert.match(
     nodeStylesSource,
     /\.node-output-inner,[\s\S]*?--node-output-actions-top: [^;]+;[\s\S]*?--node-output-actions-right: [^;]+;[\s\S]*?--node-output-actions-gap: [^;]+;/,
@@ -178,15 +176,7 @@ test('inline node output actions reserve flow space without moving their hit tar
   );
   assert.match(
     nodeStylesSource,
-    /\.node-output-inner,[\s\S]*?--node-output-prompt-designer-icon-size: [^;]+;[\s\S]*?--node-output-prompt-designer-icon-offset-x: [^;]+;[\s\S]*?--node-output-prompt-designer-icon-offset-y: [^;]+;/,
-  );
-  assert.match(
-    nodeStylesSource,
     /\.node-output-inner,[\s\S]*?--node-output-fullscreen-icon-size: [^;]+;[\s\S]*?--node-output-fullscreen-icon-offset-x: [^;]+;[\s\S]*?--node-output-fullscreen-icon-offset-y: [^;]+;/,
-  );
-  assert.match(
-    nodeStylesSource,
-    /\.node-output-inner\.has-prompt-designer-action \{[\s\S]*?--node-output-action-exclusion-width: calc\(120px \* var\(--ui-font-scale\)\);/,
   );
   assert.match(
     nodeStylesSource,
@@ -203,10 +193,6 @@ test('inline node output actions reserve flow space without moving their hit tar
   assert.match(
     nodeStylesSource,
     /\.copy-button svg \{[\s\S]*?width: var\(--node-output-copy-icon-size\);[\s\S]*?height: var\(--node-output-copy-icon-size\);[\s\S]*?transform: translate\(var\(--node-output-copy-icon-offset-x\), var\(--node-output-copy-icon-offset-y\)\);/,
-  );
-  assert.match(
-    nodeStylesSource,
-    /\.prompt-designer-button svg \{[\s\S]*?width: var\(--node-output-prompt-designer-icon-size\);[\s\S]*?height: var\(--node-output-prompt-designer-icon-size\);[\s\S]*?transform: translate\(\s*var\(--node-output-prompt-designer-icon-offset-x\),\s*var\(--node-output-prompt-designer-icon-offset-y\)\s*\);/,
   );
   assert.match(
     nodeStylesSource,
