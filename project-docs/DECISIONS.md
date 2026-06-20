@@ -220,8 +220,11 @@ Two limitations are accepted for Feature 008, recorded so they are not re-discov
   `SkillBase.stopSequences` (a `string[]`); it resolves correctly if authored in a serialized project,
   but there is no form control. Drop-in when the 009-era authoring UX lands.
 
-**Also recorded (editor-only, opt-in; not fixed in 008b).** The LLM Chat editor output cache key is
-computed from node data, so it does **not** invalidate when a *referenced* Skill/Profile/Preset's
-content changes — only when the selector id changes. A cached node can serve stale output after a
-Skill edit. Low priority (opt-in caching, editor-only); the clean fix folds the resolved effective
-config into the cache key — a future tidy.
+**Editor cache-key staleness — RESOLVED by the 008b ordering (Tidy Phase 2).** An earlier draft of
+this note worried the LLM Chat editor output cache key (computed from node data) would not invalidate
+when a *referenced* Skill/Profile/Preset's content changed (only when the selector id changed). In
+008b `process()` runs the resolution **pre-pass first** and feeds the **effective** data to
+`resolveLLMChatV2RuntimeConfig`, so `resolveLLMChatV2EditorCache` (`chatV2EditorCache.ts`) keys off the
+resolved model / generation params / `extraProviderOptions` / headers fingerprint. Editing a
+referenced Skill/Profile/Preset therefore changes the effective data → changes the cache key →
+invalidates the cache. No extra modelConfig-hash is needed; the concern is closed.

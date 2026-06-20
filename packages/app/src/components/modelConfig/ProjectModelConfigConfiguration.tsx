@@ -152,7 +152,7 @@ export const ProjectModelConfigConfiguration: FC = () => {
       <p className="model-config-intro">
         Define the LLM Profiles (connections), Skills (behavior) and Presets (one-pick Profile + Skill bundles) for
         this project. They are saved in the project file, so they travel with it and run without a browser (headless,
-        published or scheduled). Select them per node in the Chat node editor.
+        published or scheduled). Select them per node in the LLM Chat node editor.
       </p>
 
       <section>

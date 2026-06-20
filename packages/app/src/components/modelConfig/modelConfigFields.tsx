@@ -3,6 +3,7 @@ import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
 import Select from '@atlaskit/select';
 import Toggle from '@atlaskit/toggle';
+import Button from '@atlaskit/button';
 import { css } from '@emotion/react';
 import { entries } from '../../utils/typeSafety.js';
 import { KeyValuePairs } from '../editors/KeyValuePairEditor.js';
@@ -99,6 +100,23 @@ const styles = css`
   }
 
   .override-field-row > :last-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .string-list-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .string-list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .string-list-row > :first-child {
     flex: 1 1 auto;
     min-width: 0;
   }
@@ -259,9 +277,11 @@ const EnumRow: FC<{
   clearable?: boolean;
   /** Keep the empty option even in direct mode (e.g. a required enum that defaults to a concrete value). */
   alwaysConcrete?: boolean;
-}> = ({ h, field, label, options, clearable, alwaysConcrete }) => {
+  /** Option value shown as selected when the field is unset — so the implied/default meaning is visible. */
+  fallback?: string;
+}> = ({ h, field, label, options, clearable, alwaysConcrete, fallback }) => {
   const concreteOptions = h.mode === 'override' || alwaysConcrete ? options.filter((o) => o.value !== '') : options;
-  const current = (h.value[field] as string) ?? '';
+  const current = (h.value[field] as string) || fallback || '';
   return (
     <OverridableRow
       mode={h.mode}
@@ -285,6 +305,46 @@ const EnumRow: FC<{
         />
       )}
     </OverridableRow>
+  );
+};
+
+/** A direct-mode `string[]` field: add / edit / remove rows (the form-friendly counterpart of the
+ *  node `StringListEditor`, which is graph-coupled). Empties collapse the key to `undefined`. */
+const StringListField: FC<{ h: GroupHelpers; field: string; label: string; placeholder?: string }> = ({
+  h,
+  field,
+  label,
+  placeholder,
+}) => {
+  const items = Array.isArray(h.value[field]) ? (h.value[field] as string[]) : [];
+  const commit = (next: string[]) => h.set(field, next.length > 0 ? next : undefined);
+  return (
+    <Field name={`${h.idPrefix}-${field}`} label={label} isDisabled={h.isReadonly}>
+      {() => (
+        <div className="string-list-field">
+          {items.map((item, i) => (
+            <div key={i} className="string-list-row">
+              <TextField
+                value={item}
+                placeholder={placeholder}
+                isReadOnly={h.isReadonly}
+                onChange={(e) => commit(items.map((v, j) => (j === i ? (e.target as HTMLInputElement).value : v)))}
+              />
+              <Button
+                appearance="subtle"
+                isDisabled={h.isReadonly}
+                onClick={() => commit(items.filter((_, j) => j !== i))}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          <Button appearance="default" isDisabled={h.isReadonly} onClick={() => commit([...items, ''])}>
+            Add stop sequence
+          </Button>
+        </div>
+      )}
+    </Field>
   );
 };
 
@@ -353,7 +413,7 @@ export const ProfileConnectionFields: FC<{
           placeholder="Leave blank to use the provider default endpoint"
         />
       )}
-      <EnumRow h={h} field="apiKeySource" label="API key source" options={API_KEY_SOURCE_OPTIONS} alwaysConcrete />
+      <EnumRow h={h} field="apiKeySource" label="API key source" options={API_KEY_SOURCE_OPTIONS} alwaysConcrete fallback="environment" />
       <StringRow h={h} field="defaultModel" label="Fallback model (optional)" placeholder="Used when the node and skill leave Model blank" />
       <KeyValuePairs
         label="Headers"
@@ -386,6 +446,7 @@ export const SkillBaseFields: FC<{
       <NumberRow h={h} field="presencePenalty" label="Presence penalty (optional)" />
       <NumberRow h={h} field="frequencyPenalty" label="Frequency penalty (optional)" />
       <NumberRow h={h} field="seed" label="Seed (optional)" />
+      <StringListField h={h} field="stopSequences" label="Stop sequences (optional)" placeholder="Stop sequence" />
       <EnumRow h={h} field="responseFormat" label="Response format (optional)" options={RESPONSE_FORMAT_OPTIONS} />
       <EnumRow h={h} field="reasoningLevel" label="Reasoning level (optional)" options={REASONING_LEVEL_OPTIONS} />
     </div>

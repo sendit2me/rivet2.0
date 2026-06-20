@@ -42,7 +42,7 @@ export const LlmPresetForm: FC<{
         label="Profile (connection)"
         isReadonly={isReadonly}
         placeholder="Select a profile..."
-        helperMessage="The connection (endpoint / model / key) this preset uses."
+        helperMessage="The connection (provider / base URL / key) this preset uses."
         onChange={(selected) => update({ profileId: selected })}
       />
 
@@ -53,7 +53,7 @@ export const LlmPresetForm: FC<{
         label="Skill (behavior, optional)"
         isReadonly={isReadonly}
         placeholder="Select a skill..."
-        helperMessage="The behavior (system prompt / sampling) this preset applies. Leave None for connection-only."
+        helperMessage="The behavior (sampling / model) this preset applies. Leave None for connection-only."
         onChange={(selected) => update({ skillId: selected || undefined })}
       />
 

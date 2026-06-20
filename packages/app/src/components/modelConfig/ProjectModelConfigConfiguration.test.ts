@@ -84,6 +84,18 @@ test('overrides are keyed by PRESENCE (not value) so inherit vs set-to-empty/zer
   assert.match(fields, /setPresent/);
 });
 
+test('Tidy Phase 2 — copy + forms fixes', () => {
+  // API key source defaults to a visible "Environment" rather than an ambiguous empty Select.
+  assert.match(fields, /field="apiKeySource"[\s\S]*?fallback="environment"/);
+  // stopSequences has a form control on the Skill Base subsection (D12 deferred-authoring closed).
+  assert.match(fields, /field="stopSequences"/);
+  // Stale helper copy corrected (no chat-v2 systemPrompt; provider/baseURL not endpoint; "LLM Chat").
+  assert.match(presetForm, /provider \/ base URL \/ key/);
+  assert.doesNotMatch(presetForm, /system prompt \/ sampling/);
+  assert.match(presetForm, /sampling \/ model/);
+  assert.match(panel, /the LLM Chat node editor/);
+});
+
 test('extends pickers are always present and exclude self (finding 1 fix — no length guard)', () => {
   for (const [label, src, key] of [
     ['ProfileForm', profileForm, 'p'],
