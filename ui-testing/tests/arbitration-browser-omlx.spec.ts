@@ -22,18 +22,43 @@ import { tmpdir } from 'node:os';
 
 const RUN_OMLX = process.env.RUN_OMLX === '1';
 const FIXTURE = join(__dirname, '..', 'fixtures', 'arbitration-harness.rivet-project');
-const FIXTURE_DEFAULT_URL = 'http://localhost:9090/v1';
-const OMLX_BASE_URL = process.env.OMLX_BASE_URL; // override the baked localhost for VM runs
-const EFFECTIVE_BASE_URL = OMLX_BASE_URL ?? FIXTURE_DEFAULT_URL;
+const FIXTURE_PLACEHOLDER_URL = 'placeholder-base-url'; // the fixture is a pure template, patched at load
+const OMLX_BASE_URL = process.env.OMLX_BASE_URL; // the run target; defaults to localhost for a Mac-local run
+const EFFECTIVE_BASE_URL = OMLX_BASE_URL ?? 'http://localhost:9090/v1';
 
-/** Load the fixture, patching the 4 Profile base URLs to OMLX_BASE_URL when set (→ a temp file). */
-function fixtureToLoad(): string {
-  if (!OMLX_BASE_URL) {
-    return FIXTURE;
+/** The two agent models, env-specified for distinct models or discovered (single) — like the harness. */
+async function resolveModels(): Promise<{ modelA: string; modelB: string }> {
+  const envA = process.env.OMLX_MODEL_A?.trim();
+  const envB = process.env.OMLX_MODEL_B?.trim();
+  if (envA && envB) {
+    return { modelA: envA, modelB: envB };
   }
-  const patched = readFileSync(FIXTURE, 'utf8').split(FIXTURE_DEFAULT_URL).join(OMLX_BASE_URL);
+  const res = await fetch(`${EFFECTIVE_BASE_URL}/models`);
+  const json = (await res.json()) as { data?: Array<{ id?: string }> };
+  const ids = [...new Set((json.data ?? []).map((m) => m.id).filter((x): x is string => !!x))];
+  if (ids.length === 0) {
+    throw new Error(`No models loaded at ${EFFECTIVE_BASE_URL}/models`);
+  }
+  return { modelA: ids[0]!, modelB: ids[0]! };
+}
+
+/**
+ * Load the fixture, patching the environment-specific values at load (exactly like the headless
+ * script): the placeholder model names → real loaded models, and the localhost base URL → OMLX_BASE_URL
+ * for VM runs. The committed fixture stays machine-independent.
+ */
+async function prepareFixture(): Promise<string> {
+  let text = readFileSync(FIXTURE, 'utf8');
+  const { modelA, modelB } = await resolveModels();
+  text = text
+    .split(FIXTURE_PLACEHOLDER_URL)
+    .join(EFFECTIVE_BASE_URL)
+    .split('placeholder-model-a')
+    .join(modelA)
+    .split('placeholder-model-b')
+    .join(modelB);
   const tmp = join(tmpdir(), 'arbitration-harness.patched.rivet-project');
-  writeFileSync(tmp, patched, 'utf8');
+  writeFileSync(tmp, text, 'utf8');
   return tmp;
 }
 
@@ -81,7 +106,7 @@ test.describe('arbitration harness — browser executor vs oMLX (live)', () => {
       page.waitForEvent('filechooser'),
       page.getByRole('button', { name: 'Open project' }).click(),
     ]);
-    await chooser.setFiles(fixtureToLoad());
+    await chooser.setFiles(await prepareFixture());
 
     // Project loaded → the editor chrome appears.
     await expect(page.getByRole('button', { name: 'Project settings' })).toBeVisible({ timeout: 20_000 });

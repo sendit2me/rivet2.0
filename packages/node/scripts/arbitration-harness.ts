@@ -26,14 +26,11 @@ import {
   type Project,
 } from '../src/index.js';
 
-const MODEL = process.env.OMLX_MODEL ?? 'Qwen3.6-35B-A3B-nvfp4';
-// Baked interactive default in the saved fixture: the Mac-browser case Peter opens manually — oMLX
-// runs on the Mac, so the Mac browser reaches it at localhost. Profiles are keyless (no env var).
-const FIXTURE_BASE_URL = 'http://localhost:9090/v1';
-// Automation override: VM runs (this headless script, Playwright-in-VM) where `localhost` is the VM,
-// not the Mac — set OMLX_BASE_URL=http://host.lima.internal:9090/v1 (or the host LAN IP) to point the
-// RUN at the real oMLX while the SAVED fixture keeps the localhost default.
-const RUN_BASE_URL = process.env.OMLX_BASE_URL ?? FIXTURE_BASE_URL;
+// The base URL is a PLACEHOLDER baked in the fixture and patched at load (same rule as the model
+// names) — the saved fixture is a pure, machine-independent template. The run targets OMLX_BASE_URL
+// (e.g. http://host.lima.internal:9090/v1 in the VM), defaulting to localhost for a Mac-local run.
+const FIXTURE_BASE_URL = 'placeholder-base-url';
+const RUN_BASE_URL = process.env.OMLX_BASE_URL ?? 'http://localhost:9090/v1';
 
 const QUESTION =
   'Should a 3-person startup build its core product in a brand-new programming language? Answer in 2–3 sentences with a clear yes/no position.';
@@ -46,8 +43,37 @@ const PERSONA_ARBITER =
 const EXPAND_PROMPT =
   'You won the arbitration. Expand your previous answer: add two NEW, specific details that build directly on the exact position and reason you already gave. Do not restate — extend it.';
 
-// --- model-config: a Profile + Skill per agent/arbiter/resume (all oMLX initially) ---------------
-function profile(id: string): LlmProfile {
+// --- model-config: a Profile + Skill per agent/arbiter/resume -------------------------------------
+// Model names are ENVIRONMENT INVENTORY, not constants (same class as the base URL): the fixture
+// carries placeholders, and the run patches them at load — no coupling to one machine's models.
+//   - Two-model proof (the headline): set OMLX_MODEL_A and OMLX_MODEL_B to two DISTINCT models that
+//     your oMLX has loaded *and can co-resident* (the only place that knows memory limits is the
+//     operator — naive "first two from /v1/models" can pick two that don't co-fit). agentA/agentB get
+//     them, so the dynamic-winner-model follow is observable.
+//   - Zero-config fallback: with the env unset, discover the first model actually loaded (GET
+//     /v1/models) and use it for both agents — they then differ on skill TEMPERATURE only, and the
+//     follow is proven on that param. Always runs (one model fits).
+// The resume node's Profile + Skill are input-driven from the arbiter's choice; profile-resume reuses
+// agentA's model and is NEVER resolved (the ports are always connected) — its model is irrelevant.
+const PLACEHOLDER_MODEL_A = 'placeholder-model-a';
+const PLACEHOLDER_MODEL_B = 'placeholder-model-b';
+
+async function resolveModels(baseURL: string): Promise<{ modelA: string; modelB: string; distinct: boolean }> {
+  const envA = process.env.OMLX_MODEL_A?.trim();
+  const envB = process.env.OMLX_MODEL_B?.trim();
+  if (envA && envB) {
+    return { modelA: envA, modelB: envB, distinct: envA !== envB };
+  }
+  const res = await fetch(`${baseURL}/models`);
+  const json = (await res.json()) as { data?: Array<{ id?: string }> };
+  const ids = [...new Set((json.data ?? []).map((m) => m.id).filter((x): x is string => !!x))];
+  if (ids.length === 0) {
+    throw new Error(`No models loaded at ${baseURL}/models`);
+  }
+  return { modelA: ids[0]!, modelB: ids[0]!, distinct: false };
+}
+
+function profile(id: string, model: string): LlmProfile {
   // customProviderApiKeyEnvVarName: '' → keyless: resolveConfiguredProviderApiKey returns undefined
   // (no env-var coupling), so this runs in the browser executor without seeding any env var. oMLX
   // needs no key.
@@ -57,7 +83,7 @@ function profile(id: string): LlmProfile {
     provider: 'custom',
     customProviderBaseURL: FIXTURE_BASE_URL,
     customProviderApiKeyEnvVarName: '',
-    defaultModel: MODEL,
+    defaultModel: model,
   };
 }
 function skill(id: string, temperature: number, maxTokens: number): LlmSkill {
@@ -68,12 +94,17 @@ function skill(id: string, temperature: number, maxTokens: number): LlmSkill {
   };
 }
 const modelConfig: ModelConfig = {
-  profiles: [profile('profile-agentA'), profile('profile-agentB'), profile('profile-arbiter'), profile('profile-resume')],
+  profiles: [
+    profile('profile-agentA', PLACEHOLDER_MODEL_A),
+    profile('profile-agentB', PLACEHOLDER_MODEL_B),
+    profile('profile-arbiter', PLACEHOLDER_MODEL_A),
+    profile('profile-resume', PLACEHOLDER_MODEL_A), // never resolved; reuses A
+  ],
   skills: [
-    skill('skill-agentA', 0.7, 400),
-    skill('skill-agentB', 0.7, 400),
+    skill('skill-agentA', 0.2, 400),
+    skill('skill-agentB', 0.8, 400),
     skill('skill-arbiter', 0, 50),
-    skill('skill-resume', 0.6, 600),
+    skill('skill-resume', 0.5, 600),
   ],
 };
 
@@ -102,8 +133,11 @@ const conn = (outputNodeId: string, outputId: string, inputNodeId: string, input
 
 const nodes = [
   text('q', QUESTION, 0),
-  text('personaA', PERSONA_A, 0),
-  text('personaB', PERSONA_B, 0),
+  // OMLX_SWAP_SIDES=1 gives agentA the pragmatist persona (which the arbiter favours) so the winner
+  // LABEL flips to agentA — exercising the resume → profile-agentA branch. Saved fixture keeps the
+  // natural sides (env-only, like OMLX_BASE_URL).
+  text('personaA', process.env.OMLX_SWAP_SIDES === '1' ? PERSONA_B : PERSONA_A, 0),
+  text('personaB', process.env.OMLX_SWAP_SIDES === '1' ? PERSONA_A : PERSONA_B, 0),
   text('personaArbiter', PERSONA_ARBITER, 0),
   llm('agentA', 'profile-agentA', 'skill-agentA', 320),
   llm('agentB', 'profile-agentB', 'skill-agentB', 320),
@@ -118,7 +152,22 @@ const nodes = [
   text('expandText', EXPAND_PROMPT, 1920),
   node('assembleMessage', 'expandMsg', { type: 'user' }, 2240),
   node('array', 'resumeMessages', { flatten: true }, 2240),
-  llm('resume', 'profile-resume', 'skill-resume', 2560),
+  // The winner's Profile/Skill ids, built from the arbiter's choice (same shape as session-{{choice}}).
+  text('profileIdText', 'profile-{{choice}}', 1920),
+  text('skillIdText', 'skill-{{choice}}', 1920),
+  // The resume node: Profile + Skill are INPUT-DRIVEN (toggles on) → it follows the winner's model.
+  node(
+    'llmChatV2',
+    'resume',
+    {
+      llmProfileId: 'profile-resume',
+      llmSkillId: 'skill-resume',
+      maxTokens: 1024,
+      useLlmProfileIdInput: true,
+      useLlmSkillIdInput: true,
+    },
+    2560,
+  ),
   node('graphOutput', 'out_result', { id: 'result', dataType: 'string' }, 2880),
   node('graphOutput', 'out_choice', { id: 'choice', dataType: 'string' }, 2880),
   node('graphOutput', 'out_a', { id: 'agentA_answer', dataType: 'string' }, 2880),
@@ -143,6 +192,11 @@ const connections = [
   conn('getWinner', 'value', 'resumeMessages', 'input1'),
   conn('expandText', 'output', 'expandMsg', 'part1'),
   conn('expandMsg', 'message', 'resumeMessages', 'input2'),
+  // The arbiter's choice → the winner's Profile/Skill ids → the resume's input-driven selectors.
+  conn('choice', 'output1', 'profileIdText', 'choice'),
+  conn('choice', 'output1', 'skillIdText', 'choice'),
+  conn('profileIdText', 'output', 'resume', 'llmProfileId'),
+  conn('skillIdText', 'output', 'resume', 'llmSkillId'),
   conn('resumeMessages', 'output', 'resume', 'prompt'),
   conn('resume', 'response', 'out_result', 'value'),
   conn('arbiter', 'response', 'out_choice', 'value'),
@@ -162,30 +216,67 @@ const project = {
 
 // --- run + prove ----------------------------------------------------------------------------------
 const text2 = (v: unknown): string => (typeof v === 'string' ? v : JSON.stringify(v));
-const distinctiveWords = (s: string) =>
-  new Set(
-    s
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((w) => w.length > 4),
-  );
-const overlap = (a: string, b: string): number => {
-  const wb = distinctiveWords(b);
-  return [...distinctiveWords(a)].filter((w) => wb.has(w)).length;
-};
+
+// Capture the actual oMLX requests so we can read each node's RESOLVED model/temperature off the wire
+// (the strongest proof the resume followed the winner — not a re-run of the resolver). The resume's
+// request is the one whose messages contain the expand turn.
+interface CapturedRequest {
+  model?: string;
+  temperature?: number;
+  isResume: boolean;
+  messagesText?: string;
+}
+const captured: CapturedRequest[] = [];
+function installFetchCapture(): void {
+  const orig = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    try {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+      let bodyText: string | undefined;
+      if (typeof init?.body === 'string') {
+        bodyText = init.body;
+      } else if (input instanceof Request) {
+        bodyText = await input.clone().text().catch(() => undefined);
+      }
+      if (url.includes('/chat/completions') && bodyText) {
+        const body = JSON.parse(bodyText) as { model?: string; temperature?: number; messages?: unknown };
+        const messagesText = JSON.stringify(body.messages ?? '');
+        captured.push({
+          model: body.model,
+          temperature: body.temperature,
+          isResume: messagesText.includes('You won the arbitration'),
+          messagesText,
+        });
+      }
+    } catch {
+      /* never let capture break the request */
+    }
+    return orig(input, init);
+  }) as typeof fetch;
+}
 
 async function main(): Promise<void> {
-  console.log(`Arbitration harness — live vs oMLX (model ${MODEL}).\n`);
-  // Run against RUN_BASE_URL (the saved fixture keeps the localhost default); patch the 4 Profiles.
+  installFetchCapture();
+  // Patch at load (like the base URL): discover the loaded models and swap the placeholders. The saved
+  // fixture keeps the localhost base URL + placeholder model names — no coupling to one machine.
+  const { modelA, modelB, distinct } = await resolveModels(RUN_BASE_URL);
+  const patchModel = (m?: string) =>
+    m === PLACEHOLDER_MODEL_A ? modelA : m === PLACEHOLDER_MODEL_B ? modelB : m;
+  console.log(
+    `Arbitration harness — live vs oMLX. run base URL=${RUN_BASE_URL}; agentA=${modelA}, agentB=${modelB}` +
+      `${distinct ? '' : ' (only one model loaded — agents differ on skill temperature only)'}.\n`,
+  );
   const runProject = {
     ...project,
     modelConfig: {
       ...modelConfig,
-      profiles: modelConfig.profiles!.map((p) => ({ ...p, customProviderBaseURL: RUN_BASE_URL })),
+      profiles: modelConfig.profiles!.map((p) => ({
+        ...p,
+        customProviderBaseURL: RUN_BASE_URL,
+        defaultModel: patchModel(p.defaultModel),
+      })),
     },
   } as unknown as Project;
-  console.log(`(run base URL: ${RUN_BASE_URL}; saved fixture base URL: ${FIXTURE_BASE_URL})\n`);
   const outputs = await runGraph(runProject, { graph: graphId, registry: globalRivetNodeRegistry });
 
   const agentA = text2(outputs['agentA_answer']?.value);
@@ -200,9 +291,23 @@ async function main(): Promise<void> {
   console.log('ARBITER CHOICE:', choice, '\n');
   console.log('RESUMED (winner expands):', resume, '\n');
 
-  const winOverlap = overlap(resume, winnerAnswer);
-  const loseOverlap = overlap(resume, loserAnswer);
-  console.log(`CONTEXT-CARRY: resume↔winner distinctive-word overlap = ${winOverlap}, resume↔loser = ${loseOverlap}`);
+  // Rigorous, deterministic session-carry proof (not a fuzzy word overlap, and not a single shared
+  // token): the resume's actual request context contains a verbatim multi-word SLICE of the WINNER's
+  // answer (GetGlobal returned the winner's messages) and not of the loser's. Normalize both sides so
+  // JSON-escaping/whitespace don't matter; take the slice mid-answer (past the shared question text).
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const midSlice = (s: string) => {
+    const n = norm(s);
+    return n.slice(Math.floor(n.length * 0.35), Math.floor(n.length * 0.35) + 30);
+  };
+  const resumeReq = captured.find((r) => r.isResume);
+  const resumeContext = norm(resumeReq?.messagesText ?? '');
+  const winnerSlice = midSlice(winnerAnswer);
+  const loserSlice = midSlice(loserAnswer);
+  console.log(
+    `CONTEXT-CARRY: winner slice "…${winnerSlice}…" in resume context=${resumeContext.includes(winnerSlice)}; ` +
+      `loser slice "…${loserSlice}…" present=${resumeContext.includes(loserSlice)}`,
+  );
 
   let failures = 0;
   const assert = (cond: boolean, msg: string) => {
@@ -213,9 +318,40 @@ async function main(): Promise<void> {
   assert(choice === 'agentA' || choice === 'agentB', `arbiter picked a valid label (got "${choice}")`);
   assert(resume.trim().length > 0, 'the winner resumed and produced an expansion');
   assert(
-    winOverlap > loseOverlap,
-    `the expansion builds on the WINNER's answer more than the loser's (${winOverlap} > ${loseOverlap}) — session carried`,
+    winnerSlice.length > 10 && resumeContext.includes(winnerSlice),
+    `the resume's context contains the WINNER's answer (verbatim slice) — the winner's session was carried`,
   );
+  assert(
+    loserSlice.length <= 10 || !resumeContext.includes(loserSlice),
+    `the resume's context excludes the loser's answer (verbatim slice) — only the winner's session`,
+  );
+
+  // --- HEADLINE: dynamic-winner-model follow (the "After" proof) ---
+  const winnerModel = choice === 'agentA' ? modelA : modelB;
+  const loserModel = choice === 'agentA' ? modelB : modelA;
+  const winnerTemp = choice === 'agentA' ? 0.2 : 0.8;
+  console.log('\nWIRE CAPTURE (resolved per node, off the oMLX request):');
+  for (const r of captured) {
+    console.log(`  ${r.isResume ? 'RESUME ' : 'agent/arbiter'} → model=${r.model}, temperature=${r.temperature}`);
+  }
+  console.log(
+    `\nDYNAMIC-WINNER-MODEL: winner=${choice}; winner model=${winnerModel} (temp ${winnerTemp}); ` +
+      `resume resolved model=${resumeReq?.model} (temp ${resumeReq?.temperature}); static profile-resume skill temp=0.5`,
+  );
+  assert(resumeReq != null, 'the resume node issued a request (captured off the wire)');
+  // The skill follow holds regardless of inventory (skill temps are proof params, not env config): a
+  // static profile-resume would force temp 0.5; the resume instead resolved the winner's skill temp.
+  assert(
+    resumeReq?.temperature === winnerTemp,
+    `the resume resolved the WINNER's skill temperature (${winnerTemp}, not the static profile-resume 0.5) — input-driven`,
+  );
+  if (distinct) {
+    // Two distinct models loaded → the model follow is observable too (the headline).
+    assert(resumeReq?.model === winnerModel, `the resume ran the WINNER's model (${winnerModel}), input-driven by the choice`);
+    assert(resumeReq?.model !== loserModel, `the resume did NOT run the loser's model (${loserModel})`);
+  } else {
+    console.log('  ⓘ only one model loaded — model follow not observable; the skill-temperature follow above stands.');
+  }
 
   // Serialize the durable project for review (not committed).
   const fixturePath = join(import.meta.dirname, '..', '..', '..', 'ui-testing', 'fixtures', 'arbitration-harness.rivet-project');

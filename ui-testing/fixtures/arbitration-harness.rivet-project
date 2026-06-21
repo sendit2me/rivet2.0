@@ -60,6 +60,9 @@ data:
             useFrequencyPenaltyInput: false
             useGoogleThinkingBudgetInput: false
             useHeadersInput: false
+            useLlmPresetIdInput: false
+            useLlmProfileIdInput: false
+            useLlmSkillIdInput: false
             useMaxTokensInput: false
             useModelInput: false
             useOpenAIPreviousResponseIdInput: false
@@ -130,6 +133,9 @@ data:
             useFrequencyPenaltyInput: false
             useGoogleThinkingBudgetInput: false
             useHeadersInput: false
+            useLlmPresetIdInput: false
+            useLlmProfileIdInput: false
+            useLlmSkillIdInput: false
             useMaxTokensInput: false
             useModelInput: false
             useOpenAIPreviousResponseIdInput: false
@@ -210,6 +216,9 @@ data:
             useFrequencyPenaltyInput: false
             useGoogleThinkingBudgetInput: false
             useHeadersInput: false
+            useLlmPresetIdInput: false
+            useLlmProfileIdInput: false
+            useLlmSkillIdInput: false
             useMaxTokensInput: false
             useModelInput: false
             useOpenAIPreviousResponseIdInput: false
@@ -232,6 +241,8 @@ data:
             regex: (agentA|agentB)
             useRegexInput: false
           outgoingConnections:
+            - output1->"profileIdText" profileIdText/choice
+            - output1->"skillIdText" skillIdText/choice
             - output1->"winnerId" winnerId/choice
           visualData: 1600/0/280/null//
         '[expandMsg]:assembleMessage "expandMsg"':
@@ -266,22 +277,22 @@ data:
           data:
             dataType: string
             id: agentA_answer
-          visualData: 2880/540/280/null//
+          visualData: 2880/900/280/null//
         '[out_b]:graphOutput "out_b"':
           data:
             dataType: string
             id: agentB_answer
-          visualData: 2880/720/280/null//
+          visualData: 2880/0/280/null//
         '[out_choice]:graphOutput "out_choice"':
           data:
             dataType: string
             id: choice
-          visualData: 2880/360/280/null//
+          visualData: 2880/720/280/null//
         '[out_result]:graphOutput "out_result"':
           data:
             dataType: string
             id: result
-          visualData: 2880/180/280/null//
+          visualData: 2880/540/280/null//
         '[personaA]:text "personaA"':
           data:
             normalizeLineEndings: true
@@ -309,6 +320,13 @@ data:
           outgoingConnections:
             - output->"agentB" agentB/systemPrompt
           visualData: 0/540/280/null//
+        '[profileIdText]:text "profileIdText"':
+          data:
+            normalizeLineEndings: true
+            text: profile-{{choice}}
+          outgoingConnections:
+            - output->"resume" resume/llmProfileId
+          visualData: 1920/0/280/null//
         '[q]:text "q"':
           data:
             normalizeLineEndings: true
@@ -379,6 +397,9 @@ data:
             useFrequencyPenaltyInput: false
             useGoogleThinkingBudgetInput: false
             useHeadersInput: false
+            useLlmPresetIdInput: false
+            useLlmProfileIdInput: true
+            useLlmSkillIdInput: true
             useMaxTokensInput: false
             useModelInput: false
             useOpenAIPreviousResponseIdInput: false
@@ -393,7 +414,7 @@ data:
             useTopPInput: false
           outgoingConnections:
             - response->"out_result" out_result/value
-          visualData: 2560/0/280/null//
+          visualData: 2560/360/280/null//
         '[sgA]:setGlobal "sgA"':
           data:
             dataType: chat-message[]
@@ -406,6 +427,13 @@ data:
             id: session-agentB
             useIdInput: false
           visualData: 640/360/280/null//
+        '[skillIdText]:text "skillIdText"':
+          data:
+            normalizeLineEndings: true
+            text: skill-{{choice}}
+          outgoingConnections:
+            - output->"resume" resume/llmSkillId
+          visualData: 1920/180/280/null//
         '[winnerId]:text "winnerId"':
           data:
             normalizeLineEndings: true
@@ -425,26 +453,26 @@ data:
   modelConfig:
     profiles:
       - customProviderApiKeyEnvVarName: ""
-        customProviderBaseURL: http://localhost:9090/v1
-        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        customProviderBaseURL: placeholder-base-url
+        defaultModel: placeholder-model-a
         id: profile-agentA
         name: profile-agentA
         provider: custom
       - customProviderApiKeyEnvVarName: ""
-        customProviderBaseURL: http://localhost:9090/v1
-        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        customProviderBaseURL: placeholder-base-url
+        defaultModel: placeholder-model-b
         id: profile-agentB
         name: profile-agentB
         provider: custom
       - customProviderApiKeyEnvVarName: ""
-        customProviderBaseURL: http://localhost:9090/v1
-        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        customProviderBaseURL: placeholder-base-url
+        defaultModel: placeholder-model-a
         id: profile-arbiter
         name: profile-arbiter
         provider: custom
       - customProviderApiKeyEnvVarName: ""
-        customProviderBaseURL: http://localhost:9090/v1
-        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        customProviderBaseURL: placeholder-base-url
+        defaultModel: placeholder-model-a
         id: profile-resume
         name: profile-resume
         provider: custom
@@ -454,7 +482,7 @@ data:
             chat_template_kwargs:
               enable_thinking: false
           maxTokens: 400
-          temperature: 0.7
+          temperature: 0.2
         id: skill-agentA
         name: skill-agentA
       - base:
@@ -462,7 +490,7 @@ data:
             chat_template_kwargs:
               enable_thinking: false
           maxTokens: 400
-          temperature: 0.7
+          temperature: 0.8
         id: skill-agentB
         name: skill-agentB
       - base:
@@ -478,7 +506,7 @@ data:
             chat_template_kwargs:
               enable_thinking: false
           maxTokens: 600
-          temperature: 0.6
+          temperature: 0.5
         id: skill-resume
         name: skill-resume
   plugins: []
