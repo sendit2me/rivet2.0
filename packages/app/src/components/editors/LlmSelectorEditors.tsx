@@ -3,6 +3,7 @@ import {
   type LlmPresetSelectorEditorDefinition,
   type LlmProfileSelectorEditorDefinition,
   type LlmSkillSelectorEditorDefinition,
+  getSkillKind,
 } from '@valerypopoff/rivet2-core';
 import { type FC } from 'react';
 import { type SharedEditorProps } from './SharedEditorProps';
@@ -52,6 +53,9 @@ export const LlmSelectorField: FC<{
   );
 };
 
+/** A Skill with no `kind` is the chat signature; the chat node's selectors filter to this. */
+const DEFAULT_SKILL_KIND = 'text-to-text';
+
 /**
  * A selector is input-driven when its "drive from input" toggle (useInputToggleDataKey) is on — then
  * the value comes from the node's input port, so the dropdown is display-only (disabled). The plug
@@ -90,9 +94,13 @@ export const DefaultLlmSkillSelectorEditor: FC<
   const data = node.data as Record<string, unknown>;
   const project = useAtomValue(projectState);
 
+  // Kind-filter: a node's Skill picker shows only Skills of the node's signature (absent kind = text-to-text).
+  const wantKind = editor.skillKind ?? DEFAULT_SKILL_KIND;
+  const skills = (getEditorModelConfig(project).skills ?? []).filter((s) => getSkillKind(s) === wantKind);
+
   return (
     <LlmSelectorField
-      items={getEditorModelConfig(project).skills}
+      items={skills}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
@@ -110,9 +118,18 @@ export const DefaultLlmPresetSelectorEditor: FC<
   const data = node.data as Record<string, unknown>;
   const project = useAtomValue(projectState);
 
+  // Transitive kind-filter: a Preset's kind = its Skill's kind. Show only Presets whose Skill matches
+  // the node's signature (a Preset with no Skill is connection-only → always shown).
+  const cfg = getEditorModelConfig(project);
+  const wantKind = editor.skillKind ?? DEFAULT_SKILL_KIND;
+  const skillKindById = new Map((cfg.skills ?? []).map((s) => [s.id, getSkillKind(s)]));
+  const presets = (cfg.presets ?? []).filter(
+    (p) => !p.skillId || (skillKindById.get(p.skillId) ?? DEFAULT_SKILL_KIND) === wantKind,
+  );
+
   return (
     <LlmSelectorField
-      items={getEditorModelConfig(project).presets}
+      items={presets}
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}

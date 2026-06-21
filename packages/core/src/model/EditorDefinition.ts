@@ -1,4 +1,4 @@
-import { type ChartNode, type DataRef, type DataType, type DataValue, type DatasetId } from '../index.js';
+import { type ChartNode, type DataRef, type DataType, type DataValue, type DatasetId, type SkillKind } from '../index.js';
 import type { LegacyOrderedPortIdPattern } from '../utils/orderedStringPortIds.js';
 
 type ExcludeNeverValues<T> = Pick<
@@ -132,6 +132,8 @@ export type LlmSkillSelectorEditorDefinition<T extends ChartNode> = SharedEditor
 
   dataKey: DataOfType<T, string>;
   useInputToggleDataKey?: DataOfType<T, boolean>;
+  /** The node's signature; the picker shows only Skills of this kind (absent Skill kind = text-to-text). */
+  skillKind?: SkillKind;
 };
 
 /** Picks an LLM Preset (Feature 003) id from the ones defined in Settings. See {@link LlmProfileSelectorEditorDefinition}. */
@@ -140,6 +142,8 @@ export type LlmPresetSelectorEditorDefinition<T extends ChartNode> = SharedEdito
 
   dataKey: DataOfType<T, string>;
   useInputToggleDataKey?: DataOfType<T, boolean>;
+  /** The node's signature; the picker shows only Presets whose Skill is this kind (transitive filter). */
+  skillKind?: SkillKind;
 };
 
 /**

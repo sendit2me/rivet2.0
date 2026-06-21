@@ -34,7 +34,6 @@ export const PROFILE_CONNECTION_KEYS = [
   'customProviderBaseURL',
   'apiKeySource',
   'customProviderApiKeyEnvVarName',
-  'defaultModel',
   'headers',
 ] as const;
 
@@ -414,7 +413,6 @@ export const ProfileConnectionFields: FC<{
         />
       )}
       <EnumRow h={h} field="apiKeySource" label="API key source" options={API_KEY_SOURCE_OPTIONS} alwaysConcrete fallback="environment" />
-      <StringRow h={h} field="defaultModel" label="Fallback model (optional)" placeholder="Used when the node and skill leave Model blank" />
       <KeyValuePairs
         label="Headers"
         name={`${idPrefix}-headers`}

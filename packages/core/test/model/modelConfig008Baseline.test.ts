@@ -16,7 +16,7 @@ import type { ModelConfig, Settings } from '../../src/model/Settings.js';
 
 const PROVIDER_MODEL_CONFIG: ModelConfig = {
   profiles: [
-    { id: 'omlx', name: 'oMLX', provider: 'custom', customProviderBaseURL: 'http://localhost:9090/v1', defaultModel: 'qwen-local' },
+    { id: 'omlx', name: 'oMLX', provider: 'custom', customProviderBaseURL: 'http://localhost:9090/v1' },
   ],
   skills: [
     {
@@ -45,7 +45,7 @@ describe('Feature 008 — chat-v2 model-config portability baseline', () => {
 
     assert.equal(effective.provider, 'custom');
     assert.equal(effective.customProviderBaseURL, 'http://localhost:9090/v1');
-    assert.equal(effective.model, 'qwen-3-35b'); // skill provider block beats the profile fallback
+    assert.equal(effective.model, 'qwen-3-35b'); // the skill provider block sets the model (R1: Skill-owned)
     assert.equal(effective.temperature, 0.2);
     assert.deepEqual(JSON.parse(effective.extraProviderOptions), { chat_template_kwargs: { enable_thinking: false } });
   });
@@ -64,7 +64,7 @@ describe('Feature 008 — chat-v2 model-config portability baseline', () => {
   it('project wins over the global library by id (merge), and a node that selects nothing is byte-identical', () => {
     const global: Settings = {
       modelConfig: {
-        profiles: [{ id: 'omlx', name: 'global', provider: 'openai', defaultModel: 'should-not-win' }],
+        profiles: [{ id: 'omlx', name: 'global', provider: 'openai' }],
       },
     };
     const settings = assembleModelConfig(global, project(PROVIDER_MODEL_CONFIG));
