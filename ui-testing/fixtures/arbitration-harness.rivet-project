@@ -1,0 +1,485 @@
+version: 4
+data:
+  graphs:
+    arbitration-graph:
+      metadata:
+        description: ""
+        id: arbitration-graph
+        name: Arbitration
+      nodes:
+        '[agentA]:llmChatV2 "agentA"':
+          data:
+            anthropicCacheControlTtl: ""
+            anthropicEffort: ""
+            anthropicThinkingMode: ""
+            apiKeySource: environment
+            autoContinueToolCalls: false
+            baseURL: ""
+            cache: false
+            customProviderApiKeyEnvVarName: CUSTOM_PROVIDER_API_KEY
+            customProviderBaseURL: ""
+            enableGoogleSearchGrounding: false
+            enableGoogleUrlContext: false
+            enableOpenAICodeInterpreter: false
+            enableOpenAIWebSearch: false
+            extraProviderOptions: ""
+            googleIncludeThoughts: false
+            googleThinkingLevel: ""
+            headers: []
+            llmPresetId: ""
+            llmProfileId: profile-agentA
+            llmSkillId: skill-agentA
+            maxTokens: 1024
+            maxToolRounds: 3
+            model: gpt-5
+            openAIPreviousResponseId: ""
+            openAIReasoningEffort: ""
+            openAIReasoningSummary: ""
+            openAIWebSearchContextSize: medium
+            outputReasoning: false
+            outputRequestStatus: false
+            outputUsage: false
+            parallelToolCalls: false
+            provider: openai
+            responseFormat: ""
+            responseSchemaDescription: ""
+            responseSchemaName: ""
+            retryOnNon200: false
+            retryOnNon200CooldownMs: 0
+            retryOnNon200RepeatTimes: 1
+            stopSequences: []
+            temperature: 0.5
+            toolChoice: ""
+            toolChoiceFunction: ""
+            topP: 1
+            useAnthropicThinkingBudgetInput: false
+            useAsGraphPartialOutput: true
+            useBaseURLInput: false
+            useCustomProviderBaseURLInput: false
+            useExtraProviderOptionsInput: false
+            useFrequencyPenaltyInput: false
+            useGoogleThinkingBudgetInput: false
+            useHeadersInput: false
+            useMaxTokensInput: false
+            useModelInput: false
+            useOpenAIPreviousResponseIdInput: false
+            usePresencePenaltyInput: false
+            useResponseSchemaDescriptionInput: false
+            useResponseSchemaNameInput: false
+            useSeedInput: false
+            useStopSequencesInput: false
+            useTemperatureInput: false
+            useToolCalling: false
+            useTopKInput: false
+            useTopPInput: false
+          outgoingConnections:
+            - all-messages->"sgA" sgA/value
+            - response->"answers" answers/agentA
+            - response->"out_a" out_a/value
+          visualData: 320/900/280/null//
+        '[agentB]:llmChatV2 "agentB"':
+          data:
+            anthropicCacheControlTtl: ""
+            anthropicEffort: ""
+            anthropicThinkingMode: ""
+            apiKeySource: environment
+            autoContinueToolCalls: false
+            baseURL: ""
+            cache: false
+            customProviderApiKeyEnvVarName: CUSTOM_PROVIDER_API_KEY
+            customProviderBaseURL: ""
+            enableGoogleSearchGrounding: false
+            enableGoogleUrlContext: false
+            enableOpenAICodeInterpreter: false
+            enableOpenAIWebSearch: false
+            extraProviderOptions: ""
+            googleIncludeThoughts: false
+            googleThinkingLevel: ""
+            headers: []
+            llmPresetId: ""
+            llmProfileId: profile-agentB
+            llmSkillId: skill-agentB
+            maxTokens: 1024
+            maxToolRounds: 3
+            model: gpt-5
+            openAIPreviousResponseId: ""
+            openAIReasoningEffort: ""
+            openAIReasoningSummary: ""
+            openAIWebSearchContextSize: medium
+            outputReasoning: false
+            outputRequestStatus: false
+            outputUsage: false
+            parallelToolCalls: false
+            provider: openai
+            responseFormat: ""
+            responseSchemaDescription: ""
+            responseSchemaName: ""
+            retryOnNon200: false
+            retryOnNon200CooldownMs: 0
+            retryOnNon200RepeatTimes: 1
+            stopSequences: []
+            temperature: 0.5
+            toolChoice: ""
+            toolChoiceFunction: ""
+            topP: 1
+            useAnthropicThinkingBudgetInput: false
+            useAsGraphPartialOutput: true
+            useBaseURLInput: false
+            useCustomProviderBaseURLInput: false
+            useExtraProviderOptionsInput: false
+            useFrequencyPenaltyInput: false
+            useGoogleThinkingBudgetInput: false
+            useHeadersInput: false
+            useMaxTokensInput: false
+            useModelInput: false
+            useOpenAIPreviousResponseIdInput: false
+            usePresencePenaltyInput: false
+            useResponseSchemaDescriptionInput: false
+            useResponseSchemaNameInput: false
+            useSeedInput: false
+            useStopSequencesInput: false
+            useTemperatureInput: false
+            useToolCalling: false
+            useTopKInput: false
+            useTopPInput: false
+          outgoingConnections:
+            - all-messages->"sgB" sgB/value
+            - response->"answers" answers/agentB
+            - response->"out_b" out_b/value
+          visualData: 320/0/280/null//
+        '[answers]:object "answers"':
+          data:
+            jsonTemplate: |-
+              {
+                "agentA": "{{agentA}}",
+                "agentB": "{{agentB}}"
+              }
+          outgoingConnections:
+            - output->"yaml" yaml/object
+          visualData: 640/540/280/null//
+        '[arbiter]:llmChatV2 "arbiter"':
+          data:
+            anthropicCacheControlTtl: ""
+            anthropicEffort: ""
+            anthropicThinkingMode: ""
+            apiKeySource: environment
+            autoContinueToolCalls: false
+            baseURL: ""
+            cache: false
+            customProviderApiKeyEnvVarName: CUSTOM_PROVIDER_API_KEY
+            customProviderBaseURL: ""
+            enableGoogleSearchGrounding: false
+            enableGoogleUrlContext: false
+            enableOpenAICodeInterpreter: false
+            enableOpenAIWebSearch: false
+            extraProviderOptions: ""
+            googleIncludeThoughts: false
+            googleThinkingLevel: ""
+            headers: []
+            llmPresetId: ""
+            llmProfileId: profile-arbiter
+            llmSkillId: skill-arbiter
+            maxTokens: 1024
+            maxToolRounds: 3
+            model: gpt-5
+            openAIPreviousResponseId: ""
+            openAIReasoningEffort: ""
+            openAIReasoningSummary: ""
+            openAIWebSearchContextSize: medium
+            outputReasoning: false
+            outputRequestStatus: false
+            outputUsage: false
+            parallelToolCalls: false
+            provider: openai
+            responseFormat: ""
+            responseSchemaDescription: ""
+            responseSchemaName: ""
+            retryOnNon200: false
+            retryOnNon200CooldownMs: 0
+            retryOnNon200RepeatTimes: 1
+            stopSequences: []
+            temperature: 0.5
+            toolChoice: ""
+            toolChoiceFunction: ""
+            topP: 1
+            useAnthropicThinkingBudgetInput: false
+            useAsGraphPartialOutput: true
+            useBaseURLInput: false
+            useCustomProviderBaseURLInput: false
+            useExtraProviderOptionsInput: false
+            useFrequencyPenaltyInput: false
+            useGoogleThinkingBudgetInput: false
+            useHeadersInput: false
+            useMaxTokensInput: false
+            useModelInput: false
+            useOpenAIPreviousResponseIdInput: false
+            usePresencePenaltyInput: false
+            useResponseSchemaDescriptionInput: false
+            useResponseSchemaNameInput: false
+            useSeedInput: false
+            useStopSequencesInput: false
+            useTemperatureInput: false
+            useToolCalling: false
+            useTopKInput: false
+            useTopPInput: false
+          outgoingConnections:
+            - response->"choice" choice/input
+            - response->"out_choice" out_choice/value
+          visualData: 1280/900/280/null//
+        '[choice]:extractRegex "choice"':
+          data:
+            errorOnFailed: true
+            regex: (agentA|agentB)
+            useRegexInput: false
+          outgoingConnections:
+            - output1->"winnerId" winnerId/choice
+          visualData: 1600/0/280/null//
+        '[expandMsg]:assembleMessage "expandMsg"':
+          data:
+            toolCallId: ""
+            type: user
+            useToolCallIdInput: false
+            useTypeInput: false
+          outgoingConnections:
+            - message->"resumeMessages" resumeMessages/input2
+          visualData: 2240/720/280/null//
+        '[expandText]:text "expandText"':
+          data:
+            normalizeLineEndings: true
+            text: "You won the arbitration. Expand your previous answer: add two NEW,
+              specific details that build directly on the exact position and
+              reason you already gave. Do not restate — extend it."
+          outgoingConnections:
+            - output->"expandMsg" expandMsg/part1
+          visualData: 1920/540/280/null//
+        '[getWinner]:getGlobal "getWinner"':
+          data:
+            dataType: chat-message[]
+            id: variable-name
+            onDemand: false
+            useIdInput: true
+            wait: true
+          outgoingConnections:
+            - value->"resumeMessages" resumeMessages/input1
+          visualData: 1920/360/280/null//
+        '[out_a]:graphOutput "out_a"':
+          data:
+            dataType: string
+            id: agentA_answer
+          visualData: 2880/540/280/null//
+        '[out_b]:graphOutput "out_b"':
+          data:
+            dataType: string
+            id: agentB_answer
+          visualData: 2880/720/280/null//
+        '[out_choice]:graphOutput "out_choice"':
+          data:
+            dataType: string
+            id: choice
+          visualData: 2880/360/280/null//
+        '[out_result]:graphOutput "out_result"':
+          data:
+            dataType: string
+            id: result
+          visualData: 2880/180/280/null//
+        '[personaA]:text "personaA"':
+          data:
+            normalizeLineEndings: true
+            text: You are Agent A, a bold technical optimist. Argue YES — the startup SHOULD
+              adopt the brand-new language — with one concrete, memorable
+              specific reason. 2–3 sentences. Take a clear stance.
+          outgoingConnections:
+            - output->"agentA" agentA/systemPrompt
+          visualData: 0/360/280/null//
+        '[personaArbiter]:text "personaArbiter"':
+          data:
+            normalizeLineEndings: true
+            text: You are an impartial arbiter. Two answers follow, labeled agentA and
+              agentB. Decide which is more compelling. Respond with EXACTLY one
+              token — agentA or agentB — and nothing else.
+          outgoingConnections:
+            - output->"arbiter" arbiter/systemPrompt
+          visualData: 0/720/280/null//
+        '[personaB]:text "personaB"':
+          data:
+            normalizeLineEndings: true
+            text: You are Agent B, a cautious pragmatist. Argue NO — the startup should NOT
+              adopt the brand-new language — with one concrete, memorable
+              specific reason. 2–3 sentences. Take a clear stance.
+          outgoingConnections:
+            - output->"agentB" agentB/systemPrompt
+          visualData: 0/540/280/null//
+        '[q]:text "q"':
+          data:
+            normalizeLineEndings: true
+            text: Should a 3-person startup build its core product in a brand-new
+              programming language? Answer in 2–3 sentences with a clear yes/no
+              position.
+          outgoingConnections:
+            - output->"agentA" agentA/prompt
+            - output->"agentB" agentB/prompt
+          visualData: 0/180/280/null//
+        '[resumeMessages]:array "resumeMessages"':
+          data:
+            flatten: true
+            flattenDeep: false
+          outgoingConnections:
+            - output->"resume" resume/prompt
+          visualData: 2240/900/280/null//
+        '[resume]:llmChatV2 "resume"':
+          data:
+            anthropicCacheControlTtl: ""
+            anthropicEffort: ""
+            anthropicThinkingMode: ""
+            apiKeySource: environment
+            autoContinueToolCalls: false
+            baseURL: ""
+            cache: false
+            customProviderApiKeyEnvVarName: CUSTOM_PROVIDER_API_KEY
+            customProviderBaseURL: ""
+            enableGoogleSearchGrounding: false
+            enableGoogleUrlContext: false
+            enableOpenAICodeInterpreter: false
+            enableOpenAIWebSearch: false
+            extraProviderOptions: ""
+            googleIncludeThoughts: false
+            googleThinkingLevel: ""
+            headers: []
+            llmPresetId: ""
+            llmProfileId: profile-resume
+            llmSkillId: skill-resume
+            maxTokens: 1024
+            maxToolRounds: 3
+            model: gpt-5
+            openAIPreviousResponseId: ""
+            openAIReasoningEffort: ""
+            openAIReasoningSummary: ""
+            openAIWebSearchContextSize: medium
+            outputReasoning: false
+            outputRequestStatus: false
+            outputUsage: false
+            parallelToolCalls: false
+            provider: openai
+            responseFormat: ""
+            responseSchemaDescription: ""
+            responseSchemaName: ""
+            retryOnNon200: false
+            retryOnNon200CooldownMs: 0
+            retryOnNon200RepeatTimes: 1
+            stopSequences: []
+            temperature: 0.5
+            toolChoice: ""
+            toolChoiceFunction: ""
+            topP: 1
+            useAnthropicThinkingBudgetInput: false
+            useAsGraphPartialOutput: true
+            useBaseURLInput: false
+            useCustomProviderBaseURLInput: false
+            useExtraProviderOptionsInput: false
+            useFrequencyPenaltyInput: false
+            useGoogleThinkingBudgetInput: false
+            useHeadersInput: false
+            useMaxTokensInput: false
+            useModelInput: false
+            useOpenAIPreviousResponseIdInput: false
+            usePresencePenaltyInput: false
+            useResponseSchemaDescriptionInput: false
+            useResponseSchemaNameInput: false
+            useSeedInput: false
+            useStopSequencesInput: false
+            useTemperatureInput: false
+            useToolCalling: false
+            useTopKInput: false
+            useTopPInput: false
+          outgoingConnections:
+            - response->"out_result" out_result/value
+          visualData: 2560/0/280/null//
+        '[sgA]:setGlobal "sgA"':
+          data:
+            dataType: chat-message[]
+            id: session-agentA
+            useIdInput: false
+          visualData: 640/180/280/null//
+        '[sgB]:setGlobal "sgB"':
+          data:
+            dataType: chat-message[]
+            id: session-agentB
+            useIdInput: false
+          visualData: 640/360/280/null//
+        '[winnerId]:text "winnerId"':
+          data:
+            normalizeLineEndings: true
+            text: session-{{choice}}
+          outgoingConnections:
+            - output->"getWinner" getWinner/id
+          visualData: 1600/180/280/null//
+        '[yaml]:toYaml "yaml"':
+          outgoingConnections:
+            - yaml->"arbiter" arbiter/prompt
+          visualData: 960/720/280/null//
+  metadata:
+    description: ""
+    id: arbitration-harness
+    mainGraphId: arbitration-graph
+    title: Arbitration Harness
+  modelConfig:
+    profiles:
+      - customProviderApiKeyEnvVarName: ""
+        customProviderBaseURL: http://localhost:9090/v1
+        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        id: profile-agentA
+        name: profile-agentA
+        provider: custom
+      - customProviderApiKeyEnvVarName: ""
+        customProviderBaseURL: http://localhost:9090/v1
+        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        id: profile-agentB
+        name: profile-agentB
+        provider: custom
+      - customProviderApiKeyEnvVarName: ""
+        customProviderBaseURL: http://localhost:9090/v1
+        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        id: profile-arbiter
+        name: profile-arbiter
+        provider: custom
+      - customProviderApiKeyEnvVarName: ""
+        customProviderBaseURL: http://localhost:9090/v1
+        defaultModel: Qwen3.6-35B-A3B-nvfp4
+        id: profile-resume
+        name: profile-resume
+        provider: custom
+    skills:
+      - base:
+          extraBody:
+            chat_template_kwargs:
+              enable_thinking: false
+          maxTokens: 400
+          temperature: 0.7
+        id: skill-agentA
+        name: skill-agentA
+      - base:
+          extraBody:
+            chat_template_kwargs:
+              enable_thinking: false
+          maxTokens: 400
+          temperature: 0.7
+        id: skill-agentB
+        name: skill-agentB
+      - base:
+          extraBody:
+            chat_template_kwargs:
+              enable_thinking: false
+          maxTokens: 50
+          temperature: 0
+        id: skill-arbiter
+        name: skill-arbiter
+      - base:
+          extraBody:
+            chat_template_kwargs:
+              enable_thinking: false
+          maxTokens: 600
+          temperature: 0.6
+        id: skill-resume
+        name: skill-resume
+  plugins: []
+  references: []
