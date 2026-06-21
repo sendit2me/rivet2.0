@@ -454,25 +454,21 @@ data:
     profiles:
       - customProviderApiKeyEnvVarName: ""
         customProviderBaseURL: placeholder-base-url
-        defaultModel: placeholder-model-a
         id: profile-agentA
         name: profile-agentA
         provider: custom
       - customProviderApiKeyEnvVarName: ""
         customProviderBaseURL: placeholder-base-url
-        defaultModel: placeholder-model-b
         id: profile-agentB
         name: profile-agentB
         provider: custom
       - customProviderApiKeyEnvVarName: ""
         customProviderBaseURL: placeholder-base-url
-        defaultModel: placeholder-model-a
         id: profile-arbiter
         name: profile-arbiter
         provider: custom
       - customProviderApiKeyEnvVarName: ""
         customProviderBaseURL: placeholder-base-url
-        defaultModel: placeholder-model-a
         id: profile-resume
         name: profile-resume
         provider: custom
@@ -485,6 +481,9 @@ data:
           temperature: 0.2
         id: skill-agentA
         name: skill-agentA
+        providers:
+          custom:
+            model: placeholder-model-a
       - base:
           extraBody:
             chat_template_kwargs:
@@ -493,6 +492,9 @@ data:
           temperature: 0.8
         id: skill-agentB
         name: skill-agentB
+        providers:
+          custom:
+            model: placeholder-model-b
       - base:
           extraBody:
             chat_template_kwargs:
@@ -501,6 +503,9 @@ data:
           temperature: 0
         id: skill-arbiter
         name: skill-arbiter
+        providers:
+          custom:
+            model: placeholder-model-a
       - base:
           extraBody:
             chat_template_kwargs:
@@ -509,5 +514,8 @@ data:
           temperature: 0.5
         id: skill-resume
         name: skill-resume
+        providers:
+          custom:
+            model: placeholder-model-a
   plugins: []
   references: []

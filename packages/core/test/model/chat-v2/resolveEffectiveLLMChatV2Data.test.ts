@@ -11,7 +11,7 @@ function node(overrides: Partial<LLMChatV2NodeData> = {}): LLMChatV2NodeData {
 describe('resolveEffectiveLLMChatV2Data — byte-identical rail', () => {
   it('returns the SAME node data reference when no selector is set (identity, never runs overlay)', () => {
     const data = node({ temperature: 0.9 });
-    const modelConfig: ModelConfig = { profiles: [{ id: 'p', name: 'P', provider: 'openai', defaultModel: 'x' }] };
+    const modelConfig: ModelConfig = { profiles: [{ id: 'p', name: 'P', provider: 'openai' }] };
     const result = resolveEffectiveLLMChatV2Data(modelConfig, {}, data);
     assert.equal(result, data); // identity
   });
@@ -33,16 +33,15 @@ describe('resolveEffectiveLLMChatV2Data — Profile (connection)', () => {
     apiKeySource: 'environment',
     customProviderApiKeyEnvVarName: 'OMLX_KEY',
     headers: { 'x-team': 'qa' },
-    defaultModel: 'qwen-local',
   };
 
-  it('applies provider (Profile-owned), connection fields, and the fallback model', () => {
+  it('applies provider (Profile-owned) and connection fields, and sets NO model (R1: model is Skill-owned)', () => {
     const result = resolveEffectiveLLMChatV2Data({ profiles: [profile] }, { llmProfileId: 'prof' }, node());
     assert.equal(result.provider, 'custom');
     assert.equal(result.customProviderBaseURL, 'http://localhost:9090/v1');
     assert.equal(result.customProviderApiKeyEnvVarName, 'OMLX_KEY');
     assert.deepEqual(result.headers, [{ key: 'x-team', value: 'qa' }]);
-    assert.equal(result.model, 'qwen-local'); // node left model at default 'gpt-5' → fallback fills it
+    assert.equal(result.model, 'gpt-5'); // a connection no longer names a model → node default unchanged
   });
 
   it('provider is Profile-owned: the Profile provider wins even over a node-set provider', () => {
@@ -138,12 +137,12 @@ describe('resolveEffectiveLLMChatV2Data — reasoning-level map', () => {
 });
 
 describe('resolveEffectiveLLMChatV2Data — precedence', () => {
-  it('model precedence: Node > Skill.providers[p].model > Profile.defaultModel', () => {
+  it('model precedence: Node > Skill.providers[p].model (R1: the Profile no longer carries a model)', () => {
     const modelConfig: ModelConfig = {
-      profiles: [{ id: 'prof', name: 'P', provider: 'openai', defaultModel: 'profile-model' }],
+      profiles: [{ id: 'prof', name: 'P', provider: 'openai' }],
       skills: [{ id: 's', name: 'S', providers: { openai: { model: 'skill-model' } } }],
     };
-    // Node left at default → skill block model wins over profile default.
+    // Node left at default → the skill block model fills it.
     const blockWins = resolveEffectiveLLMChatV2Data(modelConfig, { llmProfileId: 'prof', llmSkillId: 's' }, node());
     assert.equal(blockWins.model, 'skill-model');
 
@@ -155,14 +154,14 @@ describe('resolveEffectiveLLMChatV2Data — precedence', () => {
     );
     assert.equal(nodeWins.model, 'node-model');
 
-    // Only a profile → its defaultModel fills.
+    // Only a profile (connection) → no layer model; the node default stands.
     const profileOnly = resolveEffectiveLLMChatV2Data(modelConfig, { llmProfileId: 'prof' }, node());
-    assert.equal(profileOnly.model, 'profile-model');
+    assert.equal(profileOnly.model, 'gpt-5');
   });
 
   it('Preset.overrides win over Skill, and node selectors replace the preset pieces', () => {
     const modelConfig: ModelConfig = {
-      profiles: [{ id: 'prof', name: 'P', provider: 'openai', defaultModel: 'm' }],
+      profiles: [{ id: 'prof', name: 'P', provider: 'openai' }],
       skills: [
         { id: 'sa', name: 'SA', base: { temperature: 0.2 } },
         { id: 'sb', name: 'SB', base: { temperature: 0.9 } },

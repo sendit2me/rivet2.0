@@ -2,7 +2,13 @@ import { type FC } from 'react';
 import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
 import Toggle from '@atlaskit/toggle';
-import { type ChatV2Provider, type LlmSkill, type ProviderSkillBlock, type SkillBase } from '@valerypopoff/rivet2-core';
+import {
+  type ChatV2Provider,
+  type LlmSkill,
+  type ProviderSkillBlock,
+  type SkillBase,
+  getSkillKind,
+} from '@valerypopoff/rivet2-core';
 import { LlmSelectorField } from '../editors/LlmSelectorEditors.js';
 import { modelConfigFormStyles } from './modelConfigFormStyles.js';
 import { SkillBaseFields } from './modelConfigFields.js';
@@ -29,8 +35,10 @@ export const LlmSkillForm: FC<{
   skills: ReadonlyArray<LlmSkill>;
   isReadonly?: boolean;
 }> = ({ value, onChange, skills, isReadonly = false }) => {
-  const update = (patch: Partial<LlmSkill>) => onChange({ ...value, ...patch });
-  const extendsSkills = skills.filter((s) => s.id !== value.id);
+  const update = (patch: Partial<LlmSkill>) => onChange({ ...value, ...patch } as LlmSkill);
+  // Gap B — extends picker filters to the SAME kind: a mismatched-kind parent would silently mis-merge
+  // through the kind-agnostic chain flatten. (No kind picker here — this form authors chat skills.)
+  const extendsSkills = skills.filter((s) => s.id !== value.id && getSkillKind(s) === getSkillKind(value));
 
   const base = (value.base ?? {}) as Record<string, unknown>;
   const updateBase = (next: Record<string, unknown>) =>

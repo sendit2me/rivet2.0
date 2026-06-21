@@ -73,38 +73,31 @@ async function resolveModels(baseURL: string): Promise<{ modelA: string; modelB:
   return { modelA: ids[0]!, modelB: ids[0]!, distinct: false };
 }
 
-function profile(id: string, model: string): LlmProfile {
+// Profiles are now pure CONNECTION (R1: model moved to the Skill). All four are identical keyless
+// custom connections — the model differentiation lives entirely in the per-agent skills below.
+function profile(id: string): LlmProfile {
   // customProviderApiKeyEnvVarName: '' → keyless: resolveConfiguredProviderApiKey returns undefined
   // (no env-var coupling), so this runs in the browser executor without seeding any env var. oMLX
   // needs no key.
-  return {
-    id,
-    name: id,
-    provider: 'custom',
-    customProviderBaseURL: FIXTURE_BASE_URL,
-    customProviderApiKeyEnvVarName: '',
-    defaultModel: model,
-  };
+  return { id, name: id, provider: 'custom', customProviderBaseURL: FIXTURE_BASE_URL, customProviderApiKeyEnvVarName: '' };
 }
-function skill(id: string, temperature: number, maxTokens: number): LlmSkill {
+// The MODEL is Skill-owned (per-provider block). The dynamic-winner-model follow rides the Skill: the
+// resume input-drives llmSkillId → resolves skill-{winner} → the winner's model + temperature.
+function skill(id: string, temperature: number, maxTokens: number, model: string): LlmSkill {
   return {
     id,
     name: id,
     base: { temperature, maxTokens, extraBody: { chat_template_kwargs: { enable_thinking: false } } },
+    providers: { custom: { model } },
   };
 }
 const modelConfig: ModelConfig = {
-  profiles: [
-    profile('profile-agentA', PLACEHOLDER_MODEL_A),
-    profile('profile-agentB', PLACEHOLDER_MODEL_B),
-    profile('profile-arbiter', PLACEHOLDER_MODEL_A),
-    profile('profile-resume', PLACEHOLDER_MODEL_A), // never resolved; reuses A
-  ],
+  profiles: [profile('profile-agentA'), profile('profile-agentB'), profile('profile-arbiter'), profile('profile-resume')],
   skills: [
-    skill('skill-agentA', 0.2, 400),
-    skill('skill-agentB', 0.8, 400),
-    skill('skill-arbiter', 0, 50),
-    skill('skill-resume', 0.5, 600),
+    skill('skill-agentA', 0.2, 400, PLACEHOLDER_MODEL_A),
+    skill('skill-agentB', 0.8, 400, PLACEHOLDER_MODEL_B),
+    skill('skill-arbiter', 0, 50, PLACEHOLDER_MODEL_A),
+    skill('skill-resume', 0.5, 600, PLACEHOLDER_MODEL_A), // never resolved; reuses A
   ],
 };
 
@@ -270,10 +263,12 @@ async function main(): Promise<void> {
     ...project,
     modelConfig: {
       ...modelConfig,
-      profiles: modelConfig.profiles!.map((p) => ({
-        ...p,
-        customProviderBaseURL: RUN_BASE_URL,
-        defaultModel: patchModel(p.defaultModel),
+      // Profiles: patch the base URL only (connection). Models live on the skills now → patch each
+      // skill's per-provider model placeholder to the discovered model.
+      profiles: modelConfig.profiles!.map((p) => ({ ...p, customProviderBaseURL: RUN_BASE_URL })),
+      skills: modelConfig.skills!.map((s) => ({
+        ...s,
+        providers: { custom: { ...s.providers?.custom, model: patchModel(s.providers?.custom?.model) } },
       })),
     },
   } as unknown as Project;

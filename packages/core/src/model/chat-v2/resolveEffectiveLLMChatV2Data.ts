@@ -9,6 +9,7 @@ import type {
   ModelConfig,
   ProviderSkillBlock,
   SkillBase,
+  SkillKind,
 } from '../Settings.js';
 import type { ChatV2Provider } from './chatV2Types.js';
 import { createLLMChatV2NodeData, type LLMChatV2NodeData } from './llmChatV2NodeData.js';
@@ -22,6 +23,11 @@ export interface NodeModelSelectors {
 
 /** Maximum `extends` chain depth before walking stops and a warning is traced. */
 export const MAX_MODEL_CONFIG_EXTENDS_DEPTH = 10;
+
+/** A Skill's signature; an absent `kind` is the chat signature (`text-to-text`). Single source of truth. */
+export function getSkillKind(skill: { kind?: SkillKind }): SkillKind {
+  return skill.kind ?? 'text-to-text';
+}
 
 /** The flattened Profile after its `extends` chain is merged (child wins; headers merge by key). */
 type ResolvedProfile = LlmProfile;
@@ -166,7 +172,6 @@ function mergeProfileInto(target: Partial<LlmProfile>, profile: LlmProfile): voi
   if (profile.apiKeySource !== undefined) target.apiKeySource = profile.apiKeySource;
   if (profile.customProviderApiKeyEnvVarName !== undefined)
     target.customProviderApiKeyEnvVarName = profile.customProviderApiKeyEnvVarName;
-  if (profile.defaultModel !== undefined) target.defaultModel = profile.defaultModel;
   if (profile.headers !== undefined) target.headers = { ...target.headers, ...profile.headers };
 }
 
@@ -175,11 +180,29 @@ function resolveSkillChain(modelConfig: ModelConfig | undefined, id: string | un
     return undefined;
   }
   const byId = new Map((modelConfig?.skills ?? []).map((s) => [s.id, s]));
-  if (!byId.has(id)) {
+  const head = byId.get(id);
+  if (!head) {
     onTrace?.(`LLM skill '${id}' not found; ignoring`);
     return undefined;
   }
+  // Gap A — resolver-side kind guard: the chat resolver consumes ONLY text-to-text skills, however the
+  // id arrived (dropdown OR the input-driven `llmSkillId` port, which can supply a cross-kind id at
+  // runtime and bypass the editor filters). A mismatched-kind skill is ignored like a dangling id, so
+  // the image branch can never reach the chat overlay — making that invariant true, not just asserted.
+  if (getSkillKind(head) !== 'text-to-text') {
+    onTrace?.(`LLM skill '${id}' is kind '${head.kind}', not text-to-text; ignoring on a chat node`);
+    return undefined;
+  }
+  return flattenSkillChain(byId, id, onTrace);
+}
 
+/**
+ * Flatten a Skill's `extends` chain (ancestor → child) into its composed `base` + per-provider blocks,
+ * via the **kind-agnostic** per-key merge (`mergeSkillInto`). No kind guard here — exported so the
+ * forcing fixture can prove an `ImageSkill` composes its width/height base + model provider block
+ * exactly as a chat skill does (the merge never assumed chat fields).
+ */
+export function flattenSkillChain(byId: Map<string, LlmSkill>, id: string, onTrace?: Trace): ResolvedSkill {
   const chain = collectChain(byId, id, 'skill', onTrace);
   const resolved: ResolvedSkill = { base: {}, providers: {} };
   for (let i = chain.length - 1; i >= 0; i--) {
@@ -308,7 +331,7 @@ function buildOverlay(
 ): Partial<LLMChatV2NodeData> {
   const overlay: Partial<LLMChatV2NodeData> = {};
 
-  // Profile — connection. `model` seeded from the fallback defaultModel (a provider block may override).
+  // Profile — connection only (no model: R1 moved the model to the Skill).
   if (profile) {
     if (profile.baseURL !== undefined) overlay.baseURL = profile.baseURL;
     if (profile.customProviderBaseURL !== undefined) overlay.customProviderBaseURL = profile.customProviderBaseURL;
@@ -317,7 +340,6 @@ function buildOverlay(
       overlay.customProviderApiKeyEnvVarName = profile.customProviderApiKeyEnvVarName;
     // `headers` is NOT placed in the overlay — it is per-key merged in applyHeadersMerge (so a node
     // header no longer drops the profile's connection headers). Provider/extraBody are likewise special.
-    if (profile.defaultModel !== undefined) overlay.model = profile.defaultModel;
   }
 
   // Skill.base — agnostic params + coarse reasoning mapping.
@@ -328,7 +350,7 @@ function buildOverlay(
     }
   }
 
-  // Skill.providers[provider] — provider-specific; `model` here wins over Profile.defaultModel.
+  // Skill.providers[provider] — provider-specific; the **model** lives here (R1).
   const block = skill?.providers?.[provider];
   if (block) {
     assignDefined(overlay, block);

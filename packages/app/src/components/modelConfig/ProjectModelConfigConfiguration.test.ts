@@ -101,7 +101,10 @@ test('extends pickers are always present and exclude self (finding 1 fix — no 
     ['ProfileForm', profileForm, 'p'],
     ['SkillForm', skillForm, 's'],
   ] as const) {
-    assert.match(src, new RegExp(`filter\\(\\(${key}\\) => ${key}\\.id !== value\\.id\\)`), `${label} excludes self`);
+    // Self-exclusion (prefix match — SkillForm appends a same-kind clause, Gap B, see below).
+    assert.match(src, new RegExp(`filter\\(\\(${key}\\) => ${key}\\.id !== value\\.id`), `${label} excludes self`);
     assert.doesNotMatch(src, /extends\w*\.length > 0 &&/, `${label} has no length guard hiding extends`);
   }
+  // Gap B: the SkillForm extends picker also filters to the SAME kind (kind-agnostic merge would mis-merge a mismatched parent).
+  assert.match(skillForm, /getSkillKind\(s\) === getSkillKind\(value\)/, 'SkillForm extends picker is kind-filtered');
 });

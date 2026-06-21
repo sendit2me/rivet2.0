@@ -4,7 +4,8 @@ import { assembleModelConfig, mergeModelConfig } from '../../src/model/assembleM
 import type { Project } from '../../src/model/Project.js';
 import type { LlmProfile, ModelConfig, Settings } from '../../src/model/Settings.js';
 
-const profile = (id: string, defaultModel: string): LlmProfile => ({ id, name: id, provider: 'openai', defaultModel });
+// `baseURL` is just a distinguishing token here (the test is about merge-by-id, not model semantics).
+const profile = (id: string, baseURL: string): LlmProfile => ({ id, name: id, provider: 'openai', baseURL });
 
 function project(modelConfig?: ModelConfig): Project {
   return {

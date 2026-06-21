@@ -12,7 +12,9 @@ export type LlmReasoningLevel = '' | 'minimal' | 'low' | 'medium' | 'high';
 /**
  * A reusable, named **connection** bundle (the model-config "connection" axis), re-targeted onto
  * chat-v2 (DECISIONS D8). A Profile owns transport only — *which vendor surface*, where, with what
- * credentials — plus a **fallback** model. Behaviour and the per-request model live on the Skill.
+ * credentials. It is **signature-agnostic** (one connection serves text→text, text→image, … on its
+ * provider), so it carries **no model** — the model is Skill-owned (R1; a connection shouldn't name a
+ * model).
  */
 export interface LlmProfile {
   /** Stable unique id, referenced by nodes via `llmProfileId`. */
@@ -33,8 +35,6 @@ export interface LlmProfile {
   /** Env-var name holding the custom provider's API key (when `apiKeySource === 'environment'`). */
   customProviderApiKeyEnvVarName?: string;
   headers?: Record<string, string>;
-  /** Fallback model when a node leaves Model blank and no Skill provider block sets one (§4 precedence). */
-  defaultModel?: string;
 }
 
 /**
@@ -92,24 +92,70 @@ export type ProviderSkillBlock = Partial<
 };
 
 /**
- * A reusable, named **behaviour + model** bundle (the "Skill" axis), re-targeted onto chat-v2 as a
- * generic `base` plus per-provider extension `providers` blocks — the base → provider fan-out
- * (DECISIONS D7). Resolution applies `base`, then the resolved provider's block (which wins), then
- * the node. The `extends` chain resolves **before** the provider overlay (two orthogonal axes).
+ * The **signature** a Skill (and the nodes it can attach to) targets, expressed as input→output —
+ * NOT a node role. `text-to-text` is the chat family (chat / summarize / classify / … all share its
+ * skills); `text-to-image` is the first non-chat signature, present only as a forcing fixture in R1
+ * (no node consumes it yet). Absent `kind` defaults to `text-to-text`. Extensible: a new modality is a
+ * new signature + its own param schema, added in one place. Only `text-to-text` executes today.
  */
-export interface LlmSkill {
+export type SkillKind = 'text-to-text' | 'text-to-image';
+
+/**
+ * The minimal **text→image** modality base — width/height tuning, standalone (NOT a `Pick` of any node;
+ * no image node exists yet). It exists to force the Skill type to be signature-generic rather than
+ * chat-shaped, and to exercise the base layer of the base⊕provider composition for a non-chat shape.
+ * Deliberately minimal (no steps/guidance/sampler) — hold the boundary until a real image node lands.
+ */
+export interface ImageSkillBase {
+  width?: number;
+  height?: number;
+  extraBody?: Record<string, unknown>;
+}
+
+/** The per-provider extension block for a `text-to-image` Skill — the model (exercises the provider layer). */
+export interface ImageProviderBlock {
+  model?: string;
+  extraBody?: Record<string, unknown>;
+}
+
+/** Identity fields shared by every Skill kind. */
+interface LlmSkillIdentity {
   /** Stable unique id, referenced by nodes via `llmSkillId`. */
   id: string;
   /** Human label (for UI / presets). */
   name: string;
-  /** Optional parent skill id to inherit from (single-axis inheritance; cycle-guarded). */
+  /** Optional parent skill id to inherit from (single-axis inheritance; cycle-guarded; same-kind only). */
   extends?: string;
+}
 
+/**
+ * A **text→text (chat)** Skill — the `base` (provider-agnostic params) + per-provider `providers`
+ * blocks fan-out (DECISIONS D7), now carrying the per-request **model** (R1: moved off the Profile).
+ * Resolution applies `base`, then the resolved provider's block (which wins), then the node. The
+ * `extends` chain resolves **before** the provider overlay (two orthogonal axes).
+ */
+export interface ChatSkill extends LlmSkillIdentity {
+  /** The signature; absent = `text-to-text`. */
+  kind?: 'text-to-text';
   /** Provider-agnostic params (sampling / format / coarse reasoning / extraBody). */
   base?: SkillBase;
-  /** Per-provider extension blocks; only the resolved provider's block is applied. */
+  /** Per-provider extension blocks (incl. the model); only the resolved provider's block is applied. */
   providers?: Partial<Record<ChatV2Provider, ProviderSkillBlock>>;
 }
+
+/** A **text→image** Skill — the R1 forcing fixture's shape; no node executes it yet. */
+export interface ImageSkill extends LlmSkillIdentity {
+  kind: 'text-to-image';
+  base?: ImageSkillBase;
+  providers?: Partial<Record<ChatV2Provider, ImageProviderBlock>>;
+}
+
+/**
+ * A reusable, named **behaviour + model** bundle (the "Skill" axis), **discriminated by signature
+ * (`kind`)** so it is no longer chat-shaped by construction. Today only `ChatSkill` executes;
+ * `ImageSkill` proves the type, storage, kind-filtering, and base⊕provider composition stay generic.
+ */
+export type LlmSkill = ChatSkill | ImageSkill;
 
 /**
  * The fields a {@link LlmPreset} may override on top of its resolved Profile + Skill — a closed

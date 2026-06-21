@@ -67,6 +67,7 @@ function getModelConfigEditors(): LLMChatV2EditorDefinition {
       label: 'Preset',
       dataKey: 'llmPresetId',
       useInputToggleDataKey: 'useLlmPresetIdInput',
+      skillKind: 'text-to-text',
       helperMessage: 'Apply a Preset (Profile + Skill + overrides). Profile / Skill below override its pieces.',
     },
     {
@@ -81,6 +82,7 @@ function getModelConfigEditors(): LLMChatV2EditorDefinition {
       label: 'Skill',
       dataKey: 'llmSkillId',
       useInputToggleDataKey: 'useLlmSkillIdInput',
+      skillKind: 'text-to-text',
       helperMessage: 'The behaviour + model — replaces the preset skill when set.',
     },
     // Feature 009: the resolved-config Summary Card — what the selection actually runs, with

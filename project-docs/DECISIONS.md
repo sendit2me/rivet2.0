@@ -253,3 +253,37 @@ input-driven nodes. The correct fix is a per-field "resolved at runtime from the
 (the Chat Loop re-impl) that reworks the card + collapse anyway; doing it piecemeal now means redoing
 it. In use this is invisible — input-driven nodes are wired programmatically (the harness), not authored
 by dropdown. **Known gap, logged, deferred to the editor-surface lift.**
+
+## D14 — The Skill is signature-tagged; the model is Skill-owned (editor-surface lift, R1)
+
+**Status:** Accepted (2026-06-22)
+
+First step of the reshaped editor-surface lift. Two locked design decisions drive it (R0 + Q6):
+- **R0 = A (rail preserved).** A selector-less node still runs on its own data (the sacred rail);
+  "config-less" applies only when a config is *bound* — then the layer wins wholesale and the node's
+  config fields go inert. This kills the gpt-5/default collision at the only place it lived (the
+  node×config overlap) without a destructive migration. (R2 implements the overlap-deletion; R1 is the
+  data-model groundwork.)
+- **Q6 — the node owns its signature.** Connection → Profile (signature-agnostic). Model + params →
+  Skill (signature-tagged). Ports (output contract + per-call inputs) → node, because together they
+  *are* the signature realized.
+
+R1 ships:
+- **`SkillKind = 'text-to-text' | 'text-to-image'`** — the tag is the **signature (in→out)**, not a node
+  role (`'chat'` was rejected: a future text→text node — summarize/classify — must not be forced to
+  declare a chat *role*). Absent kind defaults to `text-to-text` (`getSkillKind`).
+- **`LlmSkill` is a discriminated union** (`ChatSkill | ImageSkill`) — de-chat-ified: `ChatSkill` keeps
+  the node-`Pick` shapes (chat *is* the node), `ImageSkill` is standalone (`width/height` base + `model`
+  provider block). Chain-flatten (`mergeSkillInto`) was already kind-agnostic (Record-cast key-copy).
+- **Model moved off the Profile** (`LlmProfile.defaultModel` removed) onto the Skill's per-provider
+  block — a connection shouldn't name a model. A Profile-only binding now has no layer model.
+- **Kind-filtering on every path the id can arrive by**: the Skill/Preset selectors (transitive for
+  presets) and the extends picker filter by kind in the editor; and — load-bearing — the **resolver**
+  ignores a non-`text-to-text` skill (`resolveSkillChain` head guard), closing the input-driven
+  `llmSkillId` path that bypasses the editor.
+- A minimal **forcing fixture** (an `ImageSkill` in tests) makes the generic shape unbuildable-otherwise.
+
+**Boundary held (do not cross):** no image node, forms, execution, or richer image params — `ImageSkill`
+is a layer-only forward declaration. Shared-module extraction + non-chat schemas wait for a real node-#2.
+**No backward-compat:** the arbitration fixture moved its model Profile→Skill (regenerated; the
+dynamic-winner-model flip still holds, now Skill-owned).
