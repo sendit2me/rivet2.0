@@ -80,6 +80,12 @@ function getModelConfigEditors(): LLMChatV2EditorDefinition {
       dataKey: 'llmSkillId',
       helperMessage: 'The behaviour + model — replaces the preset skill when set.',
     },
+    // Feature 009: the resolved-config Summary Card — what the selection actually runs, with
+    // inherited/overridden markers + inline tweak. The app renderer runs the resolver at render time.
+    {
+      type: 'llmModelConfigSummary',
+      label: 'Resolved config',
+    },
   ]);
 }
 
@@ -547,11 +553,19 @@ function getTechnicalDetailsEditors(): LLMChatV2EditorDefinition {
   ]);
 }
 
+/**
+ * Groups the resolution determines (Feature 009). When a model-config source is bound, these collapse
+ * behind the existing "Show overrides" disclosure (default off) — their values are summarized on the
+ * Resolved-config card, and showing the node's own (e.g. OpenAI/gpt-5) groups would contradict it.
+ * Node-behavior groups (Outputs / Tools / Response format / Technical details) stay visible.
+ */
+const RESOLUTION_DETERMINED_GROUP_LABELS = new Set(['Model', 'OpenAI', 'Anthropic', 'Google', 'Parameters', 'Reasoning', 'Provider Advanced']);
+
 export async function getLLMChatV2Editors(
   data: LLMChatV2NodeData,
   context: RivetUIContext,
 ): Promise<EditorDefinition<LLMChatV2Node>[]> {
-  return [
+  const editors: EditorDefinition<LLMChatV2Node>[] = [
     getModelConfigEditors(),
     getModelEditors(await getResolvedModelOptions(data, context)),
     ...getProviderEditors(),
@@ -563,4 +577,15 @@ export async function getLLMChatV2Editors(
     getProviderAdvancedEditors(),
     getTechnicalDetailsEditors(),
   ];
+
+  // Bound mode: collapse the resolution-determined groups behind "Show overrides" (Feature 009).
+  const hasSource = !!(data.llmPresetId || data.llmProfileId || data.llmSkillId);
+  if (!hasSource) {
+    return editors;
+  }
+  return editors.map((editor) =>
+    editor.type === 'group' && RESOLUTION_DETERMINED_GROUP_LABELS.has(editor.label)
+      ? { ...editor, advanced: true }
+      : editor,
+  );
 }

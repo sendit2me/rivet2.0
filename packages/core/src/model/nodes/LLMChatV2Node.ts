@@ -47,6 +47,27 @@ function usesBaseURLInput(data: LLMChatV2Node['data']): boolean {
   return data.provider === 'custom' ? data.useCustomProviderBaseURLInput : data.useBaseURLInput;
 }
 
+/**
+ * Resolve a node's effective data for display (the canvas body, Feature 009). Guarded: resolve only
+ * when there is BOTH a project modelConfig and a selector set — otherwise return `data` directly, so
+ * an old project with no modelConfig (or a vanilla node) never throws inside the canvas render.
+ */
+function resolveBodyEffectiveData(
+  data: LLMChatV2Node['data'],
+  context: RivetUIContext | undefined,
+): LLMChatV2Node['data'] {
+  const modelConfig = context?.project?.modelConfig;
+  const hasSelector = !!(data.llmPresetId || data.llmProfileId || data.llmSkillId);
+  if (!modelConfig || !hasSelector) {
+    return data;
+  }
+  return resolveEffectiveLLMChatV2Data(
+    modelConfig,
+    { llmPresetId: data.llmPresetId, llmProfileId: data.llmProfileId, llmSkillId: data.llmSkillId },
+    data,
+  );
+}
+
 function getCustomProviderBaseURLBodyLine(data: LLMChatV2Node['data']): string | undefined {
   if (data.provider !== 'custom') {
     return undefined;
@@ -257,19 +278,23 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     return getLLMChatV2Editors(this.data, context);
   }
 
-  getBody() {
-    const modelInfo = getChatV2ModelInfo(this.data.provider, this.data.model);
-    const providerLabel = getChatV2ProviderLabel(this.data.provider);
-    const baseURLLine = getCustomProviderBaseURLBodyLine(this.data);
-    const modelLine = modelInfo?.displayName ?? this.data.model;
+  getBody(context: RivetUIContext) {
+    // Feature 009: the canvas body shows what RESOLVES (run the pre-pass against the project's
+    // modelConfig from the UI context), so a bound node stops lying about its own gpt-5 defaults.
+    // Vanilla (no selector) → the rail returns `data` unchanged → byte-identical body.
+    const effective = resolveBodyEffectiveData(this.data, context);
+    const modelInfo = getChatV2ModelInfo(effective.provider, effective.model);
+    const providerLabel = getChatV2ProviderLabel(effective.provider);
+    const baseURLLine = getCustomProviderBaseURLBodyLine(effective);
+    const modelLine = modelInfo?.displayName ?? effective.model;
     const providerDetails = baseURLLine ? [providerLabel, baseURLLine, modelLine] : [providerLabel, modelLine];
-    const reasoningEffortLine = getReasoningEffortBodyLine(this.data);
+    const reasoningEffortLine = getReasoningEffortBodyLine(effective);
 
     return [
       ...providerDetails,
       ...(reasoningEffortLine ? [reasoningEffortLine] : []),
-      `Temperature: ${this.data.useTemperatureInput ? '(Using Input)' : this.data.temperature}`,
-      `Max output tokens: ${this.data.useMaxTokensInput ? '(Using Input)' : this.data.maxTokens}`,
+      `Temperature: ${effective.useTemperatureInput ? '(Using Input)' : effective.temperature}`,
+      `Max output tokens: ${effective.useMaxTokensInput ? '(Using Input)' : effective.maxTokens}`,
     ].join('\n');
   }
 
