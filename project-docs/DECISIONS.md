@@ -287,3 +287,44 @@ R1 ships:
 is a layer-only forward declaration. Shared-module extraction + non-chat schemas wait for a real node-#2.
 **No backward-compat:** the arbitration fixture moved its model Profile→Skill (regenerated; the
 dynamic-winner-model flip still holds, now Skill-owned).
+> **Corrected by D15 (R2).** D14's framing ("config-less applies only when bound; the rail preserved")
+> *understated* the locked decision. R2 implements the faithful version: the model-config editor groups
+> are **removed entirely**, a bound node resolves **purely from the layer**, an **unbound node is
+> incomplete** (refuses to run), and the **byte-identical rail is retired**. The R1 *data-model* work
+> (signature tag + model→Skill) was unaffected either way, which is why the wording slipped through.
+
+## D15 — Config-less binding: overlap-deletion, incomplete-until-bound, rail retired (R2)
+
+**Status:** Accepted (2026-06-22)
+
+The load-bearing reshape feature (R0=A, faithful). The LLM Chat node carries **no per-node model-config
+state** — it is a generic "pick a config" surface (kind-filtered selectors + a read-only resolved-config
+card + the node-owned Q6 structural editors).
+
+- **Overlap-deletion (the resolver).** When a config is bound, the **layer-owned** fields
+  (`LAYER_OWNED_MODEL_CONFIG_FIELDS`) come ONLY from Profile/Skill/Preset; the node's own model-config is
+  **not read**. The complement (node-owned: bindings, per-call inputs, Q6 structural/output-contract)
+  survives verbatim. Layer-unset optional params are **omitted** (the AI-SDK bridge defaults them), not
+  back-filled. No defaults, no differs-from-default — **the gpt-5/default collision is gone by
+  construction** (D12 closed): no node×config overlap for it to live in.
+- **Node-owned = the complement** (compiler-checked `satisfies`) → a new field defaults to node-owned,
+  never silently vanishes. Borderlines: `responseFormat` is node-owned (output contract); `apiKeySource`
+  layer-owned but the `apiKey` value rides a node port; per-param input toggles + ports are **dropped**
+  (the dynamic axis is the input-driven `llmSkillId` binding).
+- **Incomplete-until-bound.** No validate hook exists, so `process()` throws a descriptive Error unless
+  the resolved config has a **connection** (provider + endpoint) AND a **model**. Nothing / Profile-only /
+  Skill-only → incomplete; Profile+Skill or a Preset → complete. The card + `getBody` render the
+  incomplete state in place of the config — never a silent default.
+- **Rail retired.** The identity return is gone; the resolver always runs overlap-deletion (unbound →
+  empty overlay → incomplete). Rail test removed; bound-resolution tests are layer-only.
+- **Full-chain kind-guard** (closes the R1 residual): reject the whole binding if any `extends`-chain link
+  isn't `text-to-text` (the kind-agnostic flatten would otherwise leak an image parent's model).
+- **Editor:** the Model / OpenAI / Anthropic / Google / Parameters / Reasoning / Provider-Advanced groups
+  are **deleted** (not collapsed); `outputReasoning` moved to Outputs. Full-port-set in
+  `getInputDefinitions` (no node-provider/apiKeySource gating; model-param ports gone); per-provider
+  narrowing deferred.
+
+**Deferred:** dead-data cleanup (model-config fields still sit on `LLMChatV2NodeData`, now never read or
+shown); R3 (add-new / copy-new / inline authoring); R4 (generic schema-driven card per kind — the
+read-only card here is interim). **No backward-compat:** existing *unbound* chat nodes become incomplete;
+the committed fixtures are all bound → survive (harness re-runs, model-flip intact).

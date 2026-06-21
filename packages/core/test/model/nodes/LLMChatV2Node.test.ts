@@ -120,148 +120,40 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.data.outputRequestStatus, false);
   });
 
-  it('adds an API key input only when the Model section is set to input port', async () => {
-    const defaultNode = createNode();
-    const inputNode = createNode({
-      apiKeySource: 'input',
-    });
-
-    const defaultInputs = defaultNode.getInputDefinitions();
-    const inputPort = inputNode.getInputDefinitions().find((input) => input.id === 'apiKey');
-    const editors = await inputNode.getEditors({});
-    const modelGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Model') as any;
-    const apiKeySourceEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'apiKeySource');
-
-    assert.ok(!defaultInputs.some((input) => input.id === 'apiKey'));
-    assert.deepEqual(inputPort, {
-      id: 'apiKey',
-      title: 'API Key',
-      dataType: 'string',
-      required: false,
-    });
-    assert.equal(apiKeySourceEditor?.type, 'segmented');
-    assert.equal(apiKeySourceEditor?.label, 'API key source');
-    assert.deepEqual(apiKeySourceEditor?.options, [
-      { value: 'environment', label: 'Configured key' },
-      { value: 'input', label: 'Input port' },
-    ]);
+  it('R2: always exposes an API key input port (used iff the resolved key source is input)', () => {
+    // Full-port-set: the apiKey value channel is always present; the resolved Profile decides the source.
+    const apiKey = createNode().getInputDefinitions().find((input) => input.id === 'apiKey');
+    assert.deepEqual(apiKey, { id: 'apiKey', title: 'API Key', dataType: 'string', required: false });
   });
 
-  it('exposes Custom provider as an OpenAI-compatible provider mode', async () => {
-    const node = createNode({
-      provider: 'custom',
-      model: 'llama-custom',
-    });
-
-    const editors = await node.getEditors({
-      getChatModelOptions: async () => {
-        throw new Error('Custom provider should not request a model catalog.');
-      },
-    } as any);
-    const modelGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Model') as any;
-    const providerEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'provider');
-    const modelEditor = modelGroup.editors.find((editor: any) => editor.customEditorId === 'LLMChatV2ModelCatalog');
-    const envVarEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'customProviderApiKeyEnvVarName');
-    const customBaseUrlEditor = modelGroup.editors.find((editor: any) => editor.dataKey === 'customProviderBaseURL');
-    const providerAdvancedGroup = editors.find(
-      (editor) => editor.type === 'group' && editor.label === 'Provider Advanced',
-    ) as any;
-    const advancedBaseUrlEditor = providerAdvancedGroup.editors.find((editor: any) => editor.dataKey === 'baseURL');
-    const extraProviderOptionsEditor = providerAdvancedGroup.editors.find(
-      (editor: any) => editor.dataKey === 'extraProviderOptions',
-    );
-
-    assert.deepEqual(
-      modelGroup.editors.map((editor: any) => editor.dataKey ?? editor.customEditorId),
-      ['provider', 'customProviderBaseURL', 'LLMChatV2ModelCatalog', 'apiKeySource', 'customProviderApiKeyEnvVarName'],
-    );
-    assert.ok(
-      providerEditor.options.some((option: any) => option.value === 'custom' && option.label === 'Custom provider'),
-    );
-    assert.deepEqual(modelEditor.data.modelOptions, [{ value: 'llama-custom', label: 'llama-custom' }]);
-    assert.equal(envVarEditor.label, 'API key env var name');
-    assert.equal(envVarEditor.hideIf({ provider: 'custom', apiKeySource: 'environment' }), false);
-    assert.equal(envVarEditor.hideIf({ provider: 'custom', apiKeySource: 'input' }), true);
-    assert.equal(customBaseUrlEditor.label, 'Provider base URL');
-    assert.equal(customBaseUrlEditor.useInputToggleDataKey, 'useCustomProviderBaseURLInput');
-    assert.equal(customBaseUrlEditor.hideIf({ provider: 'custom' }), false);
-    assert.equal(advancedBaseUrlEditor.hideIf({ provider: 'custom' }), true);
-    assert.equal(advancedBaseUrlEditor.hideIf({ provider: 'openai' }), false);
-    assert.equal(extraProviderOptionsEditor.type, 'code');
-    assert.equal(extraProviderOptionsEditor.language, 'json');
-    assert.equal(extraProviderOptionsEditor.useInputToggleDataKey, 'useExtraProviderOptionsInput');
-    assert.match(extraProviderOptionsEditor.helperMessage, /providerOptions/);
+  it('R2: drops the model-param + layer-owned-connection input ports (model-config is layer-owned)', () => {
+    // Even with the old per-param toggles on, these ports never appear now.
+    const inputs = createNode({
+      useModelInput: true,
+      useTemperatureInput: true,
+      useMaxTokensInput: true,
+      useHeadersInput: true,
+      useExtraProviderOptionsInput: true,
+    }).getInputDefinitions();
+    for (const id of ['model', 'temperature', 'maxTokens', 'topP', 'seed', 'baseURL', 'customProviderBaseURL', 'headers', 'extraProviderOptions']) {
+      assert.ok(!inputs.some((input) => input.id === id), `${id} input port should be gone in R2`);
+    }
   });
 
-  it('shows the custom provider base URL in the node body', () => {
-    const node = createNode({
-      provider: 'custom',
-      model: 'llama-custom',
-      customProviderBaseURL: 'https://api.cerebras.ai/v1',
-    });
-
-    assert.equal(
-      node.getBody(),
-      [
-        'Custom provider',
-        'Provider base URL: https://api.cerebras.ai/v1',
-        'llama-custom',
-        'Temperature: 0.5',
-        'Max output tokens: 1024',
-      ].join('\n'),
-    );
-  });
-
-  it('shows when the custom provider base URL comes from an input port', () => {
-    const node = createNode({
-      provider: 'custom',
-      model: 'llama-custom',
-      customProviderBaseURL: 'https://api.cerebras.ai/v1',
-      useCustomProviderBaseURLInput: true,
-    });
-
-    assert.match(node.getBody(), /Provider base URL: \(Using Input\)/);
-    assert.doesNotMatch(node.getBody(), /api\.cerebras/);
-  });
-
-  it('shows built-in provider reasoning effort in the node body', () => {
-    assert.match(createNode().getBody(), /Reasoning effort: Default/);
-    assert.match(createNode({ provider: 'openai', openAIReasoningEffort: 'high' }).getBody(), /Reasoning effort: High/);
-    assert.match(createNode({ provider: 'anthropic', anthropicEffort: 'max' }).getBody(), /Reasoning effort: Max/);
-    assert.match(
-      createNode({ provider: 'google', googleThinkingLevel: 'minimal' }).getBody(),
-      /Reasoning effort: Minimal/,
-    );
-    assert.doesNotMatch(createNode({ provider: 'custom' }).getBody(), /Reasoning effort:/);
-  });
-
-  it('places technical details after all LLM settings sections', async () => {
-    const node = createNode();
-    const editors = await node.getEditors({});
-    const groupLabels = editors.filter((editor) => editor.type === 'group').map((editor) => editor.label);
+  it('R2: the editor is config-less — model-config groups removed, only selectors + structural groups remain', async () => {
+    const editors = await createNode().getEditors({} as any);
+    const groupLabels = editors.filter((editor) => editor.type === 'group').map((editor) => (editor as any).label);
+    assert.deepEqual(groupLabels, ['Model config', 'Response format', 'Tools', 'Outputs', 'Technical details']);
+    for (const gone of ['Model', 'OpenAI', 'Anthropic', 'Google', 'Parameters', 'Reasoning', 'Provider Advanced']) {
+      assert.ok(!groupLabels.includes(gone), `${gone} group should be removed in R2`);
+    }
     const technicalDetailsGroup = editors.at(-1) as any;
-
-    assert.deepEqual(groupLabels, [
-      'Model config',
-      'Model',
-      'OpenAI',
-      'Anthropic',
-      'Google',
-      'Parameters',
-      'Reasoning',
-      'Response format',
-      'Tools',
-      'Outputs',
-      'Provider Advanced',
-      'Technical details',
-    ]);
     assert.equal(technicalDetailsGroup.label, 'Technical details');
     assert.equal(technicalDetailsGroup.editors[0]?.dataKey, 'retryOnNon200');
-    assert.equal(technicalDetailsGroup.editors[1]?.dataKey, 'retryOnNon200RepeatTimes');
-    assert.equal(technicalDetailsGroup.editors[1]?.hideIf({ retryOnNon200: false }), true);
-    assert.equal(technicalDetailsGroup.editors[1]?.hideIf({ retryOnNon200: true }), false);
-    assert.equal(technicalDetailsGroup.editors[2]?.dataKey, 'retryOnNon200CooldownMs');
-    assert.equal(technicalDetailsGroup.editors[3]?.dataKey, 'outputRequestStatus');
+  });
+
+  it('R2: the body shows the INCOMPLETE state for an unbound node (no silent default)', () => {
+    assert.match(createNode().getBody({} as any), /Incomplete/);
   });
 
   it('adds request transport outputs only when technical details request them', () => {
@@ -354,55 +246,6 @@ describe('LLMChatV2NodeImpl', () => {
     ]);
   });
 
-  it('adds the base URL input for the active provider URL field', () => {
-    const customInputNode = createNode({
-      provider: 'custom',
-      useCustomProviderBaseURLInput: true,
-    });
-    const builtInInputNode = createNode({
-      provider: 'openai',
-      useBaseURLInput: true,
-    });
-
-    assert.deepEqual(
-      customInputNode.getInputDefinitions().find((input) => input.id === 'customProviderBaseURL'),
-      {
-        id: 'customProviderBaseURL',
-        title: 'Provider base URL',
-        dataType: 'string',
-        required: false,
-      },
-    );
-    assert.deepEqual(
-      builtInInputNode.getInputDefinitions().find((input) => input.id === 'baseURL'),
-      {
-        id: 'baseURL',
-        title: 'Base URL',
-        dataType: 'string',
-        required: false,
-      },
-    );
-  });
-
-  it('adds an extra provider options input when enabled', () => {
-    const defaultNode = createNode();
-    const inputNode = createNode({
-      useExtraProviderOptionsInput: true,
-    });
-
-    assert.ok(!defaultNode.getInputDefinitions().some((input) => input.id === 'extraProviderOptions'));
-    assert.deepEqual(
-      inputNode.getInputDefinitions().find((input) => input.id === 'extraProviderOptions'),
-      {
-        id: 'extraProviderOptions',
-        title: 'Extra Provider Options',
-        dataType: ['string', 'object'],
-        required: false,
-        coerced: true,
-      },
-    );
-  });
-
   it('adds Tool Calls output when provider built-in tools are enabled', () => {
     const node = createNode({
       provider: 'openai',
@@ -433,25 +276,6 @@ describe('LLMChatV2NodeImpl', () => {
         dataType: ['string', 'string[]'],
       },
     );
-  });
-
-  it('exposes provider-specific thinking budget inputs only for the active provider', () => {
-    const anthropicNode = createNode({
-      provider: 'anthropic',
-      useAnthropicThinkingBudgetInput: true,
-    });
-    const googleNode = createNode({
-      provider: 'google',
-      useGoogleThinkingBudgetInput: true,
-    });
-
-    const anthropicInputs = anthropicNode.getInputDefinitions();
-    const googleInputs = googleNode.getInputDefinitions();
-
-    assert.ok(anthropicInputs.some((input) => input.id === 'anthropicThinkingBudget'));
-    assert.ok(!anthropicInputs.some((input) => input.id === 'googleThinkingBudget'));
-    assert.ok(googleInputs.some((input) => input.id === 'googleThinkingBudget'));
-    assert.ok(!googleInputs.some((input) => input.id === 'anthropicThinkingBudget'));
   });
 
   it('groups Rivet tool calling controls under Tools', async () => {
@@ -525,7 +349,7 @@ describe('LLMChatV2NodeImpl', () => {
       outputGroup.editors.find((editor: any) => editor.dataKey === 'outputUsage')?.helperMessage,
       /Vercel AI SDK usage metadata/,
     );
-    assert.ok(!outputGroup.editors.some((editor: any) => editor.dataKey === 'outputReasoning'));
+    assert.ok(outputGroup.editors.some((editor: any) => editor.dataKey === 'outputReasoning')); // R2: moved here from Reasoning
     assert.equal(
       outputGroup.editors.find((editor: any) => editor.dataKey === 'useAsGraphPartialOutput')?.label,
       'Stream response',
@@ -546,98 +370,6 @@ describe('LLMChatV2NodeImpl', () => {
       outputGroup.editors.find((editor: any) => editor.dataKey === 'cache')?.helperMessage,
       /while the Rivet app is open/,
     );
-  });
-
-  it('groups provider reasoning settings after Parameters', async () => {
-    const node = createNode();
-
-    const editors = await node.getEditors({});
-    const groupLabels = editors.filter((editor) => editor.type === 'group').map((editor) => editor.label);
-    const reasoningGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Reasoning') as any;
-    const openAIGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'OpenAI') as any;
-    const anthropicGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Anthropic') as any;
-    const googleGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Google') as any;
-
-    assert.deepEqual(groupLabels.slice(groupLabels.indexOf('Model') + 1, groupLabels.indexOf('Model') + 4), [
-      'OpenAI',
-      'Anthropic',
-      'Google',
-    ]);
-    assert.equal(groupLabels.indexOf('Reasoning'), groupLabels.indexOf('Parameters') + 1);
-    assert.ok(reasoningGroup);
-    assert.deepEqual(
-      reasoningGroup.editors.map((editor: any) => editor.dataKey),
-      [
-        'openAIReasoningEffort',
-        'outputReasoning',
-        'openAIReasoningSummary',
-        'anthropicThinkingMode',
-        'anthropicEffort',
-        'anthropicThinkingBudget',
-        'googleThinkingLevel',
-        'googleThinkingBudget',
-        'googleIncludeThoughts',
-      ],
-    );
-    assert.equal(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'outputReasoning')?.label,
-      'Output reasoning',
-    );
-    assert.match(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'outputReasoning')?.helperMessage,
-      /reasoning or thinking text/,
-    );
-    assert.equal(
-      reasoningGroup.editors
-        .find((editor: any) => editor.dataKey === 'openAIReasoningEffort')
-        ?.hideIf({
-          provider: 'openai',
-        }),
-      false,
-    );
-    assert.equal(
-      reasoningGroup.editors
-        .find((editor: any) => editor.dataKey === 'anthropicThinkingMode')
-        ?.hideIf({
-          provider: 'anthropic',
-        }),
-      false,
-    );
-    assert.deepEqual(
-      reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicThinkingMode')?.options,
-      [
-        { value: '', label: 'Default' },
-        { value: 'adaptive', label: 'Adaptive' },
-        { value: 'enabled', label: 'Enabled' },
-        { value: 'disabled', label: 'Disabled' },
-      ],
-    );
-    assert.deepEqual(reasoningGroup.editors.find((editor: any) => editor.dataKey === 'anthropicEffort')?.options, [
-      { value: '', label: 'Default' },
-      { value: 'low', label: 'Low' },
-      { value: 'medium', label: 'Medium' },
-      { value: 'high', label: 'High' },
-      { value: 'max', label: 'Max' },
-    ]);
-    assert.equal(
-      reasoningGroup.editors
-        .find((editor: any) => editor.dataKey === 'googleThinkingBudget')
-        ?.hideIf({
-          provider: 'google',
-        }),
-      false,
-    );
-    assert.deepEqual(reasoningGroup.editors.find((editor: any) => editor.dataKey === 'googleThinkingLevel')?.options, [
-      { value: '', label: 'Default' },
-      { value: 'minimal', label: 'Minimal' },
-      { value: 'low', label: 'Low' },
-      { value: 'medium', label: 'Medium' },
-      { value: 'high', label: 'High' },
-    ]);
-    assert.ok(!openAIGroup.editors.some((editor: any) => editor.dataKey === 'openAIReasoningEffort'));
-    assert.ok(!anthropicGroup.editors.some((editor: any) => editor.dataKey === 'anthropicThinkingMode'));
-    assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleThinkingBudget'));
-    assert.ok(!googleGroup.editors.some((editor: any) => editor.dataKey === 'googleStructuredOutputs'));
   });
 
   it('resolves provider-specific reasoning options in the Vercel providerOptions shape', () => {
@@ -805,41 +537,6 @@ describe('LLMChatV2NodeImpl', () => {
         ),
       /Extra provider options must be a JSON object/,
     );
-  });
-
-  it('exposes expanded generation parameters and matching input ports', async () => {
-    const node = createNode({
-      useTopKInput: true,
-      usePresencePenaltyInput: true,
-      useFrequencyPenaltyInput: true,
-      useStopSequencesInput: true,
-      useSeedInput: true,
-      useMaxTokensInput: true,
-    });
-
-    const editors = await node.getEditors({});
-    const parametersGroup = editors.find((editor) => editor.type === 'group' && editor.label === 'Parameters') as any;
-    const parameterLabels = parametersGroup.editors.map((editor: any) => editor.label);
-
-    assert.deepEqual(parameterLabels.slice(0, 2), ['Temperature', 'Max output tokens']);
-    assert.ok(parameterLabels.includes('Presence penalty'));
-    assert.ok(parameterLabels.includes('Frequency penalty'));
-    assert.ok(parameterLabels.includes('Stop sequences'));
-    assert.ok(parameterLabels.includes('Seed'));
-    assert.ok(parameterLabels.includes('Max output tokens'));
-    assert.equal(
-      parametersGroup.editors.find((editor: any) => editor.dataKey === 'topK')?.helperMessage,
-      'Provider-dependent; some providers or models may ignore this setting.',
-    );
-
-    const inputs = node.getInputDefinitions();
-    const inputById = new Map(inputs.map((input) => [input.id, input]));
-
-    assert.equal(inputById.get('presencePenalty' as any)?.dataType, 'number');
-    assert.equal(inputById.get('frequencyPenalty' as any)?.dataType, 'number');
-    assert.deepEqual(inputById.get('stopSequences' as any)?.dataType, ['string', 'string[]']);
-    assert.equal(inputById.get('seed' as any)?.dataType, 'number');
-    assert.equal(inputById.get('maxTokens' as any)?.title, 'Max output tokens');
   });
 
   it('exposes response-format settings and JSON schema input ports only when needed', async () => {

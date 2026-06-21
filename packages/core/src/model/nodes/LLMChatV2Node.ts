@@ -30,7 +30,11 @@ import {
 } from '../chat-v2/providerOptions.js';
 import { runChatV2Pipeline } from '../chat-v2/chatV2Pipeline.js';
 import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuation.js';
-import { resolveEffectiveLLMChatV2Data, type NodeModelSelectors } from '../chat-v2/resolveEffectiveLLMChatV2Data.js';
+import {
+  resolveEffectiveLLMChatV2Data,
+  assessLLMChatV2Completeness,
+  type NodeModelSelectors,
+} from '../chat-v2/resolveEffectiveLLMChatV2Data.js';
 import { getInputOrData } from '../../utils/inputs.js';
 import { delegateToolCall } from './toolCallDelegation.js';
 
@@ -44,15 +48,23 @@ export type {
 
 export { buildLLMChatV2EditorCacheKey, resolveLLMChatV2RuntimeProviderOptions };
 
-function usesBaseURLInput(data: LLMChatV2Node['data']): boolean {
-  return data.provider === 'custom' ? data.useCustomProviderBaseURLInput : data.useBaseURLInput;
-}
-
 /**
- * The three model-config selectors that can be driven from an input port instead of the dropdown
- * (input-driven selectors). `id` is both the input port id and the data key; the toggle is the data
- * field that exposes the port. Single source of truth for `getInputDefinitions` + the resolver below.
+ * Model-param input ports emitted by `getCommonChatV2Inputs` — dropped in R2: these fields are
+ * layer-owned, so "drive a param from a port" is subsumed by "bind a different Skill". (The dynamic
+ * axis is the input-driven `llmSkillId` binding, not per-param ports.)
  */
+const MODEL_PARAM_INPUT_PORT_IDS: ReadonlySet<string> = new Set([
+  'model',
+  'temperature',
+  'topP',
+  'topK',
+  'presencePenalty',
+  'frequencyPenalty',
+  'stopSequences',
+  'seed',
+  'maxTokens',
+]);
+
 const LLM_SELECTOR_INPUT_PORTS = [
   { toggle: 'useLlmPresetIdInput', id: 'llmPresetId', title: 'Preset ID' },
   { toggle: 'useLlmProfileIdInput', id: 'llmProfileId', title: 'Profile ID' },
@@ -76,27 +88,6 @@ export function resolveNodeModelSelectors(data: LLMChatV2Node['data'], inputs: I
     llmProfileId: getInputOrData(data, inputs, 'llmProfileId', 'string'),
     llmSkillId: getInputOrData(data, inputs, 'llmSkillId', 'string'),
   };
-}
-
-/**
- * Resolve a node's effective data for display (the canvas body, Feature 009). Guarded: resolve only
- * when there is BOTH a project modelConfig and a selector set — otherwise return `data` directly, so
- * an old project with no modelConfig (or a vanilla node) never throws inside the canvas render.
- */
-function resolveBodyEffectiveData(
-  data: LLMChatV2Node['data'],
-  context: RivetUIContext | undefined,
-): LLMChatV2Node['data'] {
-  const modelConfig = context?.project?.modelConfig;
-  const hasSelector = !!(data.llmPresetId || data.llmProfileId || data.llmSkillId);
-  if (!modelConfig || !hasSelector) {
-    return data;
-  }
-  return resolveEffectiveLLMChatV2Data(
-    modelConfig,
-    { llmPresetId: data.llmPresetId, llmProfileId: data.llmProfileId, llmSkillId: data.llmSkillId },
-    data,
-  );
 }
 
 function getCustomProviderBaseURLBodyLine(data: LLMChatV2Node['data']): string | undefined {
@@ -145,70 +136,23 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   }
 
   getInputDefinitions(): NodeInputDefinition[] {
+    // R2 full-port-set: model-config is layer-owned, so the model-param input ports are gone and the
+    // remaining per-call/connection ports no longer gate on `this.data.provider`/`apiKeySource` (now
+    // layer-ignored — and unknowable here for an input-driven binding). Emit the full set; the runtime
+    // uses what the resolved config actually needs and ignores the rest (per-provider narrowing deferred).
     const inputs = getCommonChatV2Inputs(this.data, {
       includeFunctions: this.data.useToolCalling,
-    });
+    }).filter((p) => !MODEL_PARAM_INPUT_PORT_IDS.has(p.id as string));
 
-    if (this.data.apiKeySource === 'input') {
-      inputs.push({
-        id: 'apiKey' as PortId,
-        title: 'API Key',
-        dataType: 'string',
-        required: false,
-      });
-    }
+    // Connection: the API-key value channel — always present; used iff the resolved apiKeySource is 'input'.
+    inputs.push({ id: 'apiKey' as PortId, title: 'API Key', dataType: 'string', required: false });
 
-    if (usesBaseURLInput(this.data)) {
-      inputs.unshift({
-        id: (this.data.provider === 'custom' ? 'customProviderBaseURL' : 'baseURL') as PortId,
-        title: this.data.provider === 'custom' ? 'Provider base URL' : 'Base URL',
-        dataType: 'string',
-        required: false,
-      });
-    }
-
-    if (this.data.useHeadersInput) {
-      inputs.push({
-        id: 'headers' as PortId,
-        title: 'Headers',
-        dataType: 'object',
-        required: false,
-      });
-    }
-
-    if (this.data.useExtraProviderOptionsInput) {
-      inputs.push({
-        id: 'extraProviderOptions' as PortId,
-        title: 'Extra Provider Options',
-        dataType: ['string', 'object'] as const,
-        required: false,
-        coerced: true,
-      });
-    }
-
-    if (this.data.provider === 'openai' && this.data.useOpenAIPreviousResponseIdInput) {
+    // Per-call (node-owned): previous response id — gated only by its own toggle (provider-agnostic here).
+    if (this.data.useOpenAIPreviousResponseIdInput) {
       inputs.push({
         id: 'previousResponseId' as PortId,
         title: 'Previous Response ID',
         dataType: 'string',
-        required: false,
-      });
-    }
-
-    if (this.data.provider === 'anthropic' && this.data.useAnthropicThinkingBudgetInput) {
-      inputs.push({
-        id: 'anthropicThinkingBudget' as PortId,
-        title: 'Thinking Budget',
-        dataType: 'number',
-        required: false,
-      });
-    }
-
-    if (this.data.provider === 'google' && this.data.useGoogleThinkingBudgetInput) {
-      inputs.push({
-        id: 'googleThinkingBudget' as PortId,
-        title: 'Thinking Budget',
-        dataType: 'number',
         required: false,
       });
     }
@@ -319,10 +263,22 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   }
 
   getBody(context: RivetUIContext) {
-    // Feature 009: the canvas body shows what RESOLVES (run the pre-pass against the project's
-    // modelConfig from the UI context), so a bound node stops lying about its own gpt-5 defaults.
-    // Vanilla (no selector) → the rail returns `data` unchanged → byte-identical body.
-    const effective = resolveBodyEffectiveData(this.data, context);
+    // R2: the canvas body shows what RESOLVES from the bound config (model-config is layer-only). An
+    // unbound / partially-bound node has no config to run on → show the incomplete state, never a
+    // silent default. (Uses the data-driven selectors; an input-driven binding resolves at run time.)
+    const effective = resolveEffectiveLLMChatV2Data(
+      context?.project?.modelConfig,
+      {
+        llmPresetId: this.data.llmPresetId,
+        llmProfileId: this.data.llmProfileId,
+        llmSkillId: this.data.llmSkillId,
+      },
+      this.data,
+    );
+    const completeness = assessLLMChatV2Completeness(effective);
+    if (!completeness.complete) {
+      return `⚠ Incomplete — ${completeness.reason}.`;
+    }
     const modelInfo = getChatV2ModelInfo(effective.provider, effective.model);
     const providerLabel = getChatV2ProviderLabel(effective.provider);
     const baseURLLine = getCustomProviderBaseURLBodyLine(effective);
@@ -339,15 +295,21 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
   }
 
   async process(inputs: Inputs, context: InternalProcessContext): Promise<Outputs> {
-    // Feature 008: resolve the node's Preset/Profile/Skill selectors into its effective data via the
-    // pure pre-pass, reading the 006-assembled `context.settings.modelConfig` (so headless/published
-    // runs resolve identically). With no selector set the rail returns `this.data` unchanged.
+    // R2: resolve the node's Preset/Profile/Skill selectors into its effective data via the pure
+    // pre-pass (overlap-deletion — model-config comes ONLY from the layer). With no/partial binding
+    // the resolved config is incomplete and the node refuses to run, surfacing why (config-less: there
+    // is no node model-config to silently default to).
     const effectiveData = resolveEffectiveLLMChatV2Data(
       context.settings.modelConfig,
       resolveNodeModelSelectors(this.data, inputs),
       this.data,
       context.trace,
     );
+
+    const completeness = assessLLMChatV2Completeness(effectiveData);
+    if (!completeness.complete) {
+      throw new Error(`LLM Chat is incomplete: ${completeness.reason}.`);
+    }
 
     const runtime = await resolveLLMChatV2RuntimeConfig({
       data: effectiveData,
