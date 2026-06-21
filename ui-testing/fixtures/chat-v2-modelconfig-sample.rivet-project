@@ -5,13 +5,13 @@ data:
       testSuites: []
       version: 1
   graphs:
-    oc3uDAFQucCkALUG9q3vi:
+    pKOcDLtJ8xoi9lbGqbOwk:
       metadata:
         description: ""
-        id: oc3uDAFQucCkALUG9q3vi
+        id: pKOcDLtJ8xoi9lbGqbOwk
         name: Untitled Graph
       nodes:
-        '[tP2MRWEVq30BV1xs2a0k0]:llmChatV2 "LLM Chat"':
+        '[MizmgB3zRlXpwIl_XMjq3]:llmChatV2 "LLM Chat"':
           data:
             anthropicCacheControlTtl: ""
             anthropicEffort: ""
@@ -30,7 +30,7 @@ data:
             googleIncludeThoughts: false
             googleThinkingLevel: ""
             headers: []
-            llmPresetId: gB9FOjScdoA_Jqs735vbC
+            llmPresetId: k9v-TSPdi48WDoNC1epSL
             llmProfileId: ""
             llmSkillId: ""
             maxTokens: 1024
@@ -79,25 +79,25 @@ data:
           visualData: 430/520/290/null//
   metadata:
     description: ""
-    id: 5Lm8fTXhKz0nCxZ1c4lPR
-    mainGraphId: oc3uDAFQucCkALUG9q3vi
+    id: k0tTFvc3ndcGea88CYUOZ
+    mainGraphId: pKOcDLtJ8xoi9lbGqbOwk
     title: Chat-v2 ModelConfig Sample
   modelConfig:
     presets:
-      - id: gB9FOjScdoA_Jqs735vbC
+      - id: k9v-TSPdi48WDoNC1epSL
         name: Coder (oMLX)
         overrides:
-          maxTokens: 0
-        profileId: UQ7WZwUFxp-_IXI_r7tDc
-        skillId: EfuywiGNgOjdn68clcCWi
+          maxTokens: 4096
+        profileId: 4St4yXa8TmX5tZ8MIzf37
+        skillId: EjdfycIcDAlnbYNpaLfXx
     profiles:
       - customProviderBaseURL: http://host.lima.internal:9090/v1
         defaultModel: Qwen3.6-35B-A3B-nvfp4
-        id: UQ7WZwUFxp-_IXI_r7tDc
+        id: 4St4yXa8TmX5tZ8MIzf37
         name: oMLX Local
         provider: custom
       - defaultModel: gpt-5
-        id: liDkuoG43TvMKXeOzQkWU
+        id: i_CnZ9wz8fulK0qVreVm3
         name: OpenAI
         provider: openai
     skills:
@@ -105,7 +105,7 @@ data:
           maxTokens: 2048
           reasoningLevel: low
           temperature: 0.2
-        id: EfuywiGNgOjdn68clcCWi
+        id: EjdfycIcDAlnbYNpaLfXx
         name: No-think
         providers:
           custom:

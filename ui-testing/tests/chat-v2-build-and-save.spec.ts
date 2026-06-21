@@ -127,15 +127,18 @@ test('chat-v2 build-and-save: author → bind → save → assert the .rivet-pro
     await page.getByRole('textbox', { name: /Planner \(Claude\)/ }).fill('Coder (oMLX)');
     await pickAfter(page, 'Profile (connection)', 'oMLX Local');
     await pickAfter(page, 'Skill (behavior, optional)', 'No-think');
-    // One override: toggle "Override Max tokens" on and set a value (best-effort; non-fatal).
-    try {
-      await page.getByRole('dialog', { name: 'Project settings' })
-        .getByLabel('Override Max tokens').dispatchEvent('click');
-      await page.getByText('Max tokens', { exact: true }).last()
-        .locator('xpath=following::input[1]').fill('1024');
-    } catch {
-      run.note('overrideApplied', false);
-    }
+    // One override: toggle "Override Max tokens" on, then set a concrete value. The override input is
+    // disabled until the presence toggle takes, and the controlled <input> needs a blur to commit the
+    // onChange (a plain .fill() left it at the toggle's initial 0 — the fixture bug).
+    const toggle = page.getByRole('dialog', { name: 'Project settings' }).getByLabel('Override Max tokens');
+    await toggle.dispatchEvent('click');
+    const overrideInput = toggle.locator(
+      'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " override-field-row ")]//input[@type="number"]',
+    );
+    await expect(overrideInput).toBeEnabled({ timeout: 5000 });
+    await overrideInput.fill('4096');
+    await overrideInput.blur(); // commit the controlled-input onChange
+    run.note('overrideMaxTokens', 4096);
     await cardDone(page);
     await run.shot(page, 'preset');
   });
@@ -198,6 +201,8 @@ test('chat-v2 build-and-save: author → bind → save → assert the .rivet-pro
   expect(preset, 'Preset embedded').toBeTruthy();
   expect(preset!.profileId).toBe(omlx!.id);
   expect(preset!.skillId).toBe(skill!.id);
+  // A concrete override (exercises the 009 card's "overridden" marker live).
+  expect((preset!.overrides as Record<string, unknown> | undefined)?.maxTokens).toBe(4096);
 
   // The node carries the expected llmPresetId. Nodes are keyed `'[<id>]:<type> "<title>"'`.
   const graphs = parsed.data?.graphs ?? {};
