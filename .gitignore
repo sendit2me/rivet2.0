@@ -41,7 +41,6 @@ packages/app-executor/bin/executor-bundle.js
 packages/app-executor/bin/executor-bundle.cjs
 
 .yarn/*
-!.yarn/cache
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
