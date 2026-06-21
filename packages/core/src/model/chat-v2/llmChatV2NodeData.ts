@@ -60,6 +60,13 @@ export type LLMChatV2NodeConfigData = ChatV2CommonNodeData & {
   llmPresetId?: string;
   llmProfileId?: string;
   llmSkillId?: string;
+
+  // Drive a selector's id from an input port instead of the editor dropdown (Feature: input-driven
+  // selectors). Default false → data-driven (the dropdown), preserving the byte-identical rail. When
+  // true, process() reads the matching input port (falling back to the data id) before the pre-pass.
+  useLlmPresetIdInput?: boolean;
+  useLlmProfileIdInput?: boolean;
+  useLlmSkillIdInput?: boolean;
 };
 
 export type LLMChatV2NodeData = LLMChatV2NodeConfigData;
@@ -132,6 +139,9 @@ export function createLLMChatV2NodeData(): LLMChatV2NodeData {
     llmPresetId: '',
     llmProfileId: '',
     llmSkillId: '',
+    useLlmPresetIdInput: false,
+    useLlmProfileIdInput: false,
+    useLlmSkillIdInput: false,
   };
 }
 

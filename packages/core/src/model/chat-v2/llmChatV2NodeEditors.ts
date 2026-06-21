@@ -66,18 +66,21 @@ function getModelConfigEditors(): LLMChatV2EditorDefinition {
       type: 'llmPresetSelector',
       label: 'Preset',
       dataKey: 'llmPresetId',
+      useInputToggleDataKey: 'useLlmPresetIdInput',
       helperMessage: 'Apply a Preset (Profile + Skill + overrides). Profile / Skill below override its pieces.',
     },
     {
       type: 'llmProfileSelector',
       label: 'Profile',
       dataKey: 'llmProfileId',
+      useInputToggleDataKey: 'useLlmProfileIdInput',
       helperMessage: 'The connection (provider / endpoint / key) — replaces the preset profile when set.',
     },
     {
       type: 'llmSkillSelector',
       label: 'Skill',
       dataKey: 'llmSkillId',
+      useInputToggleDataKey: 'useLlmSkillIdInput',
       helperMessage: 'The behaviour + model — replaces the preset skill when set.',
     },
     // Feature 009: the resolved-config Summary Card — what the selection actually runs, with

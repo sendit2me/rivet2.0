@@ -228,3 +228,28 @@ when a *referenced* Skill/Profile/Preset's content changed (only when the select
 resolved model / generation params / `extraProviderOptions` / headers fingerprint. Editing a
 referenced Skill/Profile/Preset therefore changes the effective data → changes the cache key →
 invalidates the cache. No extra modelConfig-hash is needed; the concern is closed.
+
+## D13 — Input-driven selectors ship the resolver; their editor display is deferred
+
+**Status:** Accepted (2026-06-21)
+
+The model-config selectors (`llmPresetId`/`llmProfileId`/`llmSkillId`) can now be **driven from an
+input port** (per-selector `use…Input` toggle, mirroring the API-key-source toggle): `process()` reads
+the matching string input port (via `getInputOrData`, falling back to the data id) before the
+resolution pre-pass, so the arbiter's choice → the resume node's Profile → it follows the winner's
+model. Composition only; no new node; pre-pass and precedence unchanged; the byte-identical rail holds
+(default-false toggles + empty selectors → resolver identity).
+
+**Deliberately *not* in this change — the editor display for an input-driven node.** Feature 009's
+canvas body + Summary Card + override-group collapse are gated on the **data-only** predicate
+`hasSource = !!(data.llmPresetId || data.llmProfileId || data.llmSkillId)`. For an input-driven node
+that predicate is `false` at edit time (the id arrives at run time), so the node shows its **data-driven
+009 display** (vanilla hint, native groups visible) — *not* a wrong concrete config. We explicitly
+rejected widening `hasSource` with the input toggles: that would collapse the native groups and let the
+009 card resolve the *empty* data selectors, rendering a concrete-but-wrong config (e.g. `gpt-5`/native)
+as "what runs" — reintroducing the exact "node lies about what runs" that 009 killed, now for
+input-driven nodes. The correct fix is a per-field "resolved at runtime from the [X] input" display
+(card + collapse-awareness), which is coherent editor-surface work belonging to the shared-editor lift
+(the Chat Loop re-impl) that reworks the card + collapse anyway; doing it piecemeal now means redoing
+it. In use this is invisible — input-driven nodes are wired programmatically (the harness), not authored
+by dropdown. **Known gap, logged, deferred to the editor-surface lift.**
