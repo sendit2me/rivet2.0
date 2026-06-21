@@ -30,7 +30,8 @@ import {
 } from '../chat-v2/providerOptions.js';
 import { runChatV2Pipeline } from '../chat-v2/chatV2Pipeline.js';
 import { runChatV2PipelineWithToolContinuation } from '../chat-v2/toolContinuation.js';
-import { resolveEffectiveLLMChatV2Data } from '../chat-v2/resolveEffectiveLLMChatV2Data.js';
+import { resolveEffectiveLLMChatV2Data, type NodeModelSelectors } from '../chat-v2/resolveEffectiveLLMChatV2Data.js';
+import { getInputOrData } from '../../utils/inputs.js';
 import { delegateToolCall } from './toolCallDelegation.js';
 
 export type {
@@ -45,6 +46,36 @@ export { buildLLMChatV2EditorCacheKey, resolveLLMChatV2RuntimeProviderOptions };
 
 function usesBaseURLInput(data: LLMChatV2Node['data']): boolean {
   return data.provider === 'custom' ? data.useCustomProviderBaseURLInput : data.useBaseURLInput;
+}
+
+/**
+ * The three model-config selectors that can be driven from an input port instead of the dropdown
+ * (input-driven selectors). `id` is both the input port id and the data key; the toggle is the data
+ * field that exposes the port. Single source of truth for `getInputDefinitions` + the resolver below.
+ */
+const LLM_SELECTOR_INPUT_PORTS = [
+  { toggle: 'useLlmPresetIdInput', id: 'llmPresetId', title: 'Preset ID' },
+  { toggle: 'useLlmProfileIdInput', id: 'llmProfileId', title: 'Profile ID' },
+  { toggle: 'useLlmSkillIdInput', id: 'llmSkillId', title: 'Skill ID' },
+] as const satisfies ReadonlyArray<{
+  toggle: keyof LLMChatV2Node['data'];
+  id: keyof LLMChatV2Node['data'] & string;
+  title: string;
+}>;
+
+/**
+ * The effective selector ids for the resolution pre-pass: each selector's input-port value when its
+ * "drive from input" toggle is on and the port is connected, otherwise its data field (and the data
+ * field again as the fallback when the toggle is on but unconnected). `getInputOrData` derives the
+ * `use…Input` toggle from the key, so an unset/data-driven node returns its data ids verbatim — the
+ * byte-identical rail (all-empty selectors → resolver identity) is preserved.
+ */
+export function resolveNodeModelSelectors(data: LLMChatV2Node['data'], inputs: Inputs): NodeModelSelectors {
+  return {
+    llmPresetId: getInputOrData(data, inputs, 'llmPresetId', 'string'),
+    llmProfileId: getInputOrData(data, inputs, 'llmProfileId', 'string'),
+    llmSkillId: getInputOrData(data, inputs, 'llmSkillId', 'string'),
+  };
 }
 
 /**
@@ -216,6 +247,15 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
       });
     }
 
+    // Input-driven model-config selectors: when a selector's "drive from input" toggle is on, expose
+    // a string port carrying its id (e.g. arbiter's choice → resume node's Profile). process() reads
+    // these (falling back to the data id) before the resolution pre-pass.
+    for (const { toggle, id, title } of LLM_SELECTOR_INPUT_PORTS) {
+      if (this.data[toggle]) {
+        inputs.push({ id: id as PortId, title, dataType: 'string', required: false });
+      }
+    }
+
     return inputs;
   }
 
@@ -304,11 +344,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     // runs resolve identically). With no selector set the rail returns `this.data` unchanged.
     const effectiveData = resolveEffectiveLLMChatV2Data(
       context.settings.modelConfig,
-      {
-        llmPresetId: this.data.llmPresetId,
-        llmProfileId: this.data.llmProfileId,
-        llmSkillId: this.data.llmSkillId,
-      },
+      resolveNodeModelSelectors(this.data, inputs),
       this.data,
       context.trace,
     );

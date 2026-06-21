@@ -52,6 +52,18 @@ export const LlmSelectorField: FC<{
   );
 };
 
+/**
+ * A selector is input-driven when its "drive from input" toggle (useInputToggleDataKey) is on — then
+ * the value comes from the node's input port, so the dropdown is display-only (disabled). The plug
+ * toggle itself is rendered by DefaultNodeEditorField.
+ */
+function selectorInputDriven(
+  editor: { useInputToggleDataKey?: string },
+  data: Record<string, unknown>,
+): boolean {
+  return editor.useInputToggleDataKey != null && Boolean(data[editor.useInputToggleDataKey]);
+}
+
 export const DefaultLlmProfileSelectorEditor: FC<
   SharedEditorProps & { editor: LlmProfileSelectorEditorDefinition<ChartNode> }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
@@ -64,7 +76,7 @@ export const DefaultLlmProfileSelectorEditor: FC<
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
-      isReadonly={isReadonly || isDisabled}
+      isReadonly={isReadonly || isDisabled || selectorInputDriven(editor, data)}
       helperMessage={getHelperMessage(editor, node.data)}
       placeholder="Select Profile..."
       onChange={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
@@ -84,7 +96,7 @@ export const DefaultLlmSkillSelectorEditor: FC<
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
-      isReadonly={isReadonly || isDisabled}
+      isReadonly={isReadonly || isDisabled || selectorInputDriven(editor, data)}
       helperMessage={getHelperMessage(editor, node.data)}
       placeholder="Select Skill..."
       onChange={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
@@ -104,7 +116,7 @@ export const DefaultLlmPresetSelectorEditor: FC<
       value={data[editor.dataKey] as string | undefined}
       name={editor.dataKey}
       label={editor.label}
-      isReadonly={isReadonly || isDisabled}
+      isReadonly={isReadonly || isDisabled || selectorInputDriven(editor, data)}
       helperMessage={getHelperMessage(editor, node.data)}
       placeholder="Select Preset..."
       onChange={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
