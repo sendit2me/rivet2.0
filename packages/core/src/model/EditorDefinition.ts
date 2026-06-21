@@ -142,6 +142,17 @@ export type LlmPresetSelectorEditorDefinition<T extends ChartNode> = SharedEdito
   useInputToggleDataKey?: DataOfType<T, boolean>;
 };
 
+/**
+ * The model-config Summary Card (Feature 009): a panel showing the node's **resolved** effective
+ * config (provider/model/reasoning/temperature/maxTokens + a custom-only extraBody summary) with
+ * inherited/overridden markers and inline tweak. Not bound to one dataKey (it edits several node-data
+ * fields); the app renderer reads the project modelConfig + node data and runs the resolver.
+ */
+export type LlmModelConfigSummaryEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
+  type: 'llmModelConfigSummary';
+  useInputToggleDataKey?: never;
+};
+
 export type NumberEditorDefinition<T extends ChartNode> = SharedEditorDefinitionProps<T> & {
   type: 'number';
 
@@ -301,6 +312,7 @@ export type EditorDefinition<T extends ChartNode> =
   | LlmProfileSelectorEditorDefinition<T>
   | LlmSkillSelectorEditorDefinition<T>
   | LlmPresetSelectorEditorDefinition<T>
+  | LlmModelConfigSummaryEditorDefinition<T>
   | FileBrowserEditorDefinition<T>
   | ImageBrowserEditorDefinition<T>
   | DatasetSelectorEditorDefinition<T>

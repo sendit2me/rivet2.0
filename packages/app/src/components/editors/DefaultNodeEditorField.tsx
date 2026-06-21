@@ -17,6 +17,7 @@ import {
   DefaultLlmProfileSelectorEditor,
   DefaultLlmSkillSelectorEditor,
 } from './LlmSelectorEditors';
+import { ModelConfigSummaryCard } from './ModelConfigSummaryCard';
 import { DefaultImageBrowserEditor } from './ImageBrowserEditor';
 import { DefaultNumberEditor } from './NumberEditor';
 import { DefaultSegmentedEditor } from './SegmentedEditor';
@@ -71,6 +72,7 @@ export const DefaultNodeEditorField: FC<
     .with({ type: 'llmPresetSelector' }, (editor) => (
       <DefaultLlmPresetSelectorEditor {...sharedProps} editor={editor} />
     ))
+    .with({ type: 'llmModelConfigSummary' }, (editor) => <ModelConfigSummaryCard {...sharedProps} editor={editor} />)
     .with({ type: 'datasetSelector' }, (editor) => <DefaultDatasetSelectorEditor {...sharedProps} editor={editor} />)
     .with({ type: 'color' }, (editor) => <DefaultColorEditor {...sharedProps} editor={editor} />)
     .with({ type: 'fileBrowser' }, (editor) => <DefaultFileBrowserEditor {...sharedProps} editor={editor} />)
