@@ -216,10 +216,10 @@ function getTechnicalDetailsEditors(): LLMChatV2EditorDefinition {
 }
 
 /**
- * Groups the resolution determines (Feature 009). When a model-config source is bound, these collapse
- * behind the existing "Show overrides" disclosure (default off) — their values are summarized on the
- * Resolved-config card, and showing the node's own (e.g. OpenAI/gpt-5) groups would contradict it.
- * Node-behavior groups (Outputs / Tools / Response format / Technical details) stay visible.
+ * The LLM Chat node's editors. R2 made the node config-less: the model-config groups (Model / OpenAI /
+ * Anthropic / Google / Parameters / Reasoning / Provider Advanced) are removed entirely, so the editor
+ * is the kind-filtered selectors + the resolved-config card + the node-owned Q6 structural groups
+ * (Response format / Tools / Outputs / Technical details).
  */
 export async function getLLMChatV2Editors(
   _data: LLMChatV2NodeData,

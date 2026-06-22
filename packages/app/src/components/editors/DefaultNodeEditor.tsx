@@ -2,15 +2,12 @@ import { type FC, useEffect, useMemo, useState } from 'react';
 import { type ChartNode, type EditorDefinition } from '@valerypopoff/rivet2-core';
 import { css } from '@emotion/react';
 import clsx from 'clsx';
-import { useAtom } from 'jotai';
-import Toggle from '@atlaskit/toggle';
 import { type SharedEditorProps } from './SharedEditorProps';
 import { DefaultNodeEditorField } from './DefaultNodeEditorField';
 import { useGetRivetUIContext } from '../../hooks/useGetRivetUIContext';
 import { useProjectNodeRegistry } from '../../hooks/useProjectNodeRegistry';
 import { produce } from 'immer';
 import { handleError } from '../../utils/errorHandling.js';
-import { showModelConfigOverridesState } from '../../state/ui';
 import { getEditorListKey, getEditorRenderRows } from './editorUtils';
 
 export const defaultEditorContainerStyles = css`
@@ -380,21 +377,6 @@ export const defaultEditorContainerStyles = css`
     padding-top: 45px;
   }
 
-  /* Feature 005 Phase C1: when "Show overrides" is off, CSS-hide advanced/override editor groups so
-     the node reads clean by default (byte-identical). The toggle itself is never an advanced row. */
-  &.hide-advanced-editors > .row.advanced-editor {
-    display: none;
-  }
-
-  .model-config-overrides-toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--node-editor-toggle-gap);
-    margin-top: var(--node-editor-row-gap);
-    color: var(--foreground-muted);
-    font-size: var(--ui-font-size-compact);
-  }
-
   /* Feature 005 C2: read-only "overridden" indicator on a field whose node value overrides its
      Preset/Skill/Profile composition. */
   .override-badge {
@@ -483,10 +465,6 @@ export const DefaultNodeEditor: FC<
     [editorState, editorLoadKey],
   );
 
-  const [showOverrides, setShowOverrides] = useAtom(showModelConfigOverridesState);
-  // Only nodes that actually declare an advanced editor get the gate + toggle — no chrome elsewhere.
-  const hasAdvancedEditor = editors.some((editor) => editor.advanced);
-
   const renderEditorField = (editor: EditorDefinition<ChartNode>, index: number) => {
     const isDisabled = editor.disableIf?.(node.data) ?? false;
     const editorKey = getEditorListKey(editor, index);
@@ -509,10 +487,7 @@ export const DefaultNodeEditor: FC<
   return (
     <div
       css={defaultEditorContainerStyles}
-      className={clsx(
-        node.type === 'comment' && 'comment-node-editor',
-        hasAdvancedEditor && !showOverrides && 'hide-advanced-editors',
-      )}
+      className={clsx(node.type === 'comment' && 'comment-node-editor')}
     >
       {getEditorRenderRows(editors).map((row) => {
         if (row.type === 'inline') {
@@ -527,16 +502,6 @@ export const DefaultNodeEditor: FC<
 
         return renderEditorField(row.editor, row.index);
       })}
-      {hasAdvancedEditor && (
-        <label className="model-config-overrides-toggle">
-          <Toggle
-            isChecked={showOverrides}
-            isDisabled={isReadonly}
-            onChange={(e) => setShowOverrides(e.target.checked)}
-          />
-          <span>Show overrides</span>
-        </label>
-      )}
     </div>
   );
 };

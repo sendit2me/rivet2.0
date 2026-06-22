@@ -118,7 +118,7 @@ export const DefaultNodeEditorField: FC<
   ) : null;
 
   return (
-    <div className={clsx('row', editor.type, hasSideControl && 'has-side-control', editor.advanced && 'advanced-editor')}>
+    <div className={clsx('row', editor.type, hasSideControl && 'has-side-control')}>
       {input}
       {toggle}
     </div>
