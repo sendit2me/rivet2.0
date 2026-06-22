@@ -1,6 +1,7 @@
 import { type FC, Fragment } from 'react';
 import {
   type ChartNode,
+  type LLMChatV2NodeData,
   type LlmModelConfigSummaryEditorDefinition,
   deriveModelConfigSummary,
   resolveEffectiveLLMChatV2Data,
@@ -78,10 +79,10 @@ export const ModelConfigSummaryCard: FC<
       llmProfileId: data.llmProfileId as string | undefined,
       llmSkillId: data.llmSkillId as string | undefined,
     },
-    node.data as never,
+    node.data as LLMChatV2NodeData,
   );
 
-  const completeness = assessLLMChatV2Completeness(effective as never);
+  const completeness = assessLLMChatV2Completeness(effective);
   if (!completeness.complete) {
     return (
       <div css={styles}>
@@ -97,7 +98,7 @@ export const ModelConfigSummaryCard: FC<
   // Complete → show the resolved config, read-only (model-config is layer-owned in R2). The derivation
   // is schema-driven per kind (R4); the LLM Chat node passes its own signature, text-to-text. The card
   // renders groups generically — a header iff the group is labeled (chat = one unlabeled group → flat).
-  const groups = deriveModelConfigSummary(effective as never, 'text-to-text');
+  const groups = deriveModelConfigSummary(completeness.effective as Record<string, unknown>, 'text-to-text');
   return (
     <div css={styles}>
       {groups.map((group, groupIndex) => (

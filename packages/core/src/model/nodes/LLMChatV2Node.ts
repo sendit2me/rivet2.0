@@ -11,7 +11,7 @@ import { getCommonChatV2Inputs, getCommonChatV2Outputs } from '../chat-v2/chatV2
 import { getLLMChatV2Editors } from '../chat-v2/llmChatV2NodeEditors.js';
 import {
   createLLMChatV2NodeData,
-  hasLLMChatV2BuiltInToolsEnabled,
+  type CompleteEffectiveLLMChatV2Data,
   type LLMChatV2Node,
 } from '../chat-v2/llmChatV2NodeData.js';
 import { isLLMChatV2StructuredResponseFormat } from '../chat-v2/chatV2FeatureCompatibility.js';
@@ -90,7 +90,7 @@ export function resolveNodeModelSelectors(data: LLMChatV2Node['data'], inputs: I
   };
 }
 
-function getCustomProviderBaseURLBodyLine(data: LLMChatV2Node['data']): string | undefined {
+function getCustomProviderBaseURLBodyLine(data: CompleteEffectiveLLMChatV2Data): string | undefined {
   if (data.provider !== 'custom') {
     return undefined;
   }
@@ -99,7 +99,7 @@ function getCustomProviderBaseURLBodyLine(data: LLMChatV2Node['data']): string |
     return 'Provider base URL: (Using Input)';
   }
 
-  const baseURL = data.customProviderBaseURL.trim();
+  const baseURL = (data.customProviderBaseURL ?? '').trim();
   return baseURL ? `Provider base URL: ${baseURL}` : undefined;
 }
 
@@ -107,7 +107,7 @@ function getOptionLabel(options: readonly { value: string; label: string }[], va
   return options.find((option) => option.value === (value ?? ''))?.label ?? value ?? 'Default';
 }
 
-function getReasoningEffortBodyLine(data: LLMChatV2Node['data']): string | undefined {
+function getReasoningEffortBodyLine(data: CompleteEffectiveLLMChatV2Data): string | undefined {
   switch (data.provider) {
     case 'openai':
       return `Reasoning effort: ${getOptionLabel(openAIReasoningEffortOptions, data.openAIReasoningEffort)}`;
@@ -205,7 +205,10 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
 
   getOutputDefinitions(): NodeOutputDefinition[] {
     const outputs = getCommonChatV2Outputs(this.data, {
-      includeFunctionCalls: this.data.useToolCalling || hasLLMChatV2BuiltInToolsEnabled(this.data),
+      // Built-in tools (web search / code interpreter) are layer-resolved — unknowable at definition
+      // time on the config-less node (same as the R2 port-narrowing deferral), so the function-calls
+      // output keys off the node-owned tool-use toggle only.
+      includeFunctionCalls: this.data.useToolCalling,
       includeUsage: this.data.outputUsage,
       includeReasoning: this.data.outputReasoning,
     });
@@ -279,18 +282,20 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     if (!completeness.complete) {
       return `⚠ Incomplete — ${completeness.reason}.`;
     }
-    const modelInfo = getChatV2ModelInfo(effective.provider, effective.model);
-    const providerLabel = getChatV2ProviderLabel(effective.provider);
-    const baseURLLine = getCustomProviderBaseURLBodyLine(effective);
-    const modelLine = modelInfo?.displayName ?? effective.model;
+    // The gate narrows to the Complete effective config (provider + model guaranteed).
+    const complete = completeness.effective;
+    const modelInfo = getChatV2ModelInfo(complete.provider, complete.model);
+    const providerLabel = getChatV2ProviderLabel(complete.provider);
+    const baseURLLine = getCustomProviderBaseURLBodyLine(complete);
+    const modelLine = modelInfo?.displayName ?? complete.model;
     const providerDetails = baseURLLine ? [providerLabel, baseURLLine, modelLine] : [providerLabel, modelLine];
-    const reasoningEffortLine = getReasoningEffortBodyLine(effective);
+    const reasoningEffortLine = getReasoningEffortBodyLine(complete);
 
     return [
       ...providerDetails,
       ...(reasoningEffortLine ? [reasoningEffortLine] : []),
-      `Temperature: ${effective.useTemperatureInput ? '(Using Input)' : effective.temperature}`,
-      `Max output tokens: ${effective.useMaxTokensInput ? '(Using Input)' : effective.maxTokens}`,
+      `Temperature: ${complete.useTemperatureInput ? '(Using Input)' : complete.temperature}`,
+      `Max output tokens: ${complete.useMaxTokensInput ? '(Using Input)' : complete.maxTokens}`,
     ].join('\n');
   }
 
@@ -312,7 +317,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     }
 
     const runtime = await resolveLLMChatV2RuntimeConfig({
-      data: effectiveData,
+      data: completeness.effective, // the gate's narrowed Complete config (provider + model guaranteed)
       nodeId: this.chartNode.id,
       inputs,
       context,

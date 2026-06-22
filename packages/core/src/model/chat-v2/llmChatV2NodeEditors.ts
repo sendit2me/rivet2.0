@@ -121,7 +121,9 @@ function getToolEditors(): LLMChatV2EditorDefinition {
       type: 'toggle',
       label: 'Allow parallel toolcalls',
       dataKey: 'parallelToolCalls',
-      hideIf: (data) => !data.useToolCalling || data.provider === 'custom',
+      // The config-less node doesn't know its provider at editor time (it's layer-resolved); the toggle
+      // shows whenever tool use is on. (The runtime still ignores it for the custom provider.)
+      hideIf: (data) => !data.useToolCalling,
     },
     {
       type: 'toggle',

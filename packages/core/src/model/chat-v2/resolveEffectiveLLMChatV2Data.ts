@@ -11,7 +11,12 @@ import type {
   SkillKind,
 } from '../Settings.js';
 import type { ChatV2Provider } from './chatV2Types.js';
-import { type LLMChatV2NodeData } from './llmChatV2NodeData.js';
+import {
+  type ChatV2LayerConfig,
+  type CompleteEffectiveLLMChatV2Data,
+  type EffectiveLLMChatV2Data,
+  type LLMChatV2NodeData,
+} from './llmChatV2NodeData.js';
 
 /** The Preset / Profile / Skill selectors a chat-v2 node carries (added to the node data in 008b). */
 export interface NodeModelSelectors {
@@ -70,14 +75,30 @@ export const LAYER_OWNED_MODEL_CONFIG_FIELDS = [
   'enableGoogleUrlContext',
   // raw body escape hatch (custom)
   'extraProviderOptions',
-] as const satisfies readonly (keyof LLMChatV2NodeData)[];
+] as const satisfies readonly (keyof ChatV2LayerConfig)[];
+
+/** Compile-time `never` assertion helper. */
+type AssertNever<T extends never> = T;
+/**
+ * **`LAYER_OWNED` completeness, compiler-enforced:** every `ChatV2LayerConfig` key is listed above (the
+ * `satisfies` above checks the converse — every listed key is a layer field). Together they make the list
+ * bidirectionally exact: a new layer field can't be added without appearing here. (Disjointness of the
+ * node vs layer types is asserted at `_AssertNodeLayerDisjoint` in llmChatV2NodeData.)
+ */
+export type _AssertLayerOwnedComplete = AssertNever<
+  Exclude<keyof ChatV2LayerConfig, (typeof LAYER_OWNED_MODEL_CONFIG_FIELDS)[number]>
+>;
 
 
-export interface LLMChatV2Completeness {
-  complete: boolean;
-  /** When incomplete, a short reason naming what's missing (surfaced by process() / the editor card). */
-  reason?: string;
-}
+/**
+ * The completeness verdict. On `complete: true` it carries the **narrowed** effective config
+ * ({@link CompleteEffectiveLLMChatV2Data} — provider + model guaranteed); this is the **sole** producer
+ * of that type, so the runtime (typed `Complete`) can only be fed from a passed gate. The narrowing is
+ * co-located with the checks below (the single `as`), so it can't desync from the predicate.
+ */
+export type LLMChatV2Completeness =
+  | { complete: true; effective: CompleteEffectiveLLMChatV2Data }
+  | { complete: false; reason: string };
 
 /**
  * A bound node is runnable only when the resolved (layer-only) config yields a complete config: a
@@ -85,8 +106,8 @@ export interface LLMChatV2Completeness {
  * bound the overlay is empty → no provider → incomplete. Drives the process() throw and the editor's
  * incomplete state — config-less by construction, never a silent gpt-5 default.
  */
-export function assessLLMChatV2Completeness(effective: LLMChatV2NodeData): LLMChatV2Completeness {
-  const provider = effective.provider as ChatV2Provider | undefined;
+export function assessLLMChatV2Completeness(effective: EffectiveLLMChatV2Data): LLMChatV2Completeness {
+  const provider = effective.provider;
   if (!provider) {
     return { complete: false, reason: 'bind a Profile + Skill (or a Preset) — needs a connection and a model' };
   }
@@ -96,7 +117,8 @@ export function assessLLMChatV2Completeness(effective: LLMChatV2NodeData): LLMCh
   if (!effective.model) {
     return { complete: false, reason: 'the binding has a connection but no model — bind a Skill (or a Preset with one)' };
   }
-  return { complete: true };
+  // provider + model proven present → the single, co-located narrowing to the Complete type.
+  return { complete: true, effective: effective as CompleteEffectiveLLMChatV2Data };
 }
 
 /** The flattened Profile after its `extends` chain is merged (child wins; headers merge by key). */
@@ -131,7 +153,7 @@ export function resolveEffectiveLLMChatV2Data(
   selectors: NodeModelSelectors,
   nodeData: LLMChatV2NodeData,
   onTrace?: (message: string) => void,
-): LLMChatV2NodeData {
+): EffectiveLLMChatV2Data {
   const preset = resolvePresetEntity(modelConfig, selectors.llmPresetId, onTrace);
   // Node selector replaces the preset's piece; a blank node selector inherits the preset's.
   const profileId = selectors.llmProfileId || preset?.profileId;
@@ -319,7 +341,7 @@ function mergeSkillInto(target: ResolvedSkill, skill: LlmSkill): void {
 // --- Overlay construction --------------------------------------------------------------------
 
 /** Reasoning-level → the resolved provider's effort field (fallback; explicit provider-block wins). */
-function mapReasoningLevel(level: LlmReasoningLevel, provider: ChatV2Provider): Partial<LLMChatV2NodeData> {
+function mapReasoningLevel(level: LlmReasoningLevel, provider: ChatV2Provider): Partial<ChatV2LayerConfig> {
   if (!level) {
     return {};
   }
@@ -343,7 +365,7 @@ function mapReasoningLevel(level: LlmReasoningLevel, provider: ChatV2Provider): 
  * Copy defined keys from `src` into `target`, skipping `provider` (Profile-owned), `extraBody`
  * (escape hatch), and `headers` (per-key merge) — all three are special-cased outside the overlay.
  */
-function assignDefined(target: Partial<LLMChatV2NodeData>, src: Record<string, unknown>): void {
+function assignDefined(target: Partial<ChatV2LayerConfig>, src: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(src)) {
     if (value === undefined || key === 'provider' || key === 'extraBody' || key === 'headers') {
       continue;
@@ -374,7 +396,7 @@ function headerArrayToRecord(headers: { key: string; value: string }[] | undefin
  * neither, `effective.headers` is left as the node's own.
  */
 function applyHeadersMerge(
-  effective: LLMChatV2NodeData,
+  effective: EffectiveLLMChatV2Data,
   profile: ResolvedProfile | undefined,
   overrides: LlmPresetOverrides | undefined,
 ): void {
@@ -395,8 +417,8 @@ function buildOverlay(
   profile: ResolvedProfile | undefined,
   skill: ResolvedSkill | undefined,
   overrides: LlmPresetOverrides | undefined,
-): Partial<LLMChatV2NodeData> {
-  const overlay: Partial<LLMChatV2NodeData> = {};
+): Partial<ChatV2LayerConfig> {
+  const overlay: Partial<ChatV2LayerConfig> = {};
 
   // Provider is Profile-owned; it flows through the overlay like any other layer field (undefined → no
   // Profile → the node resolves incomplete).
@@ -450,17 +472,23 @@ function buildOverlay(
  * collision lived is gone. Returns a fresh object; never mutates the input. (`headers` / `extraProvider
  * Options` are cleared here and re-set by their layer-only merges in the caller.)
  */
-function applyOverlay(nodeData: LLMChatV2NodeData, overlay: Partial<LLMChatV2NodeData>): LLMChatV2NodeData {
+function applyOverlay(nodeData: LLMChatV2NodeData, overlay: Partial<ChatV2LayerConfig>): EffectiveLLMChatV2Data {
+  // The disjoint merge (the type-split): node-owned from the node, layer config from the overlay. The
+  // two key sets share nothing (compiler-enforced — see `_AssertNodeLayerDisjoint`), so layer fields can
+  // only flow INTO `effective`, never overwrite node state. Scoped to LAYER_OWNED rather than a blanket
+  // `{...overlay}` spread: `buildOverlay`'s `assignDefined` can carry a SkillBase's node-owned key (e.g.
+  // `responseFormat`) into the overlay, and that must NOT cross into effective (it stays node-owned) —
+  // copying only LAYER_OWNED preserves R2's exact composition. A layer field the overlay left unset is
+  // absent → read as `undefined` (AI-SDK-omitted), exactly as the old explicit `= undefined` produced.
+  // `headers` + `extraProviderOptions` are set on `effective` next by their dedicated merges in the caller.
   const effective = { ...nodeData } as Record<string, unknown>;
   for (const field of LAYER_OWNED_MODEL_CONFIG_FIELDS) {
-    // `headers` and `extraProviderOptions` are layer-owned too, but owned by their dedicated layer-only
-    // merges in the caller (extraProviderOptions must stay a string, not undefined — the runtime parses it).
     if (field === 'headers' || field === 'extraProviderOptions') {
       continue;
     }
-    effective[field] = (overlay as Record<string, unknown>)[field]; // layer value, or undefined → omitted
+    effective[field] = (overlay as Record<string, unknown>)[field];
   }
-  return effective as LLMChatV2NodeData;
+  return effective as EffectiveLLMChatV2Data;
 }
 
 // --- Escape hatch (custom-provider raw body) -------------------------------------------------
@@ -491,7 +519,7 @@ function sortKeysDeep(value: unknown): unknown {
  * Custom-provider only; leaves the node's raw string untouched when model-config contributes nothing.
  */
 function applyExtraBodyEscapeHatch(
-  effective: LLMChatV2NodeData,
+  effective: EffectiveLLMChatV2Data,
   skill: ResolvedSkill | undefined,
   overrides: LlmPresetOverrides | undefined,
 ): void {

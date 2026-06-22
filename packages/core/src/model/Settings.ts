@@ -1,5 +1,5 @@
 import type { ChatV2Provider } from './chat-v2/chatV2Types.js';
-import type { LLMChatV2ApiKeySource, LLMChatV2NodeData } from './chat-v2/llmChatV2NodeData.js';
+import type { EffectiveLLMChatV2Data, LLMChatV2ApiKeySource } from './chat-v2/llmChatV2NodeData.js';
 
 /**
  * Coarse, provider-agnostic reasoning effort carried on a Skill's {@link SkillBase}. The resolution
@@ -44,7 +44,7 @@ export interface LlmProfile {
  */
 export type SkillBase = Partial<
   Pick<
-    LLMChatV2NodeData,
+    EffectiveLLMChatV2Data,
     | 'temperature'
     | 'maxTokens'
     | 'topP'
@@ -69,7 +69,7 @@ export type SkillBase = Partial<
  */
 export type ProviderSkillBlock = Partial<
   Pick<
-    LLMChatV2NodeData,
+    EffectiveLLMChatV2Data,
     | 'model'
     | 'openAIReasoningEffort'
     | 'openAIReasoningSummary'
@@ -165,7 +165,7 @@ export type LlmSkill = ChatSkill | ImageSkill;
  * must never set `llm*Id` — that would pollute the effective data / recurse).
  */
 export type LlmPresetOverrides = Partial<
-  Omit<LLMChatV2NodeData, `use${string}Input` | 'provider' | 'llmPresetId' | 'llmProfileId' | 'llmSkillId'>
+  Omit<EffectiveLLMChatV2Data, `use${string}Input` | 'provider' | 'llmPresetId' | 'llmProfileId' | 'llmSkillId'>
 > & {
   extraBody?: Record<string, unknown>;
 };

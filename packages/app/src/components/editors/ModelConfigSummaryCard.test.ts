@@ -8,8 +8,9 @@ const dir = dirname(fileURLToPath(import.meta.url));
 const card = readFileSync(join(dir, 'ModelConfigSummaryCard.tsx'), 'utf8');
 
 test('the card renders the schema-driven groups GENERICALLY (iterate groups + rows, no hardcoded chat rows)', () => {
-  // R4: the chat node passes its own signature; the derivation is generic per kind.
-  assert.match(card, /deriveModelConfigSummary\(effective as never, 'text-to-text'\)/);
+  // R4: the chat node passes its own signature; the derivation is generic per kind. (Post type-split,
+  // the card consumes the gate's narrowed Complete effective config — no `as never`.)
+  assert.match(card, /deriveModelConfigSummary\(completeness\.effective as Record<string, unknown>, 'text-to-text'\)/);
   assert.match(card, /groups\.map\(/);
   assert.match(card, /group\.rows\.map\(/);
   // The generic labeled-group render branch is exercised by the source even though only the unlabeled
