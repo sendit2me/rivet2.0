@@ -9,7 +9,7 @@ import {
   type SkillBase,
   getSkillKind,
 } from '@valerypopoff/rivet2-core';
-import { LlmSelectorField } from '../editors/LlmSelectorEditors.js';
+import { LlmSelectorField } from '../editors/LlmSelectorField.js';
 import { modelConfigFormStyles } from './modelConfigFormStyles.js';
 import { SkillBaseFields } from './modelConfigFields.js';
 import { JsonObjectField } from './JsonObjectField.js';

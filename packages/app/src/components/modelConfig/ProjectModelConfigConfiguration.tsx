@@ -1,12 +1,8 @@
 import { type FC, type ReactNode, useState } from 'react';
 import { css } from '@emotion/react';
 import Button from '@atlaskit/button';
-import { useAtom } from 'jotai';
-import { nanoid } from 'nanoid/non-secure';
 import { type LlmPreset, type LlmProfile, type LlmSkill, type ModelConfig } from '@valerypopoff/rivet2-core';
-import { projectState } from '../../state/savedGraphs.js';
-import { flushHybridStorageGroup } from '../../state/storage.js';
-import { handleError } from '../../utils/errorHandling.js';
+import { useModelConfigAuthoring } from '../../hooks/useModelConfigAuthoring.js';
 import { LlmProfileForm } from './LlmProfileForm.js';
 import { LlmSkillForm } from './LlmSkillForm.js';
 import { LlmPresetForm } from './LlmPresetForm.js';
@@ -73,13 +69,6 @@ const styles = css`
   }
 `;
 
-/** Persist project edits to app-local storage immediately (the 'project' hybrid group is debounced). */
-function persistProjectModelConfig(): void {
-  void flushHybridStorageGroup('project').catch((error) => {
-    handleError(error, 'Failed to persist project model config', { toastError: false });
-  });
-}
-
 type AxisKey = keyof Pick<ModelConfig, 'profiles' | 'skills' | 'presets'>;
 type Editing = { axis: AxisKey; id: string } | null;
 
@@ -91,20 +80,10 @@ type Editing = { axis: AxisKey; id: string } | null;
  * library). The Phase A node selectors read this same `Project.modelConfig` via `getEditorModelConfig`.
  */
 export const ProjectModelConfigConfiguration: FC = () => {
-  const [project, setProject] = useAtom(projectState);
+  // Store read/write goes through the shared authoring hook (same path the inline node-editor modal uses).
+  const auth = useModelConfigAuthoring();
+  const { profiles, skills, presets } = auth;
   const [editing, setEditing] = useState<Editing>(null);
-
-  const profiles = project.modelConfig?.profiles ?? [];
-  const skills = project.modelConfig?.skills ?? [];
-  const presets = project.modelConfig?.presets ?? [];
-
-  const writeAxis = <K extends AxisKey>(axis: K, next: NonNullable<ModelConfig[K]>) => {
-    setProject((prev) => ({
-      ...prev,
-      modelConfig: { ...prev.modelConfig, [axis]: next },
-    }));
-    persistProjectModelConfig();
-  };
 
   const isEditing = (axis: AxisKey, id: string) => editing?.axis === axis && editing.id === id;
   const toggleEditing = (axis: AxisKey, id: string) =>
@@ -112,40 +91,42 @@ export const ProjectModelConfigConfiguration: FC = () => {
 
   // --- Profiles ---
   const addProfile = () => {
-    const entity: LlmProfile = { id: nanoid(), name: 'New profile', provider: 'openai' };
-    writeAxis('profiles', [...profiles, entity]);
+    const entity: LlmProfile = { id: auth.newId(), name: 'New profile', provider: 'openai' };
+    auth.upsertProfile(entity);
     setEditing({ axis: 'profiles', id: entity.id });
   };
-  const updateProfile = (next: LlmProfile) =>
-    writeAxis('profiles', profiles.map((p) => (p.id === next.id ? next : p)));
+  const updateProfile = (next: LlmProfile) => auth.upsertProfile(next);
   const removeProfile = (id: string) => {
-    writeAxis('profiles', profiles.filter((p) => p.id !== id));
+    auth.removeProfile(id);
     if (isEditing('profiles', id)) setEditing(null);
   };
+  const duplicateProfile = (p: LlmProfile) => setEditing({ axis: 'profiles', id: auth.cloneProfile(p).id });
 
   // --- Skills ---
   const addSkill = () => {
-    const entity: LlmSkill = { id: nanoid(), name: 'New skill' };
-    writeAxis('skills', [...skills, entity]);
+    const entity: LlmSkill = { id: auth.newId(), name: 'New skill' };
+    auth.upsertSkill(entity);
     setEditing({ axis: 'skills', id: entity.id });
   };
-  const updateSkill = (next: LlmSkill) => writeAxis('skills', skills.map((s) => (s.id === next.id ? next : s)));
+  const updateSkill = (next: LlmSkill) => auth.upsertSkill(next);
   const removeSkill = (id: string) => {
-    writeAxis('skills', skills.filter((s) => s.id !== id));
+    auth.removeSkill(id);
     if (isEditing('skills', id)) setEditing(null);
   };
+  const duplicateSkill = (s: LlmSkill) => setEditing({ axis: 'skills', id: auth.cloneSkill(s).id });
 
   // --- Presets ---
   const addPreset = () => {
-    const entity: LlmPreset = { id: nanoid(), name: 'New preset', profileId: '' };
-    writeAxis('presets', [...presets, entity]);
+    const entity: LlmPreset = { id: auth.newId(), name: 'New preset', profileId: '' };
+    auth.upsertPreset(entity);
     setEditing({ axis: 'presets', id: entity.id });
   };
-  const updatePreset = (next: LlmPreset) => writeAxis('presets', presets.map((p) => (p.id === next.id ? next : p)));
+  const updatePreset = (next: LlmPreset) => auth.upsertPreset(next);
   const removePreset = (id: string) => {
-    writeAxis('presets', presets.filter((p) => p.id !== id));
+    auth.removePreset(id);
     if (isEditing('presets', id)) setEditing(null);
   };
+  const duplicatePreset = (p: LlmPreset) => setEditing({ axis: 'presets', id: auth.clonePreset(p).id });
 
   return (
     <div css={styles}>
@@ -167,6 +148,7 @@ export const ProjectModelConfigConfiguration: FC = () => {
                 name={preset.name}
                 isEditing={isEditing('presets', preset.id)}
                 onToggleEdit={() => toggleEditing('presets', preset.id)}
+                onDuplicate={() => duplicatePreset(preset)}
                 onRemove={() => removePreset(preset.id)}
               >
                 <LlmPresetForm value={preset} onChange={updatePreset} profiles={profiles} skills={skills} />
@@ -191,6 +173,7 @@ export const ProjectModelConfigConfiguration: FC = () => {
                 name={profile.name}
                 isEditing={isEditing('profiles', profile.id)}
                 onToggleEdit={() => toggleEditing('profiles', profile.id)}
+                onDuplicate={() => duplicateProfile(profile)}
                 onRemove={() => removeProfile(profile.id)}
               >
                 <LlmProfileForm value={profile} onChange={updateProfile} profiles={profiles} />
@@ -215,6 +198,7 @@ export const ProjectModelConfigConfiguration: FC = () => {
                 name={skill.name}
                 isEditing={isEditing('skills', skill.id)}
                 onToggleEdit={() => toggleEditing('skills', skill.id)}
+                onDuplicate={() => duplicateSkill(skill)}
                 onRemove={() => removeSkill(skill.id)}
               >
                 <LlmSkillForm value={skill} onChange={updateSkill} skills={skills} />
@@ -234,15 +218,19 @@ const EntityRow: FC<{
   name?: string;
   isEditing: boolean;
   onToggleEdit: () => void;
+  onDuplicate: () => void;
   onRemove: () => void;
   children: ReactNode;
-}> = ({ name, isEditing, onToggleEdit, onRemove, children }) => (
+}> = ({ name, isEditing, onToggleEdit, onDuplicate, onRemove, children }) => (
   <div className="model-config-row">
     <div className="model-config-row-header">
       <span className="model-config-row-name">{name?.trim() ? name : '(Unnamed)'}</span>
       <div className="model-config-row-actions">
         <Button appearance="link" onClick={onToggleEdit}>
           {isEditing ? 'Done' : 'Edit'}
+        </Button>
+        <Button appearance="link" onClick={onDuplicate}>
+          Duplicate
         </Button>
         <Button appearance="link" onClick={onRemove}>
           Remove

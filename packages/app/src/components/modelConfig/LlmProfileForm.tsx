@@ -2,7 +2,7 @@ import { type FC } from 'react';
 import { Field } from '@atlaskit/form';
 import TextField from '@atlaskit/textfield';
 import { type LlmProfile } from '@valerypopoff/rivet2-core';
-import { LlmSelectorField } from '../editors/LlmSelectorEditors.js';
+import { LlmSelectorField } from '../editors/LlmSelectorField.js';
 import { modelConfigFormStyles } from './modelConfigFormStyles.js';
 import { ProfileConnectionFields, PROFILE_CONNECTION_KEYS, mergeKeys, pickKeys } from './modelConfigFields.js';
 

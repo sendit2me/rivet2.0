@@ -8,6 +8,8 @@ const dir = dirname(fileURLToPath(import.meta.url));
 const read = (file: string) => readFileSync(join(dir, file), 'utf8');
 
 const panel = read('ProjectModelConfigConfiguration.tsx');
+// R3: the store read/write moved to the shared authoring hook (one path for the panel + the inline modal).
+const authHook = read('../../hooks/useModelConfigAuthoring.ts');
 const profileForm = read('LlmProfileForm.tsx');
 const skillForm = read('LlmSkillForm.tsx');
 const presetForm = read('LlmPresetForm.tsx');
@@ -15,28 +17,37 @@ const fields = read('modelConfigFields.tsx');
 const overridesForm = read('LlmOverridesForm.tsx');
 const jsonField = read('JsonObjectField.tsx');
 
-test('the panel authors into the project store and flushes immediately', () => {
-  // Authoring target is the PROJECT (portability home from 006), not global settings.
-  assert.match(panel, /import \{ projectState \} from '\.\.\/\.\.\/state\/savedGraphs\.js';/);
-  assert.match(panel, /useAtom\(projectState\)/);
+test('the shared authoring hook writes to the project store and flushes immediately', () => {
+  // Authoring target is the PROJECT (portability home from 006), not global settings — and it's one
+  // shared write path (the hook), consumed by the panel + the inline node-editor modal.
+  assert.match(authHook, /import \{ projectState \} from '\.\.\/state\/savedGraphs\.js';/);
+  assert.match(authHook, /useAtom\(projectState\)/);
   // Writes land under Project.modelConfig per axis (project-scoped, travels with the project).
-  assert.match(panel, /modelConfig: \{ \.\.\.prev\.modelConfig, \[axis\]: next \}/);
+  assert.match(authHook, /modelConfig: \{ \.\.\.prev\.modelConfig, \[axis\]: next \}/);
   // The 'project' hybrid storage group is debounced — edits must be flushed to persist + survive reload.
-  assert.match(panel, /import \{ flushHybridStorageGroup \} from '\.\.\/\.\.\/state\/storage\.js';/);
-  assert.match(panel, /flushHybridStorageGroup\('project'\)/);
-  // Does NOT author into the global settings atom (that's the deferred global library).
+  assert.match(authHook, /import \{ flushHybridStorageGroup \} from '\.\.\/state\/storage\.js';/);
+  assert.match(authHook, /flushHybridStorageGroup\('project'\)/);
+  // The panel consumes the hook, and does NOT author into the global settings atom.
+  assert.match(panel, /useModelConfigAuthoring\(\)/);
   assert.doesNotMatch(panel, /settingsState/);
 });
 
-test('the panel does CRUD over all three axes', () => {
+test('the hook does CRUD + clone over all three axes; the panel surfaces add/duplicate', () => {
   for (const axis of ['profiles', 'skills', 'presets']) {
-    assert.match(panel, new RegExp(`writeAxis\\('${axis}'`), `writes the ${axis} axis`);
+    const cap = axis[0]!.toUpperCase() + axis.slice(1, -1); // profiles -> Profile
+    assert.match(authHook, new RegExp(`upsert${cap}`), `hook upserts the ${axis} axis`);
+    assert.match(authHook, new RegExp(`clone${cap}`), `hook clones the ${axis} axis (copy-new)`);
+    assert.match(authHook, new RegExp(`remove${cap}`), `hook removes from the ${axis} axis`);
   }
+  // copy-new uses the core clone helper; new entities get a generated id in the hook.
+  assert.match(authHook, /cloneModelConfigEntity/);
+  assert.match(authHook, /import \{ nanoid \} from 'nanoid\/non-secure';/);
+  // The panel surfaces add + duplicate affordances.
   assert.match(panel, /Add Preset/);
   assert.match(panel, /Add Profile/);
   assert.match(panel, /Add Skill/);
-  // New entities get a generated id.
-  assert.match(panel, /import \{ nanoid \} from 'nanoid\/non-secure';/);
+  assert.match(panel, /Duplicate/);
+  assert.match(panel, /duplicateProfile|duplicateSkill|duplicatePreset/);
 });
 
 test('the entity forms and shared field groups are presentational — no store access (reusable by the deferred global library)', () => {
@@ -64,7 +75,7 @@ test('connection/base fields are the chat-v2 fan-out shape and shared by the for
   assert.match(profileForm, /<ProfileConnectionFields/);
   assert.match(skillForm, /<SkillBaseFields/);
   // The preset editor reuses the Phase A selector (consistent picker on node + preset).
-  assert.match(presetForm, /import \{ LlmSelectorField \} from '\.\.\/editors\/LlmSelectorEditors\.js';/);
+  assert.match(presetForm, /import \{ LlmSelectorField \} from '\.\.\/editors\/LlmSelectorField\.js';/);
 });
 
 test('forms wire the shared JSON editor for the extraBody escape hatch', () => {
