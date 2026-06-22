@@ -107,10 +107,9 @@ describe('LLMChatV2NodeImpl', () => {
     assert.equal(node.data.useExtraProviderOptionsInput, false);
     assert.equal(node.data.useToolCalling, false);
     assert.equal(node.data.outputReasoning, false);
-    assert.equal(node.data.usePresencePenaltyInput, false);
-    assert.equal(node.data.useFrequencyPenaltyInput, false);
-    assert.equal(node.data.useStopSequencesInput, false);
-    assert.equal(node.data.useSeedInput, false);
+    // The per-param drive-from-input toggles were removed in cut #4.
+    assert.equal('useModelInput' in node.data, false);
+    assert.equal('useTemperatureInput' in node.data, false);
     assert.equal(node.data.responseFormat, '');
     assert.equal(node.data.responseSchemaName, '');
     assert.equal(node.data.useResponseSchemaNameInput, false);
@@ -135,17 +134,12 @@ describe('LLMChatV2NodeImpl', () => {
     assert.deepEqual(apiKey, { id: 'apiKey', title: 'API Key', dataType: 'string', required: false });
   });
 
-  it('R2: drops the model-param + layer-owned-connection input ports (model-config is layer-owned)', () => {
-    // Even with the old per-param toggles on, these ports never appear now.
-    const inputs = createNode({
-      useModelInput: true,
-      useTemperatureInput: true,
-      useMaxTokensInput: true,
-      useHeadersInput: true,
-      useExtraProviderOptionsInput: true,
-    }).getInputDefinitions();
+  it('no model-param / layer-owned-connection input ports (model-config is layer-owned)', () => {
+    // Cut #4 removed the per-param toggles + their conditional port emission entirely (they were
+    // filtered out post-R2). Connection params were never emitted as ports. None appear.
+    const inputs = createNode({ useHeadersInput: true, useExtraProviderOptionsInput: true }).getInputDefinitions();
     for (const id of ['model', 'temperature', 'maxTokens', 'topP', 'seed', 'baseURL', 'customProviderBaseURL', 'headers', 'extraProviderOptions']) {
-      assert.ok(!inputs.some((input) => input.id === id), `${id} input port should be gone in R2`);
+      assert.ok(!inputs.some((input) => input.id === id), `${id} input port should not exist`);
     }
   });
 

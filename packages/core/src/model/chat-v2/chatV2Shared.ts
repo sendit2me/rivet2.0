@@ -1,23 +1,13 @@
 import type { NodeInputDefinition, NodeOutputDefinition, PortId } from '../NodeBase.js';
 
 /**
- * The node-owned shared chat fields. The model + sampling *values* (model/temperature/topP/…) are
- * **layer-owned** — they live on `ChatV2LayerConfig` (supplied by the resolved Profile/Skill/Preset) and
- * appear only on `EffectiveLLMChatV2Data`. What stays node-persisted here is: the per-param "drive from
- * input" toggles (**vestigial** post-R2 — the per-param ports are filtered out and the toggles are
- * unsettable, so they read inertly in the runtime/getBody; the mechanism rip is a follow-up cut), and the
- * node-owned output-behaviour flags.
+ * The node-owned shared chat fields — the node-owned output-behaviour flags. The model + sampling
+ * *values* are layer-owned (on `ChatV2LayerConfig`, appearing only on `EffectiveLLMChatV2Data`). The
+ * per-param "drive from input" toggles are gone (cut #4): they were vestigial post-R2 — the per-param
+ * ports were filtered out and the toggles unsettable, so the runtime read the resolved value regardless.
+ * The chat-v2 runtime now reads those params directly off the effective config.
  */
 export type ChatV2CommonNodeData = {
-  useModelInput: boolean;
-  useTemperatureInput: boolean;
-  useTopPInput: boolean;
-  useTopKInput: boolean;
-  usePresencePenaltyInput: boolean;
-  useFrequencyPenaltyInput: boolean;
-  useStopSequencesInput: boolean;
-  useSeedInput: boolean;
-  useMaxTokensInput: boolean;
   useToolCalling: boolean;
   outputUsage: boolean;
   outputReasoning: boolean;
@@ -30,8 +20,6 @@ export type CommonChatV2InputOptions = {
   systemPromptPortId?: PortId;
   promptPortId?: PortId;
   functionsPortId?: PortId;
-  includeTopP?: boolean;
-  includeTopK?: boolean;
   includeFunctions?: boolean;
 };
 
@@ -52,15 +40,6 @@ export function createChatV2CommonNodeData(
   overrides: Partial<ChatV2CommonNodeData> = {},
 ): ChatV2CommonNodeData {
   return {
-    useModelInput: false,
-    useTemperatureInput: false,
-    useTopPInput: false,
-    useTopKInput: false,
-    usePresencePenaltyInput: false,
-    useFrequencyPenaltyInput: false,
-    useStopSequencesInput: false,
-    useSeedInput: false,
-    useMaxTokensInput: false,
     useToolCalling: false,
     outputUsage: false,
     outputReasoning: false,
@@ -78,8 +57,6 @@ export function getCommonChatV2Inputs(
     systemPromptPortId = 'systemPrompt' as PortId,
     promptPortId = 'prompt' as PortId,
     functionsPortId = 'functions' as PortId,
-    includeTopP = true,
-    includeTopK = true,
     includeFunctions = data.useToolCalling,
   } = options;
 
@@ -93,80 +70,8 @@ export function getCommonChatV2Inputs(
     },
   ];
 
-  if (data.useModelInput) {
-    inputs.push({
-      id: 'model' as PortId,
-      title: 'Model',
-      dataType: 'string',
-      required: false,
-    });
-  }
-
-  if (data.useTemperatureInput) {
-    inputs.push({
-      id: 'temperature' as PortId,
-      title: 'Temperature',
-      dataType: 'number',
-    });
-  }
-
-  if (includeTopP && data.useTopPInput) {
-    inputs.push({
-      id: 'topP' as PortId,
-      title: 'Top P',
-      dataType: 'number',
-    });
-  }
-
-  if (includeTopK && data.useTopKInput) {
-    inputs.push({
-      id: 'topK' as PortId,
-      title: 'Top K',
-      dataType: 'number',
-    });
-  }
-
-  if (data.usePresencePenaltyInput) {
-    inputs.push({
-      id: 'presencePenalty' as PortId,
-      title: 'Presence Penalty',
-      dataType: 'number',
-    });
-  }
-
-  if (data.useFrequencyPenaltyInput) {
-    inputs.push({
-      id: 'frequencyPenalty' as PortId,
-      title: 'Frequency Penalty',
-      dataType: 'number',
-    });
-  }
-
-  if (data.useStopSequencesInput) {
-    inputs.push({
-      id: 'stopSequences' as PortId,
-      title: 'Stop Sequences',
-      dataType: ['string', 'string[]'] as const,
-      required: false,
-      coerced: true,
-    });
-  }
-
-  if (data.useSeedInput) {
-    inputs.push({
-      id: 'seed' as PortId,
-      title: 'Seed',
-      dataType: 'number',
-    });
-  }
-
-  if (data.useMaxTokensInput) {
-    inputs.push({
-      id: 'maxTokens' as PortId,
-      title: 'Max output tokens',
-      dataType: 'number',
-    });
-  }
+  // Per-param input ports (model/temperature/topP/…) were removed in cut #4 — they were filtered out
+  // post-R2, so the runtime reads each param directly off the resolved effective config.
 
   if (includeFunctions) {
     inputs.push({

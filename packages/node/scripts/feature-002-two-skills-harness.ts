@@ -67,19 +67,13 @@ function buildProject(llmProfileId: string, llmSkillId: string | undefined): { p
     title: 'Chat',
     data: {
       model: '', // blank -> falls back to the profile's defaultModel
-      useModelInput: false,
       temperature: 0.5,
-      useTemperatureInput: false,
       top_p: 1,
-      useTopPInput: false,
       useTopP: false,
       useUseTopPInput: false,
       maxTokens: 1024,
-      useMaxTokensInput: false,
       useStop: false,
       useStopInput: false,
-      usePresencePenaltyInput: false,
-      useFrequencyPenaltyInput: false,
       cache: false,
       systemPromptMode: 'system', // inject the skill prompt as a `system` role for a clean assert
       llmProfileId,

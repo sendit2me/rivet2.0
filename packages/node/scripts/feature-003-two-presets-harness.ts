@@ -53,19 +53,13 @@ function startMockServer(): Promise<http.Server> {
 function chatNodeData(overrides: Record<string, unknown>): Record<string, unknown> {
   return {
     model: '', // blank -> profile/preset defaultModel
-    useModelInput: false,
     temperature: 0.5,
-    useTemperatureInput: false,
     top_p: 1,
-    useTopPInput: false,
     useTopP: false,
     useUseTopPInput: false,
     maxTokens: 1024,
-    useMaxTokensInput: false,
     useStop: false,
     useStopInput: false,
-    usePresencePenaltyInput: false,
-    useFrequencyPenaltyInput: false,
     cache: false,
     systemPromptMode: 'system',
     ...overrides,

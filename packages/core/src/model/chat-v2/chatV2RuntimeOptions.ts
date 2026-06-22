@@ -1,7 +1,7 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { coerceTypeOptional } from '../../utils/coerceType.js';
-import { cleanHeaders, getInputOrData } from '../../utils/inputs.js';
+import { cleanHeaders } from '../../utils/inputs.js';
 import type { Inputs } from '../GraphProcessor.js';
 import type { PortId } from '../NodeBase.js';
 import type { InternalProcessContext } from '../ProcessContext.js';
@@ -262,28 +262,25 @@ function normalizeStopSequences(stopSequences: string[] | undefined): string[] |
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function resolveStopSequences(data: CompleteEffectiveLLMChatV2Data, inputs: Inputs): string[] | undefined {
-  const stopSequences =
-    data.useStopSequencesInput && inputs['stopSequences' as PortId] != null
-      ? coerceTypeOptional(inputs['stopSequences' as PortId], 'string[]')
-      : data.stopSequences;
-
-  return normalizeStopSequences(stopSequences);
+function resolveStopSequences(data: CompleteEffectiveLLMChatV2Data): string[] | undefined {
+  // Cut #4: the per-param input port is gone; read the resolved value directly.
+  return normalizeStopSequences(data.stopSequences);
 }
 
 export function resolveLLMChatV2GenerationParameters(
   data: CompleteEffectiveLLMChatV2Data,
-  inputs: Inputs,
 ): LLMChatV2GenerationParameters {
+  // Cut #4: the per-param input ports were filtered out (vestigial post-R2), so the generation params
+  // are read directly off the resolved effective config — what the old gated read returned in every state.
   return {
-    maxTokens: getInputOrData(data, inputs, 'maxTokens', 'number'),
-    temperature: getInputOrData(data, inputs, 'temperature', 'number'),
-    topP: getInputOrData(data, inputs, 'topP', 'number'),
-    topK: getInputOrData(data, inputs, 'topK', 'number'),
-    presencePenalty: getInputOrData(data, inputs, 'presencePenalty', 'number'),
-    frequencyPenalty: getInputOrData(data, inputs, 'frequencyPenalty', 'number'),
-    stopSequences: resolveStopSequences(data, inputs),
-    seed: getInputOrData(data, inputs, 'seed', 'number'),
+    maxTokens: data.maxTokens,
+    temperature: data.temperature,
+    topP: data.topP,
+    topK: data.topK,
+    presencePenalty: data.presencePenalty,
+    frequencyPenalty: data.frequencyPenalty,
+    stopSequences: resolveStopSequences(data),
+    seed: data.seed,
   };
 }
 
