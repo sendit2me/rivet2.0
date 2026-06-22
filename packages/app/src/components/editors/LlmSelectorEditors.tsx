@@ -1,57 +1,24 @@
 import {
   type ChartNode,
+  type LlmPreset,
   type LlmPresetSelectorEditorDefinition,
+  type LlmProfile,
   type LlmProfileSelectorEditorDefinition,
+  type LlmSkill,
   type LlmSkillSelectorEditorDefinition,
   getSkillKind,
 } from '@valerypopoff/rivet2-core';
-import { type FC } from 'react';
+import { type FC, useState } from 'react';
+import Button from '@atlaskit/button';
+import { nanoid } from 'nanoid/non-secure';
+import { LlmEntityAuthoringModal, type ModelConfigAxis } from './LlmEntityAuthoringModal.js';
+import { LlmSelectorField } from './LlmSelectorField.js';
 import { type SharedEditorProps } from './SharedEditorProps';
-import { Field, HelperMessage } from '@atlaskit/form';
-import Select from '@atlaskit/select';
 import { useAtomValue } from 'jotai';
 import { projectState } from '../../state/savedGraphs';
 import { getHelperMessage } from './editorUtils';
-import { getLlmSelectorOptions, LLM_SELECTOR_NONE_VALUE } from '../../utils/llmSelectorOptions';
 import { getEditorModelConfig } from '../../utils/projectModelConfig';
 
-/**
- * Shared field for the three LLM selectors (Feature 005, Phase A; re-pointed to the project in Phase
- * B). Builds options from the given model-config entities via `getLlmSelectorOptions` (None + sorted
- * + dangling-id row) and renders an Atlaskit Select. Exported so the Phase B preset editor reuses
- * the exact same picker (consistent None/dangling-id semantics on the node and in the preset form).
- */
-export const LlmSelectorField: FC<{
-  items: ReadonlyArray<{ id: string; name?: string }>;
-  value: string | undefined;
-  name: string;
-  label: string;
-  isReadonly: boolean;
-  helperMessage?: string;
-  placeholder: string;
-  onChange: (selected: string) => void;
-}> = ({ items, value, name, label, isReadonly, helperMessage, placeholder, onChange }) => {
-  const options = getLlmSelectorOptions(items, { selectedId: value });
-  const selectedOption = options.find((option) => option.value === (value ?? LLM_SELECTOR_NONE_VALUE));
-
-  return (
-    <Field name={name} label={label} isDisabled={isReadonly}>
-      {({ fieldProps }) => (
-        <>
-          {helperMessage && <HelperMessage>{helperMessage}</HelperMessage>}
-          <Select
-            {...fieldProps}
-            isDisabled={isReadonly}
-            options={options}
-            value={selectedOption}
-            onChange={(selected) => onChange(selected!.value)}
-            placeholder={placeholder}
-          />
-        </>
-      )}
-    </Field>
-  );
-};
 
 /** A Skill with no `kind` is the chat signature; the chat node's selectors filter to this. */
 const DEFAULT_SKILL_KIND = 'text-to-text';
@@ -68,22 +35,82 @@ function selectorInputDriven(
   return editor.useInputToggleDataKey != null && Boolean(data[editor.useInputToggleDataKey]);
 }
 
+/**
+ * A selector + inline authoring affordances (R3): the dropdown plus "New" / "Edit" that mount the
+ * shared entity form in a draft modal. "New" is always available (add a project entity, then auto-select
+ * it on save). "Edit" targets the selected entity and is disabled when the selector is input-driven
+ * (no static selection) or nothing is selected. Inline-edit modifies the SHARED project entity (R2).
+ */
+const LlmSelectorWithAuthoring: FC<{
+  axis: ModelConfigAxis;
+  items: ReadonlyArray<LlmProfile | LlmSkill | LlmPreset>;
+  value: string | undefined;
+  inputDriven: boolean;
+  isReadonly: boolean;
+  name: string;
+  label: string;
+  placeholder: string;
+  helperMessage?: string;
+  seed: () => LlmProfile | LlmSkill | LlmPreset;
+  onSelect: (id: string) => void;
+}> = ({ axis, items, value, inputDriven, isReadonly, name, label, placeholder, helperMessage, seed, onSelect }) => {
+  const [modal, setModal] = useState<{ mode: 'add' | 'edit'; initial: LlmProfile | LlmSkill | LlmPreset } | null>(null);
+  const selected = items.find((item) => item.id === value);
+  const canEdit = !inputDriven && !isReadonly && selected != null;
+
+  return (
+    <>
+      <LlmSelectorField
+        items={items}
+        value={value}
+        name={name}
+        label={label}
+        isReadonly={isReadonly || inputDriven}
+        helperMessage={helperMessage}
+        placeholder={placeholder}
+        onChange={onSelect}
+      />
+      <div className="llm-selector-authoring-actions">
+        <Button appearance="link" spacing="compact" isDisabled={isReadonly} onClick={() => setModal({ mode: 'add', initial: seed() })}>
+          + New
+        </Button>
+        <Button appearance="link" spacing="compact" isDisabled={!canEdit} onClick={() => selected && setModal({ mode: 'edit', initial: selected })}>
+          Edit
+        </Button>
+      </div>
+      {modal && (
+        <LlmEntityAuthoringModal
+          axis={axis}
+          mode={modal.mode}
+          initial={modal.initial}
+          onSaved={(entity) => {
+            if (modal.mode === 'add') onSelect(entity.id); // auto-select the newly created entity
+          }}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </>
+  );
+};
+
 export const DefaultLlmProfileSelectorEditor: FC<
   SharedEditorProps & { editor: LlmProfileSelectorEditorDefinition<ChartNode> }
 > = ({ node, isReadonly, isDisabled, onChange, editor }) => {
   const data = node.data as Record<string, unknown>;
   const project = useAtomValue(projectState);
-
   return (
-    <LlmSelectorField
-      items={getEditorModelConfig(project).profiles}
+    <LlmSelectorWithAuthoring
+      axis="profiles"
+      items={getEditorModelConfig(project).profiles ?? []}
       value={data[editor.dataKey] as string | undefined}
+      inputDriven={selectorInputDriven(editor, data)}
+      isReadonly={isReadonly || isDisabled}
       name={editor.dataKey}
       label={editor.label}
-      isReadonly={isReadonly || isDisabled || selectorInputDriven(editor, data)}
-      helperMessage={getHelperMessage(editor, node.data)}
       placeholder="Select Profile..."
-      onChange={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
+      helperMessage={getHelperMessage(editor, node.data)}
+      seed={() => ({ id: nanoid(), name: 'New profile', provider: 'openai' })}
+      onSelect={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
     />
   );
 };
@@ -99,15 +126,20 @@ export const DefaultLlmSkillSelectorEditor: FC<
   const skills = (getEditorModelConfig(project).skills ?? []).filter((s) => getSkillKind(s) === wantKind);
 
   return (
-    <LlmSelectorField
+    <LlmSelectorWithAuthoring
+      axis="skills"
       items={skills}
       value={data[editor.dataKey] as string | undefined}
+      inputDriven={selectorInputDriven(editor, data)}
+      isReadonly={isReadonly || isDisabled}
       name={editor.dataKey}
       label={editor.label}
-      isReadonly={isReadonly || isDisabled || selectorInputDriven(editor, data)}
-      helperMessage={getHelperMessage(editor, node.data)}
       placeholder="Select Skill..."
-      onChange={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
+      helperMessage={getHelperMessage(editor, node.data)}
+      // Kind-respecting add (R1): a new Skill from a chat node's selector mints a text-to-text skill,
+      // so the kind-filter shows it immediately and it auto-selects on save.
+      seed={() => ({ id: nanoid(), name: 'New skill', kind: wantKind }) as LlmSkill}
+      onSelect={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
     />
   );
 };
@@ -128,15 +160,18 @@ export const DefaultLlmPresetSelectorEditor: FC<
   );
 
   return (
-    <LlmSelectorField
+    <LlmSelectorWithAuthoring
+      axis="presets"
       items={presets}
       value={data[editor.dataKey] as string | undefined}
+      inputDriven={selectorInputDriven(editor, data)}
+      isReadonly={isReadonly || isDisabled}
       name={editor.dataKey}
       label={editor.label}
-      isReadonly={isReadonly || isDisabled || selectorInputDriven(editor, data)}
-      helperMessage={getHelperMessage(editor, node.data)}
       placeholder="Select Preset..."
-      onChange={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
+      helperMessage={getHelperMessage(editor, node.data)}
+      seed={() => ({ id: nanoid(), name: 'New preset', profileId: '' })}
+      onSelect={(selected) => onChange({ ...node, data: { ...data, [editor.dataKey]: selected } })}
     />
   );
 };
