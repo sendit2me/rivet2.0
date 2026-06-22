@@ -11,7 +11,6 @@ import { PromptNodeAiAssistEditor } from './custom/PromptNodeAiAssistEditor';
 import { TextNodeAiAssistEditor } from './custom/TextNodeAiAssistEditor';
 import { LLMChatV2ModelCatalogEditor } from './custom/LLMChatV2ModelCatalogEditor';
 import { GetGlobalVariableSelectorEditor } from './custom/GetGlobalVariableSelectorEditor';
-import { ExtraBodyJsonEditor } from './custom/ExtraBodyJsonEditor';
 
 export const CustomEditor: FC<
   SharedEditorProps & {
@@ -30,6 +29,5 @@ export const CustomEditor: FC<
     .with('TextNodeAiAssist', () => <TextNodeAiAssistEditor {...props} editor={editor} />)
     .with('LLMChatV2ModelCatalog', () => <LLMChatV2ModelCatalogEditor {...props} editor={editor} />)
     .with('GetGlobalVariableSelector', () => <GetGlobalVariableSelectorEditor {...props} editor={editor} />)
-    .with('extraBodyJson', () => <ExtraBodyJsonEditor {...props} editor={editor} />)
     .otherwise(() => null);
 };
