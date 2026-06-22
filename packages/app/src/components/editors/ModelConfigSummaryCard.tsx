@@ -1,4 +1,4 @@
-import { type FC } from 'react';
+import { type FC, Fragment } from 'react';
 import {
   type ChartNode,
   type LlmModelConfigSummaryEditorDefinition,
@@ -24,6 +24,15 @@ const styles = css`
   display: flex;
   flex-direction: column;
   gap: 6px;
+
+  .summary-group-label {
+    color: var(--grey-light);
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
 
   .summary-row {
     display: grid;
@@ -85,15 +94,22 @@ export const ModelConfigSummaryCard: FC<
     );
   }
 
-  // Complete → show the resolved config, read-only (model-config is layer-owned in R2).
-  const fields = deriveModelConfigSummary(effective, node.data as never, effective as never, true);
+  // Complete → show the resolved config, read-only (model-config is layer-owned in R2). The derivation
+  // is schema-driven per kind (R4); the LLM Chat node passes its own signature, text-to-text. The card
+  // renders groups generically — a header iff the group is labeled (chat = one unlabeled group → flat).
+  const groups = deriveModelConfigSummary(effective as never, 'text-to-text');
   return (
     <div css={styles}>
-      {fields.map((field) => (
-        <div className="summary-row" key={field.key}>
-          <span className="summary-label">{field.label}</span>
-          <span className="summary-value">{field.value}</span>
-        </div>
+      {groups.map((group, groupIndex) => (
+        <Fragment key={group.label ?? `group-${groupIndex}`}>
+          {group.label && <div className="summary-group-label">{group.label}</div>}
+          {group.rows.map((row) => (
+            <div className="summary-row" key={row.key}>
+              <span className="summary-label">{row.label}</span>
+              <span className="summary-value">{row.value}</span>
+            </div>
+          ))}
+        </Fragment>
       ))}
     </div>
   );

@@ -1,44 +1,46 @@
+import type { SkillKind } from '../Settings.js';
 import type { ChatV2Provider } from './chatV2Types.js';
-import type { LLMChatV2NodeData } from './llmChatV2NodeData.js';
 import {
   anthropicEffortOptions,
-  chatV2ProviderOptions,
   getChatV2ProviderLabel,
   googleThinkingLevelOptions,
   openAIReasoningEffortOptions,
 } from './providerOptions.js';
 
 /**
- * The headline model-config fields the Summary Card shows for an LLM Chat node — the resolved
- * ("what runs") value of each, with a light inherited/overridden marker and how to edit it. Pure and
- * **node-agnostic** (it works on any `LLMChatV2NodeData`-shaped data + the resolved effective data),
- * so it lifts onto a shared chat-v2 editor surface later (Chat Loop re-impl). Feature 009.
+ * The resolved-binding summary card's derivation (R4) — **schema-driven per kind**. A non-chat kind
+ * renders without bespoke code: the mapper walks the kind's descriptor and calls each field's value
+ * resolver; ALL per-kind logic lives in the descriptor entry, so adding a kind = adding an entry, never
+ * editing the mapper. Read-only (R2 — editing is the R3 selectors/inline authoring). Pure, core-resident
+ * (co-located with the chat formatters), keyed by `SkillKind` so the descriptor map is exhaustive.
  */
 
-export type SummaryControl = 'string' | 'number' | 'enum' | 'readonly';
-
-export interface ModelConfigSummaryField {
-  /** Stable id of the headline field. */
-  key: 'provider' | 'model' | 'reasoning' | 'temperature' | 'maxTokens' | 'extraBody';
+/** One display row of the resolved config. */
+export interface SummaryRow {
+  key: string;
   label: string;
-  /** Human-readable resolved value (for display). */
   value: string;
-  /** The raw effective value, for the inline control. */
-  rawValue: unknown;
-  /** The node-data field an inline edit / revert writes (absent for non-editable rows). */
-  dataKey?: keyof LLMChatV2NodeData;
-  /** `true` when the node's own value wins (and a revert-to-inherited is offered). */
-  overridden: boolean;
-  /** `false` rows are display-only (e.g. provider when a source drives it; the extraBody summary). */
-  editable: boolean;
-  control: SummaryControl;
-  /** Options for an `enum` control. */
-  options?: ReadonlyArray<{ value: string; label: string }>;
+}
+/** An ordered group of rows; `label` renders a header (chat = one unlabeled group → flat). */
+export interface SummaryGroup {
+  label?: string;
+  rows: SummaryRow[];
+}
+
+/** A field descriptor: a label + a value resolver over the resolved config (`undefined` → row skipped). */
+interface FieldDesc {
+  key: string;
+  label: string;
+  value: (resolved: Record<string, unknown>) => string | undefined;
+}
+interface GroupDesc {
+  label?: string;
+  fields: FieldDesc[];
 }
 
 type EffortField = 'openAIReasoningEffort' | 'anthropicEffort' | 'googleThinkingLevel';
 
-/** The provider's reasoning-effort node field + its options, or null for providers without one (custom). */
+/** The provider's reasoning-effort field + its options, or null for providers without one (custom). */
 function reasoningFieldFor(
   provider: ChatV2Provider,
 ): { field: EffortField; options: ReadonlyArray<{ value: string; label: string }> } | null {
@@ -76,112 +78,73 @@ function extraBodySummary(raw: string): string {
   return '(custom)';
 }
 
+/** Show a number (incl. 0) as text; skip the row when unset (the layer left it → the provider defaults it). */
+const num =
+  (key: string) =>
+  (r: Record<string, unknown>): string | undefined =>
+    typeof r[key] === 'number' ? String(r[key]) : undefined;
+
+// --- Reused field descriptors (provider/model are common to every kind so far) ---
+const PROVIDER_FIELD: FieldDesc = {
+  key: 'provider',
+  label: 'Provider',
+  value: (r) => getChatV2ProviderLabel(r.provider as ChatV2Provider),
+};
+const MODEL_FIELD: FieldDesc = {
+  key: 'model',
+  label: 'Model',
+  value: (r) => (r.model as string) || '(none)',
+};
+
 /**
- * Derive the headline summary fields for an LLM Chat node from its resolved `effective` data plus the
- * node's own `data` and the node `defaults` (for the differs-from-default override marker).
- *
- * - `overridden` = the node's own value wins: `data[field] !== defaults[field]`. `provider` is the
- *   exception — it is Profile-owned, so it is overridden only when **no connection source** is bound
- *   (`hasConnectionSource === false`) and the node changed it; when a Profile/Preset drives it the row
- *   is inherited and display-only ("set by Profile").
- * - `editable`: model / temperature / reasoning (when the provider has an effort field) / maxTokens;
- *   provider only when no source is bound; the extraBody summary is always display-only.
+ * Per-kind summary descriptors. `Record<SkillKind, …>` makes this **exhaustive** at compile time: a new
+ * `SkillKind` can't be added without a descriptor entry. `text-to-image` is the forcing fixture (the
+ * card's analog of `ImageSkill`): a real second schema with no UI — proves the mapper is generic.
  */
-export function deriveModelConfigSummary(
-  effective: LLMChatV2NodeData,
-  data: LLMChatV2NodeData,
-  defaults: LLMChatV2NodeData,
-  hasConnectionSource: boolean,
-): ModelConfigSummaryField[] {
-  const fields: ModelConfigSummaryField[] = [];
+const SUMMARY_DESCRIPTORS: Record<SkillKind, GroupDesc[]> = {
+  // text-to-text (chat) — ONE unlabeled group → renders flat (reproduces the chat card row-for-row).
+  'text-to-text': [
+    {
+      fields: [
+        PROVIDER_FIELD,
+        MODEL_FIELD,
+        {
+          key: 'reasoning',
+          label: 'Reasoning',
+          value: (r) => {
+            const reasoning = reasoningFieldFor(r.provider as ChatV2Provider);
+            return reasoning ? optionLabel(reasoning.options, r[reasoning.field]) : '—';
+          },
+        },
+        { key: 'temperature', label: 'Temperature', value: num('temperature') },
+        { key: 'maxTokens', label: 'Max tokens', value: num('maxTokens') },
+        {
+          key: 'extraBody',
+          label: 'Extra body',
+          value: (r) => (r.provider === 'custom' ? extraBodySummary(r.extraProviderOptions as string) : undefined),
+        },
+      ],
+    },
+  ],
+  // text-to-image — the forcing fixture (provider/model + a labeled Dimensions group; no UI mounts it).
+  'text-to-image': [
+    { fields: [PROVIDER_FIELD, MODEL_FIELD] },
+    { label: 'Dimensions', fields: [{ key: 'width', label: 'Width', value: num('width') }, { key: 'height', label: 'Height', value: num('height') }] },
+  ],
+};
 
-  // provider — Profile-owned.
-  fields.push({
-    key: 'provider',
-    label: 'Provider',
-    value: getChatV2ProviderLabel(effective.provider),
-    rawValue: effective.provider,
-    dataKey: 'provider',
-    overridden: !hasConnectionSource && data.provider !== defaults.provider,
-    editable: !hasConnectionSource,
-    control: 'enum',
-    options: chatV2ProviderOptions as ReadonlyArray<{ value: string; label: string }>,
-  });
-
-  // model.
-  fields.push({
-    key: 'model',
-    label: 'Model',
-    value: effective.model || '(none)',
-    rawValue: effective.model,
-    dataKey: 'model',
-    overridden: data.model !== defaults.model,
-    editable: true,
-    control: 'string',
-  });
-
-  // reasoning — the resolved provider's effort field (custom has none).
-  const reasoning = reasoningFieldFor(effective.provider);
-  if (reasoning) {
-    fields.push({
-      key: 'reasoning',
-      label: 'Reasoning',
-      value: optionLabel(reasoning.options, effective[reasoning.field]),
-      rawValue: effective[reasoning.field],
-      dataKey: reasoning.field,
-      overridden: data[reasoning.field] !== defaults[reasoning.field],
-      editable: true,
-      control: 'enum',
-      options: reasoning.options,
-    });
-  } else {
-    fields.push({
-      key: 'reasoning',
-      label: 'Reasoning',
-      value: '—',
-      rawValue: undefined,
-      overridden: false,
-      editable: false,
-      control: 'readonly',
-    });
-  }
-
-  // temperature.
-  fields.push({
-    key: 'temperature',
-    label: 'Temperature',
-    value: String(effective.temperature),
-    rawValue: effective.temperature,
-    dataKey: 'temperature',
-    overridden: data.temperature !== defaults.temperature,
-    editable: true,
-    control: 'number',
-  });
-
-  // maxTokens.
-  fields.push({
-    key: 'maxTokens',
-    label: 'Max tokens',
-    value: String(effective.maxTokens),
-    rawValue: effective.maxTokens,
-    dataKey: 'maxTokens',
-    overridden: data.maxTokens !== defaults.maxTokens,
-    editable: true,
-    control: 'number',
-  });
-
-  // extraBody — custom-provider only; a display-only summary of the resolved raw body params.
-  if (effective.provider === 'custom') {
-    fields.push({
-      key: 'extraBody',
-      label: 'Extra body',
-      value: extraBodySummary(effective.extraProviderOptions),
-      rawValue: effective.extraProviderOptions,
-      overridden: data.extraProviderOptions !== defaults.extraProviderOptions,
-      editable: false,
-      control: 'readonly',
-    });
-  }
-
-  return fields;
+/**
+ * Derive the resolved-binding summary for a given `kind` — a generic mapper over the kind's descriptor.
+ * Each caller supplies its own signature (the chat card passes `'text-to-text'`); the resolved config
+ * itself carries no kind. Unset fields and empty groups are skipped.
+ */
+export function deriveModelConfigSummary(resolved: Record<string, unknown>, kind: SkillKind): SummaryGroup[] {
+  return SUMMARY_DESCRIPTORS[kind]
+    .map((group) => ({
+      label: group.label,
+      rows: group.fields
+        .map((f) => ({ key: f.key, label: f.label, value: f.value(resolved) }))
+        .filter((row): row is SummaryRow => row.value !== undefined),
+    }))
+    .filter((group) => group.rows.length > 0);
 }
