@@ -4,10 +4,8 @@ import { type SharedEditorProps } from '../SharedEditorProps';
 import { JsonObjectField } from '../../modelConfig/JsonObjectField';
 
 /**
- * Custom-editor adapter (Feature 005 Phase C1) binding the node's object `extraBody` to the shared
- * {@link JsonObjectField}. Registered for `customEditorId: 'extraBodyJson'`. Lives in the node's
- * advanced/override group, so it is hidden behind the "Show overrides" preference by default — the
- * clean-node default (no `extraBody`) stays byte-identical.
+ * Custom-editor adapter binding a node's object `extraBody` to the shared {@link JsonObjectField}.
+ * Registered for `customEditorId: 'extraBodyJson'`.
  */
 export const ExtraBodyJsonEditor: FC<
   SharedEditorProps & {

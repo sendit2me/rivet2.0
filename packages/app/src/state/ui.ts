@@ -45,14 +45,6 @@ export const expandedFoldersState = atomWithStorage<Record<string, boolean>>('ex
 
 export const showUnreachableGraphTagsState = atomWithStorage<boolean>('showUnreachableGraphTagsState', true, storage);
 
-/**
- * Feature 005 Phase C1 — "Show overrides" preference. Off (default) CSS-hides a node's advanced /
- * override editor groups (the model-config `extraBody`), keeping the node clean and byte-identical;
- * on reveals them for power users. App-level gate because per-editor `hideIf` is data-based and
- * can't read a UI pref.
- */
-export const showModelConfigOverridesState = atomWithStorage<boolean>('showModelConfigOverridesState', false, storage);
-
 export const showGraphReferenceIndicatorsState = atomWithStorage<boolean>(
   'showGraphReferenceIndicatorsState',
   true,
