@@ -1,4 +1,3 @@
-import { isEqual } from 'lodash-es';
 import { deepMerge } from '../../utils/deepMerge.js';
 import type {
   LlmPreset,
@@ -12,7 +11,7 @@ import type {
   SkillKind,
 } from '../Settings.js';
 import type { ChatV2Provider } from './chatV2Types.js';
-import { createLLMChatV2NodeData, type LLMChatV2NodeData } from './llmChatV2NodeData.js';
+import { type LLMChatV2NodeData } from './llmChatV2NodeData.js';
 
 /** The Preset / Profile / Skill selectors a chat-v2 node carries (added to the node data in 008b). */
 export interface NodeModelSelectors {
@@ -27,6 +26,77 @@ export const MAX_MODEL_CONFIG_EXTENDS_DEPTH = 10;
 /** A Skill's signature; an absent `kind` is the chat signature (`text-to-text`). Single source of truth. */
 export function getSkillKind(skill: { kind?: SkillKind }): SkillKind {
   return skill.kind ?? 'text-to-text';
+}
+
+/**
+ * The model-config fields the LAYER owns (R2 overlap-deletion). When a config is bound these come ONLY
+ * from Profile/Skill/Preset; the node's own values are **not read**. Everything NOT here is node-owned
+ * (the complement — bindings, per-call inputs, and the Q6 structural/output-contract fields like
+ * `responseFormat`, tools, output toggles) and survives verbatim. `satisfies` keeps the list exhaustive
+ * against the real field type: a newly added field defaults to node-owned, never silently vanishes.
+ */
+export const LAYER_OWNED_MODEL_CONFIG_FIELDS = [
+  // connection (Profile)
+  'provider',
+  'baseURL',
+  'customProviderBaseURL',
+  'apiKeySource',
+  'customProviderApiKeyEnvVarName',
+  'headers',
+  // model + sampling/format params (Skill base) — NB: responseFormat is NODE-owned (Q6), absent here
+  'model',
+  'temperature',
+  'maxTokens',
+  'topP',
+  'topK',
+  'presencePenalty',
+  'frequencyPenalty',
+  'stopSequences',
+  'seed',
+  // reasoning + per-provider feature fields (Skill provider block)
+  'openAIReasoningEffort',
+  'openAIReasoningSummary',
+  'enableOpenAIWebSearch',
+  'openAIWebSearchContextSize',
+  'enableOpenAICodeInterpreter',
+  'anthropicThinkingMode',
+  'anthropicThinkingBudget',
+  'anthropicEffort',
+  'anthropicCacheControlTtl',
+  'googleThinkingBudget',
+  'googleThinkingLevel',
+  'googleIncludeThoughts',
+  'enableGoogleSearchGrounding',
+  'enableGoogleUrlContext',
+  // raw body escape hatch (custom)
+  'extraProviderOptions',
+] as const satisfies readonly (keyof LLMChatV2NodeData)[];
+
+
+export interface LLMChatV2Completeness {
+  complete: boolean;
+  /** When incomplete, a short reason naming what's missing (surfaced by process() / the editor card). */
+  reason?: string;
+}
+
+/**
+ * A bound node is runnable only when the resolved (layer-only) config yields a complete config: a
+ * **connection** (provider, plus a base URL for the custom provider) AND a **model**. With nothing
+ * bound the overlay is empty → no provider → incomplete. Drives the process() throw and the editor's
+ * incomplete state — config-less by construction, never a silent gpt-5 default.
+ */
+export function assessLLMChatV2Completeness(effective: LLMChatV2NodeData): LLMChatV2Completeness {
+  const provider = effective.provider as ChatV2Provider | undefined;
+  if (!provider) {
+    return { complete: false, reason: 'bind a Profile + Skill (or a Preset) — needs a connection and a model' };
+  }
+  if (provider === 'custom' && !effective.customProviderBaseURL) {
+    return { complete: false, reason: 'the bound custom-provider connection needs a base URL' };
+  }
+  if (!effective.model) {
+    return { complete: false, reason: 'the binding has a connection but no model — bind a Skill (or a Preset with one)' };
+  }
+  return { complete: true };
 }
 
 /** The flattened Profile after its `extends` chain is merged (child wins; headers merge by key). */
@@ -44,14 +114,15 @@ type Trace = ((message: string) => void) | undefined;
  * Preset/Profile/Skill selectors against the project `modelConfig` into the node's **effective**
  * `LLMChatV2NodeData`, which the (untouched) `resolveLLMChatV2RuntimeConfig` then consumes.
  *
- * Precedence (most-specific wins): `createLLMChatV2NodeData() defaults → Profile → Skill.base →
- * Skill.providers[resolvedProvider] → Preset.overrides → Node`. The node wins a field iff its value
- * **differs from its default** (the differs-from-default "node-set" rule); `provider` is the one
- * exception — it is **Profile-owned** and selects which provider block applies.
+ * **R2 — config-less binding (overlap-deletion):** the **layer-owned** model-config fields
+ * ({@link LAYER_OWNED_MODEL_CONFIG_FIELDS}) come ONLY from Profile/Skill/Preset; the node's own values
+ * are **not read** (no node×config overlap → the gpt-5/default collision is gone by construction). The
+ * **node-owned** complement (bindings, per-call inputs, Q6 structural/output-contract fields) survives
+ * verbatim. Layer-unset optional params are **omitted** (the provider defaults them), not back-filled.
  *
- * **Byte-identical rail (sacred):** when no selector is set, the node data is returned **unchanged**
- * (identity — the overlay logic never runs). A selector that resolves to nothing (dangling / unknown
- * id) produces an empty overlay, so the result still deep-equals the input.
+ * **The byte-identical rail is RETIRED** (R0=A): the node carries no editable model-config, so an
+ * unbound node resolves to an *incomplete* config (no provider/model) that `process()` refuses to run —
+ * use {@link assessLLMChatV2Completeness}. There is no identity fast-path.
  *
  * Pure apart from the optional `onTrace` diagnostics callback (wired to `context.trace`).
  */
@@ -61,11 +132,6 @@ export function resolveEffectiveLLMChatV2Data(
   nodeData: LLMChatV2NodeData,
   onTrace?: (message: string) => void,
 ): LLMChatV2NodeData {
-  // SACRED byte-identical rail: no selectors → identity return. Never run overlay logic when unset.
-  if (!selectors.llmPresetId && !selectors.llmProfileId && !selectors.llmSkillId) {
-    return nodeData;
-  }
-
   const preset = resolvePresetEntity(modelConfig, selectors.llmPresetId, onTrace);
   // Node selector replaces the preset's piece; a blank node selector inherits the preset's.
   const profileId = selectors.llmProfileId || preset?.profileId;
@@ -75,21 +141,21 @@ export function resolveEffectiveLLMChatV2Data(
   const skill = resolveSkillChain(modelConfig, skillId, onTrace);
   const overrides = preset?.overrides;
 
-  // `provider` is Profile-owned: a bound Profile's provider wins over the node; with no Profile the
-  // node's own provider drives block selection.
-  const provider: ChatV2Provider = profile?.provider ?? nodeData.provider;
+  // Provider is Profile-owned (layer): no Profile → no provider → the node resolves incomplete.
+  const provider = profile?.provider;
 
   const overlay = buildOverlay(provider, profile, skill, overrides);
-  const effective = applyOverlay(nodeData, overlay, provider);
+  const effective = applyOverlay(nodeData, overlay);
 
-  // Connection headers: per-key merge (Profile < Preset.overrides < Node) instead of replace, so a
-  // node header does not drop the profile's connection headers. Self-guards on layered headers.
-  applyHeadersMerge(effective, nodeData, profile, overrides);
+  // Connection headers + custom extraBody are layer-only (R2): the node's own no longer contribute.
+  applyHeadersMerge(effective, profile, overrides);
 
-  // Escape hatch (D9): custom-provider only. Merge model-config extraBody into the node's raw
-  // `extraProviderOptions` (Node > Preset.overrides > providers.custom > base) with stable key order.
+  // Escape hatch (D9): custom-provider only. The custom extraBody comes from the layer
+  // (Preset.overrides > providers.custom > base); the node's own raw extraProviderOptions is ignored.
   if (provider === 'custom') {
-    applyExtraBodyEscapeHatch(effective, nodeData, skill, overrides);
+    applyExtraBodyEscapeHatch(effective, skill, overrides);
+  } else {
+    effective.extraProviderOptions = ''; // custom-only hatch → clear the node's for other providers
   }
 
   return effective;
@@ -180,20 +246,28 @@ function resolveSkillChain(modelConfig: ModelConfig | undefined, id: string | un
     return undefined;
   }
   const byId = new Map((modelConfig?.skills ?? []).map((s) => [s.id, s]));
-  const head = byId.get(id);
-  if (!head) {
+  if (!byId.has(id)) {
     onTrace?.(`LLM skill '${id}' not found; ignoring`);
     return undefined;
   }
-  // Gap A — resolver-side kind guard: the chat resolver consumes ONLY text-to-text skills, however the
-  // id arrived (dropdown OR the input-driven `llmSkillId` port, which can supply a cross-kind id at
-  // runtime and bypass the editor filters). A mismatched-kind skill is ignored like a dangling id, so
-  // the image branch can never reach the chat overlay — making that invariant true, not just asserted.
-  if (getSkillKind(head) !== 'text-to-text') {
-    onTrace?.(`LLM skill '${id}' is kind '${head.kind}', not text-to-text; ignoring on a chat node`);
+  // Kind guard — the chat resolver consumes ONLY text-to-text skills, however the id arrived (dropdown
+  // OR the input-driven `llmSkillId` port, which can supply a cross-kind id at runtime and bypass the
+  // editor filters). R2 closes the R1 residual: guard the WHOLE `extends` chain, not just the head —
+  // `flattenSkillChain` merges kind-blind, so a chat→image chain would otherwise leak the image
+  // parent's provider-block model. Any non-text-to-text link rejects the whole binding (→ incomplete).
+  const chain = collectChain(byId, id, 'skill', onTrace);
+  const offender = chain.find((s) => getSkillKind(s) !== 'text-to-text');
+  if (offender) {
+    onTrace?.(
+      `LLM skill chain '${id}' includes a '${offender.kind}' link '${offender.id}', not text-to-text; ignoring on a chat node`,
+    );
     return undefined;
   }
-  return flattenSkillChain(byId, id, onTrace);
+  const resolved: ResolvedSkill = { base: {}, providers: {} };
+  for (let i = chain.length - 1; i >= 0; i--) {
+    mergeSkillInto(resolved, chain[i]!);
+  }
+  return resolved;
 }
 
 /**
@@ -301,21 +375,14 @@ function headerArrayToRecord(headers: { key: string; value: string }[] | undefin
  */
 function applyHeadersMerge(
   effective: LLMChatV2NodeData,
-  nodeData: LLMChatV2NodeData,
   profile: ResolvedProfile | undefined,
   overrides: LlmPresetOverrides | undefined,
 ): void {
+  // R2: layer-only — connection headers come from Profile < Preset.overrides; the node's own are
+  // ignored. Always set (clears any node headers): `[]` when the layer supplies none.
   const profileHeaders = profile?.headers;
   const overrideHeaders = overrides?.headers ? headerArrayToRecord(overrides.headers) : undefined;
-  if (!profileHeaders && !overrideHeaders) {
-    return; // Nothing layered → leave the node's own headers untouched.
-  }
-  const merged: Record<string, string> = {
-    ...profileHeaders,
-    ...overrideHeaders,
-    ...headerArrayToRecord(nodeData.headers), // Node wins per key.
-  };
-  effective.headers = recordToHeaderArray(merged);
+  effective.headers = recordToHeaderArray({ ...profileHeaders, ...overrideHeaders });
 }
 
 /**
@@ -324,12 +391,18 @@ function applyHeadersMerge(
  * `provider` are handled outside the overlay (escape hatch / Profile-owned).
  */
 function buildOverlay(
-  provider: ChatV2Provider,
+  provider: ChatV2Provider | undefined,
   profile: ResolvedProfile | undefined,
   skill: ResolvedSkill | undefined,
   overrides: LlmPresetOverrides | undefined,
 ): Partial<LLMChatV2NodeData> {
   const overlay: Partial<LLMChatV2NodeData> = {};
+
+  // Provider is Profile-owned; it flows through the overlay like any other layer field (undefined → no
+  // Profile → the node resolves incomplete).
+  if (provider !== undefined) {
+    overlay.provider = provider;
+  }
 
   // Profile — connection only (no model: R1 moved the model to the Skill).
   if (profile) {
@@ -342,16 +415,16 @@ function buildOverlay(
     // header no longer drops the profile's connection headers). Provider/extraBody are likewise special.
   }
 
-  // Skill.base — agnostic params + coarse reasoning mapping.
+  // Skill.base — agnostic params + coarse reasoning mapping (mapped only once a provider is resolved).
   if (skill?.base) {
     assignDefined(overlay, skill.base);
-    if (skill.base.reasoningLevel) {
+    if (provider && skill.base.reasoningLevel) {
       Object.assign(overlay, mapReasoningLevel(skill.base.reasoningLevel, provider));
     }
   }
 
   // Skill.providers[provider] — provider-specific; the **model** lives here (R1).
-  const block = skill?.providers?.[provider];
+  const block = provider ? skill?.providers?.[provider] : undefined;
   if (block) {
     assignDefined(overlay, block);
   }
@@ -365,50 +438,32 @@ function buildOverlay(
 }
 
 /**
- * Fold the overlay onto the node data with the node winning per field iff it **differs from its
- * default** (Node > overlay > defaults). `provider` is set unconditionally from the resolved
- * provider (Profile-owned). Returns a fresh object; never mutates the input.
+ * R2 **overlap-deletion**: build the effective config with no node×config overlap.
+ * - **Node-owned** fields (the COMPLEMENT of {@link LAYER_OWNED_MODEL_CONFIG_FIELDS}) survive verbatim
+ *   from the node — bindings, per-call inputs, the Q6 structural/output-contract fields. Defining
+ *   node-owned as the complement (not an allowlist) means a newly added field defaults to node-owned
+ *   and can never silently vanish.
+ * - **Layer-owned** fields come ONLY from the overlay: the layer's value, or `undefined` when the layer
+ *   left it unset — which the AI-SDK bridge omits (provider-defaulted), NOT back-filled from the node.
+ *
+ * No `createLLMChatV2NodeData()` defaults, no differs-from-default — the place the gpt-5/default
+ * collision lived is gone. Returns a fresh object; never mutates the input. (`headers` / `extraProvider
+ * Options` are cleared here and re-set by their layer-only merges in the caller.)
  */
-function applyOverlay(
-  nodeData: LLMChatV2NodeData,
-  overlay: Partial<LLMChatV2NodeData>,
-  provider: ChatV2Provider,
-): LLMChatV2NodeData {
-  const defaults = createLLMChatV2NodeData();
-  const effective: LLMChatV2NodeData = { ...nodeData };
-
-  for (const key of Object.keys(overlay) as (keyof LLMChatV2NodeData)[]) {
-    if (key === 'provider') {
-      continue; // Profile-owned; set below.
-    }
-    const overlayValue = overlay[key];
-    if (overlayValue === undefined) {
+function applyOverlay(nodeData: LLMChatV2NodeData, overlay: Partial<LLMChatV2NodeData>): LLMChatV2NodeData {
+  const effective = { ...nodeData } as Record<string, unknown>;
+  for (const field of LAYER_OWNED_MODEL_CONFIG_FIELDS) {
+    // `headers` and `extraProviderOptions` are layer-owned too, but owned by their dedicated layer-only
+    // merges in the caller (extraProviderOptions must stay a string, not undefined — the runtime parses it).
+    if (field === 'headers' || field === 'extraProviderOptions') {
       continue;
     }
-    // Node wins only when it has been changed from its default; otherwise the overlay fills it.
-    if (isEqual(nodeData[key], defaults[key])) {
-      (effective as Record<string, unknown>)[key as string] = overlayValue;
-    }
+    effective[field] = (overlay as Record<string, unknown>)[field]; // layer value, or undefined → omitted
   }
-
-  effective.provider = provider;
-  return effective;
+  return effective as LLMChatV2NodeData;
 }
 
 // --- Escape hatch (custom-provider raw body) -------------------------------------------------
-
-function parseJsonObject(raw: string): Record<string, unknown> | undefined {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  try {
-    const parsed: unknown = JSON.parse(trimmed);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 /** Deterministic, recursively key-sorted JSON — keeps the editor cache key stable across re-resolves. */
 function stableStringify(value: unknown): string {
@@ -437,18 +492,14 @@ function sortKeysDeep(value: unknown): unknown {
  */
 function applyExtraBodyEscapeHatch(
   effective: LLMChatV2NodeData,
-  nodeData: LLMChatV2NodeData,
   skill: ResolvedSkill | undefined,
   overrides: LlmPresetOverrides | undefined,
 ): void {
+  // R2: layer-only — the custom raw body comes from the layer (base → providers.custom → overrides);
+  // the node's own raw extraProviderOptions is ignored. Always set (clears the node's): `''` when none.
   const contributed = deepMerge(
     deepMerge(skill?.base?.extraBody ?? {}, skill?.providers?.custom?.extraBody ?? {}),
     overrides?.extraBody ?? {},
   );
-  if (Object.keys(contributed).length === 0) {
-    return; // No model-config extraBody → leave the node's own extraProviderOptions as-is.
-  }
-  const nodeExtra = parseJsonObject(nodeData.extraProviderOptions) ?? {};
-  const merged = deepMerge(contributed, nodeExtra); // Node wins per key.
-  effective.extraProviderOptions = stableStringify(merged);
+  effective.extraProviderOptions = Object.keys(contributed).length > 0 ? stableStringify(contributed) : '';
 }

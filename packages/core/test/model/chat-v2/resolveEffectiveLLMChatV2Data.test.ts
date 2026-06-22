@@ -1,300 +1,155 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createLLMChatV2NodeData, type LLMChatV2NodeData } from '../../../src/model/chat-v2/llmChatV2NodeData.js';
-import { resolveEffectiveLLMChatV2Data } from '../../../src/model/chat-v2/resolveEffectiveLLMChatV2Data.js';
-import type { LlmPreset, LlmProfile, LlmSkill, ModelConfig } from '../../../src/model/Settings.js';
+import {
+  resolveEffectiveLLMChatV2Data,
+  assessLLMChatV2Completeness,
+} from '../../../src/model/chat-v2/resolveEffectiveLLMChatV2Data.js';
+import type { LlmProfile, LlmSkill, ModelConfig } from '../../../src/model/Settings.js';
 
 function node(overrides: Partial<LLMChatV2NodeData> = {}): LLMChatV2NodeData {
   return { ...createLLMChatV2NodeData(), ...overrides };
 }
-
-describe('resolveEffectiveLLMChatV2Data — byte-identical rail', () => {
-  it('returns the SAME node data reference when no selector is set (identity, never runs overlay)', () => {
-    const data = node({ temperature: 0.9 });
-    const modelConfig: ModelConfig = { profiles: [{ id: 'p', name: 'P', provider: 'openai' }] };
-    const result = resolveEffectiveLLMChatV2Data(modelConfig, {}, data);
-    assert.equal(result, data); // identity
-  });
-
-  it('deep-equals the node data when a selector is set but dangles (empty overlay)', () => {
-    const data = node({ temperature: 0.9 });
-    const result = resolveEffectiveLLMChatV2Data({}, { llmProfileId: 'missing' }, data);
-    assert.notEqual(result, data); // a copy, not identity
-    assert.deepEqual(result, data); // but value-identical
-  });
+// A complete binding: a custom Profile (connection) + a Skill that sets the model on its provider block.
+const omlx: LlmProfile = { id: 'omlx', name: 'oMLX', provider: 'custom', customProviderBaseURL: 'http://x/v1' };
+const coder = (base: LlmSkill['base'] = {}): LlmSkill => ({
+  id: 's',
+  name: 'S',
+  base,
+  providers: { custom: { model: 'Qwen-X' } },
 });
 
-describe('resolveEffectiveLLMChatV2Data — Profile (connection)', () => {
-  const profile: LlmProfile = {
-    id: 'prof',
-    name: 'Custom oMLX',
-    provider: 'custom',
-    customProviderBaseURL: 'http://localhost:9090/v1',
-    apiKeySource: 'environment',
-    customProviderApiKeyEnvVarName: 'OMLX_KEY',
-    headers: { 'x-team': 'qa' },
-  };
-
-  it('applies provider (Profile-owned) and connection fields, and sets NO model (R1: model is Skill-owned)', () => {
-    const result = resolveEffectiveLLMChatV2Data({ profiles: [profile] }, { llmProfileId: 'prof' }, node());
-    assert.equal(result.provider, 'custom');
-    assert.equal(result.customProviderBaseURL, 'http://localhost:9090/v1');
-    assert.equal(result.customProviderApiKeyEnvVarName, 'OMLX_KEY');
-    assert.deepEqual(result.headers, [{ key: 'x-team', value: 'qa' }]);
-    assert.equal(result.model, 'gpt-5'); // a connection no longer names a model → node default unchanged
+describe('resolveEffectiveLLMChatV2Data — R2 overlap-deletion (config-less binding)', () => {
+  it('bound: model-config comes ONLY from the layer; the node’s own model-config is ignored', () => {
+    const cfg: ModelConfig = { profiles: [omlx], skills: [coder({ temperature: 0.2 })] };
+    // The node carries non-default model-config (the old gpt-5 collision case) — it must be IGNORED.
+    const eff = resolveEffectiveLLMChatV2Data(cfg, { llmProfileId: 'omlx', llmSkillId: 's' }, node({ model: 'node-model', temperature: 0.9 }));
+    assert.equal(eff.provider, 'custom'); // from Profile
+    assert.equal(eff.model, 'Qwen-X'); // from Skill block — NOT the node's 'node-model'
+    assert.equal(eff.temperature, 0.2); // from Skill base — NOT the node's 0.9
   });
 
-  it('provider is Profile-owned: the Profile provider wins even over a node-set provider', () => {
-    const result = resolveEffectiveLLMChatV2Data(
-      { profiles: [profile] },
-      { llmProfileId: 'prof' },
-      node({ provider: 'openai' }),
+  it('layer-unset optional params are OMITTED (provider-defaulted), not back-filled to the node default', () => {
+    const cfg: ModelConfig = { profiles: [omlx], skills: [coder({ temperature: 0.2 })] };
+    const eff = resolveEffectiveLLMChatV2Data(cfg, { llmProfileId: 'omlx', llmSkillId: 's' }, node({ topP: 0.3 }));
+    assert.equal(eff.temperature, 0.2);
+    assert.equal(eff.topP, undefined); // layer left topP unset → omitted (NOT the node's 0.3 nor a default)
+    assert.equal(eff.maxTokens, undefined);
+  });
+
+  it('node-OWNED fields (Q6 structural/output-contract + per-call) survive verbatim', () => {
+    const cfg: ModelConfig = { profiles: [omlx], skills: [coder()] };
+    const eff = resolveEffectiveLLMChatV2Data(
+      cfg,
+      { llmProfileId: 'omlx', llmSkillId: 's' },
+      node({ responseFormat: 'json', useToolCalling: true, maxToolRounds: 7, outputUsage: true, openAIPreviousResponseId: 'resp_1' }),
     );
-    assert.equal(result.provider, 'custom');
+    assert.equal(eff.responseFormat, 'json'); // output contract — node-owned (NOT layer)
+    assert.equal(eff.useToolCalling, true);
+    assert.equal(eff.maxToolRounds, 7);
+    assert.equal(eff.outputUsage, true);
+    assert.equal(eff.openAIPreviousResponseId, 'resp_1'); // per-call — node-owned
   });
 
-  it('with no Profile, the node provider drives block selection', () => {
-    const skill: LlmSkill = { id: 's', name: 'S', providers: { anthropic: { model: 'claude-x' } } };
-    const result = resolveEffectiveLLMChatV2Data(
-      { skills: [skill] },
-      { llmSkillId: 's' },
-      node({ provider: 'anthropic' }),
-    );
-    assert.equal(result.provider, 'anthropic');
-    assert.equal(result.model, 'claude-x');
-  });
-});
-
-describe('resolveEffectiveLLMChatV2Data — Skill fan-out', () => {
-  it('applies base agnostic params for the matching provider', () => {
-    const skill: LlmSkill = { id: 's', name: 'S', base: { temperature: 0.1, maxTokens: 4096, topP: 0.8 } };
-    const result = resolveEffectiveLLMChatV2Data(
-      { skills: [skill] },
-      { llmSkillId: 's' },
-      node({ provider: 'openai' }),
-    );
-    assert.equal(result.temperature, 0.1);
-    assert.equal(result.maxTokens, 4096);
-    assert.equal(result.topP, 0.8);
-  });
-
-  it('providers[provider] overlays on top of base, for the resolved provider only', () => {
+  it('Skill fan-out: base + the resolved provider’s block (needs a Profile for the provider)', () => {
     const skill: LlmSkill = {
       id: 's',
       name: 'S',
-      base: { temperature: 0.1 },
-      providers: {
-        openai: { model: 'gpt-x', openAIReasoningEffort: 'high' },
-        anthropic: { model: 'claude-x', anthropicEffort: 'max' },
-      },
+      base: { temperature: 0.4 },
+      providers: { custom: { model: 'Qwen-X', enableOpenAICodeInterpreter: true } as never },
     };
-    const onOpenai = resolveEffectiveLLMChatV2Data({ skills: [skill] }, { llmSkillId: 's' }, node({ provider: 'openai' }));
-    assert.equal(onOpenai.model, 'gpt-x');
-    assert.equal(onOpenai.openAIReasoningEffort, 'high');
-    assert.equal(onOpenai.anthropicEffort, ''); // the anthropic block is not applied for an openai node
+    const eff = resolveEffectiveLLMChatV2Data({ profiles: [omlx], skills: [skill] }, { llmProfileId: 'omlx', llmSkillId: 's' }, node());
+    assert.equal(eff.temperature, 0.4);
+    assert.equal(eff.model, 'Qwen-X');
+  });
 
-    const onAnthropic = resolveEffectiveLLMChatV2Data(
-      { skills: [skill] },
-      { llmSkillId: 's' },
-      node({ provider: 'anthropic' }),
+  it('headers are LAYER-ONLY: the node’s own headers no longer merge in', () => {
+    const profile: LlmProfile = { ...omlx, headers: { 'x-team': 'qa' } };
+    const eff = resolveEffectiveLLMChatV2Data(
+      { profiles: [profile], skills: [coder()] },
+      { llmProfileId: 'omlx', llmSkillId: 's' },
+      node({ headers: [{ key: 'x-node', value: 'leak' }] }),
     );
-    assert.equal(onAnthropic.model, 'claude-x');
-    assert.equal(onAnthropic.anthropicEffort, 'max');
-  });
-});
-
-describe('resolveEffectiveLLMChatV2Data — reasoning-level map', () => {
-  const skill = (reasoningLevel: string): LlmSkill => ({ id: 's', name: 'S', base: { reasoningLevel: reasoningLevel as never } });
-
-  it('maps base.reasoningLevel to the provider effort field (low/med/high everywhere)', () => {
-    const oa = resolveEffectiveLLMChatV2Data({ skills: [skill('high')] }, { llmSkillId: 's' }, node({ provider: 'openai' }));
-    assert.equal(oa.openAIReasoningEffort, 'high');
-    const an = resolveEffectiveLLMChatV2Data({ skills: [skill('low')] }, { llmSkillId: 's' }, node({ provider: 'anthropic' }));
-    assert.equal(an.anthropicEffort, 'low');
-    const go = resolveEffectiveLLMChatV2Data({ skills: [skill('medium')] }, { llmSkillId: 's' }, node({ provider: 'google' }));
-    assert.equal(go.googleThinkingLevel, 'medium');
+    assert.deepEqual(eff.headers, [{ key: 'x-team', value: 'qa' }]); // node header dropped
   });
 
-  it('minimal maps for openai/google but is left UNSET for anthropic (no equivalent, no lossy guess)', () => {
-    const oa = resolveEffectiveLLMChatV2Data({ skills: [skill('minimal')] }, { llmSkillId: 's' }, node({ provider: 'openai' }));
-    assert.equal(oa.openAIReasoningEffort, 'minimal');
-    const go = resolveEffectiveLLMChatV2Data({ skills: [skill('minimal')] }, { llmSkillId: 's' }, node({ provider: 'google' }));
-    assert.equal(go.googleThinkingLevel, 'minimal');
-    const an = resolveEffectiveLLMChatV2Data({ skills: [skill('minimal')] }, { llmSkillId: 's' }, node({ provider: 'anthropic' }));
-    assert.equal(an.anthropicEffort, ''); // unchanged default
-  });
-
-  it('an explicit provider-block effort value wins over the base mapping', () => {
-    const skill: LlmSkill = {
-      id: 's',
-      name: 'S',
-      base: { reasoningLevel: 'low' },
-      providers: { openai: { openAIReasoningEffort: 'xhigh' } },
-    };
-    const result = resolveEffectiveLLMChatV2Data({ skills: [skill] }, { llmSkillId: 's' }, node({ provider: 'openai' }));
-    assert.equal(result.openAIReasoningEffort, 'xhigh');
-  });
-});
-
-describe('resolveEffectiveLLMChatV2Data — precedence', () => {
-  it('model precedence: Node > Skill.providers[p].model (R1: the Profile no longer carries a model)', () => {
-    const modelConfig: ModelConfig = {
-      profiles: [{ id: 'prof', name: 'P', provider: 'openai' }],
-      skills: [{ id: 's', name: 'S', providers: { openai: { model: 'skill-model' } } }],
-    };
-    // Node left at default → the skill block model fills it.
-    const blockWins = resolveEffectiveLLMChatV2Data(modelConfig, { llmProfileId: 'prof', llmSkillId: 's' }, node());
-    assert.equal(blockWins.model, 'skill-model');
-
-    // Node explicitly set (differs from default) → node wins.
-    const nodeWins = resolveEffectiveLLMChatV2Data(
-      modelConfig,
-      { llmProfileId: 'prof', llmSkillId: 's' },
-      node({ model: 'node-model' }),
+  it('extraBody (custom) is LAYER-ONLY: the node’s own extraProviderOptions is ignored', () => {
+    const skill: LlmSkill = { id: 's', name: 'S', base: { extraBody: { a: 1 } }, providers: { custom: { model: 'Qwen-X' } } };
+    const eff = resolveEffectiveLLMChatV2Data(
+      { profiles: [omlx], skills: [skill] },
+      { llmProfileId: 'omlx', llmSkillId: 's' },
+      node({ extraProviderOptions: '{"node":"leak"}' }),
     );
-    assert.equal(nodeWins.model, 'node-model');
-
-    // Only a profile (connection) → no layer model; the node default stands.
-    const profileOnly = resolveEffectiveLLMChatV2Data(modelConfig, { llmProfileId: 'prof' }, node());
-    assert.equal(profileOnly.model, 'gpt-5');
+    assert.deepEqual(JSON.parse(eff.extraProviderOptions), { a: 1 }); // no node "leak"
   });
 
-  it('Preset.overrides win over Skill, and node selectors replace the preset pieces', () => {
-    const modelConfig: ModelConfig = {
-      profiles: [{ id: 'prof', name: 'P', provider: 'openai' }],
+  it('reasoning-level maps to the resolved provider’s effort field', () => {
+    const openai: LlmProfile = { id: 'p', name: 'P', provider: 'openai' };
+    const skill: LlmSkill = { id: 's', name: 'S', base: { reasoningLevel: 'high' }, providers: { openai: { model: 'gpt-x' } } };
+    const eff = resolveEffectiveLLMChatV2Data({ profiles: [openai], skills: [skill] }, { llmProfileId: 'p', llmSkillId: 's' }, node());
+    assert.equal(eff.openAIReasoningEffort, 'high');
+  });
+
+  it('Preset.overrides apply to layer-owned fields; a node-owned override field is ignored', () => {
+    const cfg: ModelConfig = {
+      profiles: [omlx],
+      skills: [coder({ temperature: 0.2 })],
+      presets: [{ id: 'pre', name: 'Pre', profileId: 'omlx', skillId: 's', overrides: { temperature: 0.7, maxToolRounds: 9 } }],
+    };
+    const eff = resolveEffectiveLLMChatV2Data(cfg, { llmPresetId: 'pre' }, node({ maxToolRounds: 3 }));
+    assert.equal(eff.temperature, 0.7); // layer-owned override wins
+    assert.equal(eff.maxToolRounds, 3); // node-owned → from the node, the override is ignored
+  });
+
+  it('full-chain kind-guard: a chat skill that extends an IMAGE skill is rejected whole (no image model leaks)', () => {
+    const cfg: ModelConfig = {
+      profiles: [omlx],
       skills: [
-        { id: 'sa', name: 'SA', base: { temperature: 0.2 } },
-        { id: 'sb', name: 'SB', base: { temperature: 0.9 } },
+        { id: 'img', name: 'img', kind: 'text-to-image', providers: { custom: { model: 'sdxl' } } },
+        { id: 'chat', name: 'chat', extends: 'img', base: { temperature: 0.3 } },
       ],
-      presets: [{ id: 'pre', name: 'Pre', profileId: 'prof', skillId: 'sa', overrides: { temperature: 0.5 } }],
     };
-    // Preset.overrides beats the preset's skill.
-    const viaPreset = resolveEffectiveLLMChatV2Data(modelConfig, { llmPresetId: 'pre' }, node());
-    assert.equal(viaPreset.temperature, 0.5);
-
-    // An explicit node skill selector replaces the preset's skill (sb's 0.9, override no longer references it...
-    // override still applies on top → 0.5 wins as it's highest below the node).
-    const nodeSkill = resolveEffectiveLLMChatV2Data(modelConfig, { llmPresetId: 'pre', llmSkillId: 'sb' }, node());
-    assert.equal(nodeSkill.temperature, 0.5); // preset override still highest-below-node
+    const eff = resolveEffectiveLLMChatV2Data(cfg, { llmProfileId: 'omlx', llmSkillId: 'chat' }, node());
+    assert.notEqual(eff.model, 'sdxl'); // the image parent's model did NOT leak through the chain
+    assert.equal(eff.model, undefined); // the whole skill binding was rejected → no model → incomplete
   });
 });
 
-describe('resolveEffectiveLLMChatV2Data — extends resolves before the provider overlay', () => {
-  it('skill-extends-skill merges base (child wins) and provider blocks, then overlays the provider', () => {
-    const modelConfig: ModelConfig = {
-      skills: [
-        { id: 'parent', name: 'Parent', base: { temperature: 0.2, maxTokens: 1000 }, providers: { custom: { model: 'parent-model' } } },
-        { id: 'child', name: 'Child', extends: 'parent', base: { temperature: 0.7 } },
-      ],
+describe('assessLLMChatV2Completeness — incomplete-until-bound', () => {
+  const assess = (selectors: Parameters<typeof resolveEffectiveLLMChatV2Data>[1], cfg: ModelConfig) =>
+    assessLLMChatV2Completeness(resolveEffectiveLLMChatV2Data(cfg, selectors, node()));
+
+  it('nothing bound → incomplete (no connection, no model)', () => {
+    assert.equal(assess({}, {}).complete, false);
+  });
+
+  it('Profile only → incomplete (connection but no model)', () => {
+    const r = assess({ llmProfileId: 'omlx' }, { profiles: [omlx] });
+    assert.equal(r.complete, false);
+    assert.match(r.reason!, /model/);
+  });
+
+  it('Skill only → incomplete (no connection/provider to select a block)', () => {
+    const r = assess({ llmSkillId: 's' }, { skills: [coder()] });
+    assert.equal(r.complete, false);
+    assert.match(r.reason!, /connection/);
+  });
+
+  it('Profile + Skill → complete', () => {
+    assert.equal(assess({ llmProfileId: 'omlx', llmSkillId: 's' }, { profiles: [omlx], skills: [coder()] }).complete, true);
+  });
+
+  it('a Preset bundling both → complete', () => {
+    const cfg: ModelConfig = {
+      profiles: [omlx],
+      skills: [coder()],
+      presets: [{ id: 'pre', name: 'Pre', profileId: 'omlx', skillId: 's' }],
     };
-    const result = resolveEffectiveLLMChatV2Data({ ...modelConfig }, { llmSkillId: 'child' }, node({ provider: 'custom' }));
-    assert.equal(result.temperature, 0.7); // child base wins
-    assert.equal(result.maxTokens, 1000); // inherited from parent base
-    assert.equal(result.model, 'parent-model'); // inherited provider block, applied after extends merge
+    assert.equal(assess({ llmPresetId: 'pre' }, cfg).complete, true);
   });
 
-  it('guards extends cycles (returns the partial chain, does not loop)', () => {
-    const modelConfig: ModelConfig = {
-      skills: [
-        { id: 'a', name: 'A', extends: 'b', base: { temperature: 0.1 } },
-        { id: 'b', name: 'B', extends: 'a', base: { maxTokens: 50 } },
-      ],
-    };
-    const result = resolveEffectiveLLMChatV2Data(modelConfig, { llmSkillId: 'a' }, node({ provider: 'openai' }));
-    assert.equal(result.temperature, 0.1);
-    assert.equal(result.maxTokens, 50);
-  });
-});
-
-describe('resolveEffectiveLLMChatV2Data — headers per-key merge (not replace)', () => {
-  const profile: LlmProfile = {
-    id: 'prof',
-    name: 'P',
-    provider: 'openai',
-    headers: { authorization: 'Bearer profile', 'x-team': 'qa' },
-  };
-
-  it('a node header no longer drops the profile connection headers (per-key merge, node wins)', () => {
-    const result = resolveEffectiveLLMChatV2Data(
-      { profiles: [profile] },
-      { llmProfileId: 'prof' },
-      node({ headers: [{ key: 'x-team', value: 'override' }, { key: 'x-trace', value: 'on' }] }),
-    );
-    const asRecord = Object.fromEntries(result.headers.map((h) => [h.key, h.value]));
-    assert.equal(asRecord['authorization'], 'Bearer profile'); // profile header preserved
-    assert.equal(asRecord['x-team'], 'override'); // node wins on the shared key
-    assert.equal(asRecord['x-trace'], 'on'); // node-only header kept
-  });
-
-  it('profile-only headers apply when the node has none', () => {
-    const result = resolveEffectiveLLMChatV2Data({ profiles: [profile] }, { llmProfileId: 'prof' }, node());
-    assert.deepEqual(
-      result.headers.sort((a, b) => a.key.localeCompare(b.key)),
-      [
-        { key: 'authorization', value: 'Bearer profile' },
-        { key: 'x-team', value: 'qa' },
-      ],
-    );
-  });
-
-  it('rail-safe: with no Profile/override headers layered, the node headers are untouched', () => {
-    const nodeHeaders = [{ key: 'x-own', value: '1' }];
-    const result = resolveEffectiveLLMChatV2Data(
-      { skills: [{ id: 's', name: 'S', base: { temperature: 0.1 } }] },
-      { llmSkillId: 's' },
-      node({ headers: nodeHeaders }),
-    );
-    assert.deepEqual(result.headers, nodeHeaders);
-  });
-});
-
-describe('resolveEffectiveLLMChatV2Data — extraBody escape hatch (custom-only)', () => {
-  it('serializes merged extraBody into extraProviderOptions for a custom provider', () => {
-    const skill: LlmSkill = {
-      id: 's',
-      name: 'S',
-      base: { extraBody: { chat_template_kwargs: { enable_thinking: false } } },
-    };
-    const result = resolveEffectiveLLMChatV2Data(
-      { skills: [skill] },
-      { llmSkillId: 's' },
-      node({ provider: 'custom', customProviderBaseURL: 'http://x' }),
-    );
-    assert.deepEqual(JSON.parse(result.extraProviderOptions), { chat_template_kwargs: { enable_thinking: false } });
-  });
-
-  it('does NOT touch extraProviderOptions for a hosted provider (custom-only)', () => {
-    const skill: LlmSkill = { id: 's', name: 'S', base: { extraBody: { foo: 1 } } };
-    const result = resolveEffectiveLLMChatV2Data({ skills: [skill] }, { llmSkillId: 's' }, node({ provider: 'openai' }));
-    assert.equal(result.extraProviderOptions, ''); // unchanged default
-  });
-
-  it('precedence Node > Preset.overrides > providers.custom > base, with stable key order', () => {
-    const modelConfig: ModelConfig = {
-      skills: [
-        {
-          id: 's',
-          name: 'S',
-          base: { extraBody: { a: 'base', b: 'base' } },
-          providers: { custom: { extraBody: { b: 'block', c: 'block' } } },
-        },
-      ],
-      presets: [{ id: 'pre', name: 'Pre', profileId: 'prof', skillId: 's', overrides: { extraBody: { c: 'override', d: 'override' } } }],
-      profiles: [{ id: 'prof', name: 'P', provider: 'custom', customProviderBaseURL: 'http://x' }],
-    };
-    const result = resolveEffectiveLLMChatV2Data(
-      modelConfig,
-      { llmPresetId: 'pre' },
-      node({ provider: 'custom', extraProviderOptions: JSON.stringify({ d: 'node', e: 'node' }) }),
-    );
-    assert.deepEqual(JSON.parse(result.extraProviderOptions), {
-      a: 'base',
-      b: 'block',
-      c: 'override',
-      d: 'node',
-      e: 'node',
-    });
-    // Stable key order: serialization is deterministically sorted.
-    assert.equal(result.extraProviderOptions, '{"a":"base","b":"block","c":"override","d":"node","e":"node"}');
+  it('custom provider without a base URL → incomplete', () => {
+    const noUrl: LlmProfile = { id: 'omlx', name: 'oMLX', provider: 'custom' };
+    assert.equal(assess({ llmProfileId: 'omlx', llmSkillId: 's' }, { profiles: [noUrl], skills: [coder()] }).complete, false);
   });
 });

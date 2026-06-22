@@ -84,9 +84,4 @@ describe('R1 — Skill signature (kind), model→Skill, and the forcing fixture'
     assert.equal(eff.model, 'Qwen-X'); // from the skill's per-provider block (not the profile)
     assert.equal(eff.temperature, 0.3); // from the skill base
   });
-
-  it('rail: no selectors → identity (unchanged by R1)', () => {
-    const node = createLLMChatV2NodeData();
-    assert.equal(resolveEffectiveLLMChatV2Data({ skills: [] }, {}, node), node); // same reference
-  });
 });

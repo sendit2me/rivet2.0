@@ -61,18 +61,15 @@ describe('Feature 008 — chat-v2 model-config portability baseline', () => {
     assert.deepEqual(effectiveAfter, effectiveBefore);
   });
 
-  it('project wins over the global library by id (merge), and a node that selects nothing is byte-identical', () => {
+  it('project wins over the global library by id (merge)', () => {
     const global: Settings = {
       modelConfig: {
         profiles: [{ id: 'omlx', name: 'global', provider: 'openai' }],
       },
     };
     const settings = assembleModelConfig(global, project(PROVIDER_MODEL_CONFIG));
-    const effective = resolveEffectiveLLMChatV2Data(settings.modelConfig, { llmProfileId: 'omlx' }, createLLMChatV2NodeData());
+    const effective = resolveEffectiveLLMChatV2Data(settings.modelConfig, { llmPresetId: 'coder' }, createLLMChatV2NodeData());
     assert.equal(effective.provider, 'custom'); // project copy wins over global by id
-
-    // No selectors → identity (sacred rail), even with a populated modelConfig.
-    const data = createLLMChatV2NodeData();
-    assert.equal(resolveEffectiveLLMChatV2Data(settings.modelConfig, {}, data), data);
+    assert.equal(effective.model, 'qwen-3-35b'); // resolves the project's custom model, not the global openai
   });
 });
