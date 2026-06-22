@@ -1,96 +1,80 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLLMChatV2NodeData, type LLMChatV2NodeData } from '../../../src/model/chat-v2/llmChatV2NodeData.js';
-import {
-  deriveModelConfigSummary,
-  type ModelConfigSummaryField,
-} from '../../../src/model/chat-v2/modelConfigSummary.js';
+import { deriveModelConfigSummary, type SummaryGroup } from '../../../src/model/chat-v2/modelConfigSummary.js';
 
-const defaults = (): LLMChatV2NodeData => createLLMChatV2NodeData();
-const byKey = (fields: ModelConfigSummaryField[], key: ModelConfigSummaryField['key']) =>
-  fields.find((f) => f.key === key)!;
+describe('R4 cleanup — getCommonChatV2Editors is removed (dead since R2 deleted the editor groups)', () => {
+  it('chatV2Shared no longer defines it', () => {
+    const src = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '../../../src/model/chat-v2/chatV2Shared.ts'),
+      'utf8',
+    );
+    assert.doesNotMatch(src, /getCommonChatV2Editors/);
+  });
+});
 
-describe('deriveModelConfigSummary — headline fields', () => {
-  it('vanilla (no source): provider is editable & not overridden; no custom extraBody row', () => {
-    const d = defaults();
-    const fields = deriveModelConfigSummary(d, d, d, false);
-    const provider = byKey(fields, 'provider');
-    assert.equal(provider.editable, true); // node-owned when no source
-    assert.equal(provider.overridden, false);
-    assert.equal(byKey(fields, 'reasoning').control, 'enum'); // openai default has an effort field
-    assert.equal(
-      fields.find((f) => f.key === 'extraBody'),
-      undefined, // openai → no extraBody summary row
+const rows = (groups: SummaryGroup[]) => groups.flatMap((g) => g.rows);
+const labels = (groups: SummaryGroup[]) => rows(groups).map((r) => r.label);
+const valueOf = (groups: SummaryGroup[], label: string) => rows(groups).find((r) => r.label === label)?.value;
+
+describe('deriveModelConfigSummary — schema-driven per kind (R4)', () => {
+  it('text-to-text: reproduces the chat card rows for a complete binding (one unlabeled group → flat)', () => {
+    const g = deriveModelConfigSummary(
+      { provider: 'custom', model: 'Qwen-X', temperature: 0.2, maxTokens: 512, extraProviderOptions: '{"a":1}' },
+      'text-to-text',
+    );
+    assert.equal(g.length, 1); // one group
+    assert.equal(g[0]!.label, undefined); // unlabeled → renders flat, no header (the chat card is headerless)
+    assert.deepEqual(
+      g[0]!.rows.map((r) => [r.label, r.value]),
+      [
+        ['Provider', 'Custom provider'],
+        ['Model', 'Qwen-X'],
+        ['Reasoning', '—'], // custom has no effort field
+        ['Temperature', '0.2'],
+        ['Max tokens', '512'],
+        ['Extra body', 'a'], // top-level keys of the extra body
+      ],
     );
   });
 
-  it('bound (custom preset, node at defaults): shows resolved values, all inherited', () => {
-    const d = defaults();
-    const data: LLMChatV2NodeData = { ...d, llmPresetId: 'coder' };
-    const effective: LLMChatV2NodeData = {
-      ...d,
-      provider: 'custom',
-      model: 'Qwen3.6-35B-A3B-nvfp4',
-      temperature: 0.2,
-      extraProviderOptions: '{"chat_template_kwargs":{"enable_thinking":false}}',
-    };
-    const fields = deriveModelConfigSummary(effective, data, d, true);
-
-    const provider = byKey(fields, 'provider');
-    assert.equal(provider.value, 'Custom provider');
-    assert.equal(provider.editable, false); // Profile-owned: display-only when a source is bound
-    assert.equal(provider.overridden, false);
-
-    assert.equal(byKey(fields, 'model').value, 'Qwen3.6-35B-A3B-nvfp4');
-    assert.equal(byKey(fields, 'model').overridden, false); // node left model at default → inherited
-    assert.equal(byKey(fields, 'temperature').value, '0.2');
-    assert.equal(byKey(fields, 'temperature').overridden, false);
-
-    assert.equal(byKey(fields, 'reasoning').control, 'readonly'); // custom has no effort field
-    assert.equal(byKey(fields, 'reasoning').value, '—');
-
-    const extra = byKey(fields, 'extraBody');
-    assert.equal(extra.value, 'chat_template_kwargs'); // top-level key summary
-    assert.equal(extra.editable, false);
-    assert.equal(extra.overridden, false); // node added none of its own
+  it('skips unset temperature/maxTokens (omitted, not a literal "undefined" row)', () => {
+    const g = deriveModelConfigSummary({ provider: 'openai', model: 'gpt-x' }, 'text-to-text');
+    assert.ok(!labels(g).includes('Temperature'));
+    assert.ok(!labels(g).includes('Max tokens'));
+    // provider / model / reasoning still present (reasoning is never skipped — shows Default/—)
+    assert.deepEqual(labels(g), ['Provider', 'Model', 'Reasoning']);
   });
 
-  it('node override flips the marker and offers a revert (editable)', () => {
-    const d = defaults();
-    const data: LLMChatV2NodeData = { ...d, llmProfileId: 'p', temperature: 0.9, model: 'override-model' };
-    const effective: LLMChatV2NodeData = { ...d, provider: 'custom', temperature: 0.9, model: 'override-model' };
-    const fields = deriveModelConfigSummary(effective, data, d, true);
-    assert.equal(byKey(fields, 'temperature').overridden, true);
-    assert.equal(byKey(fields, 'temperature').editable, true);
-    assert.equal(byKey(fields, 'model').overridden, true);
-    assert.equal(byKey(fields, 'model').dataKey, 'model');
+  it('reasoning maps to the resolved provider effort field; Default when unset; — for custom', () => {
+    assert.equal(valueOf(deriveModelConfigSummary({ provider: 'openai', model: 'm', openAIReasoningEffort: 'high' }, 'text-to-text'), 'Reasoning'), 'High');
+    assert.equal(valueOf(deriveModelConfigSummary({ provider: 'openai', model: 'm' }, 'text-to-text'), 'Reasoning'), 'Default');
+    assert.equal(valueOf(deriveModelConfigSummary({ provider: 'anthropic', model: 'm', anthropicEffort: 'low' }, 'text-to-text'), 'Reasoning'), 'Low');
+    assert.equal(valueOf(deriveModelConfigSummary({ provider: 'custom', model: 'm' }, 'text-to-text'), 'Reasoning'), '—');
   });
 
-  it('provider special-case: overridden+editable only when NO source drives it', () => {
-    const d = defaults();
-    const data: LLMChatV2NodeData = { ...d, provider: 'anthropic' };
-    const effective: LLMChatV2NodeData = { ...d, provider: 'anthropic' };
-
-    const noSource = deriveModelConfigSummary(effective, data, d, false);
-    assert.equal(byKey(noSource, 'provider').overridden, true);
-    assert.equal(byKey(noSource, 'provider').editable, true);
-
-    const withSource = deriveModelConfigSummary(effective, data, d, true);
-    assert.equal(byKey(withSource, 'provider').overridden, false);
-    assert.equal(byKey(withSource, 'provider').editable, false);
+  it('extra body row appears only for the custom provider', () => {
+    assert.ok(!labels(deriveModelConfigSummary({ provider: 'openai', model: 'm' }, 'text-to-text')).includes('Extra body'));
+    assert.equal(valueOf(deriveModelConfigSummary({ provider: 'custom', model: 'm', extraProviderOptions: '' }, 'text-to-text'), 'Extra body'), '(none)');
   });
 
-  it('reasoning maps to the resolved provider effort field', () => {
-    const d = defaults();
-    for (const [provider, field] of [
-      ['openai', 'openAIReasoningEffort'],
-      ['anthropic', 'anthropicEffort'],
-      ['google', 'googleThinkingLevel'],
-    ] as const) {
-      const effective: LLMChatV2NodeData = { ...d, provider };
-      const reasoning = byKey(deriveModelConfigSummary(effective, d, d, true), 'reasoning');
-      assert.equal(reasoning.dataKey, field, `${provider} → ${field}`);
-      assert.equal(reasoning.control, 'enum');
+  it('FORCING FIXTURE: text-to-image renders image fields via its descriptor — no chat rows, generic mapper', () => {
+    const g = deriveModelConfigSummary({ provider: 'custom', model: 'sdxl', width: 1024, height: 768 }, 'text-to-image');
+    const dims = g.find((group) => group.label === 'Dimensions');
+    assert.ok(dims, 'has a labeled Dimensions group (the generic group-header path)');
+    assert.deepEqual(
+      dims!.rows.map((r) => [r.label, r.value]),
+      [
+        ['Width', '1024'],
+        ['Height', '768'],
+      ],
+    );
+    // provider/model + image dims, and NONE of the chat-specific rows — the mapper carries no kind-branch.
+    assert.deepEqual(labels(g), ['Provider', 'Model', 'Width', 'Height']);
+    for (const chat of ['Temperature', 'Reasoning', 'Max tokens', 'Extra body']) {
+      assert.ok(!labels(g).includes(chat), `no chat row '${chat}' under text-to-image`);
     }
   });
 });

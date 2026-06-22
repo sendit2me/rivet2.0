@@ -1,5 +1,4 @@
-import type { EditorDefinition } from '../EditorDefinition.js';
-import type { ChartNode, NodeInputDefinition, NodeOutputDefinition, PortId } from '../NodeBase.js';
+import type { NodeInputDefinition, NodeOutputDefinition, PortId } from '../NodeBase.js';
 
 export type ChatV2CommonNodeData = {
   model: string;
@@ -27,7 +26,6 @@ export type ChatV2CommonNodeData = {
   useAsGraphPartialOutput?: boolean;
 };
 
-type ChatV2SharedNode = ChartNode<string, ChatV2CommonNodeData>;
 
 export type CommonChatV2InputOptions = {
   systemPromptPortId?: PortId;
@@ -265,126 +263,4 @@ export function getCommonChatV2Outputs(
   }
 
   return outputs;
-}
-
-export function getCommonChatV2Editors<T extends ChatV2SharedNode>(
-  modelOptions: { value: string; label: string }[],
-): EditorDefinition<T>[] {
-  const editors = [
-    {
-      type: 'dropdown',
-      label: 'Model',
-      dataKey: 'model',
-      useInputToggleDataKey: 'useModelInput',
-      options: modelOptions,
-    },
-    {
-      type: 'group',
-      label: 'Parameters',
-      editors: [
-        {
-          type: 'number',
-          label: 'Temperature',
-          helperMessage: 'Provider-dependent; some reasoning models may ignore this setting.',
-          dataKey: 'temperature',
-          useInputToggleDataKey: 'useTemperatureInput',
-          min: 0,
-          max: 2,
-          step: 0.1,
-        },
-        {
-          type: 'number',
-          label: 'Max output tokens',
-          dataKey: 'maxTokens',
-          useInputToggleDataKey: 'useMaxTokensInput',
-          min: 1,
-          step: 1,
-        },
-        {
-          type: 'number',
-          label: 'Top P',
-          dataKey: 'topP',
-          useInputToggleDataKey: 'useTopPInput',
-          allowEmpty: true,
-          min: 0,
-          max: 1,
-          step: 0.1,
-        },
-        {
-          type: 'number',
-          label: 'Top K',
-          helperMessage: 'Provider-dependent; some providers or models may ignore this setting.',
-          dataKey: 'topK',
-          useInputToggleDataKey: 'useTopKInput',
-          allowEmpty: true,
-          min: 1,
-          step: 1,
-        },
-        {
-          type: 'number',
-          label: 'Presence penalty',
-          dataKey: 'presencePenalty',
-          useInputToggleDataKey: 'usePresencePenaltyInput',
-          allowEmpty: true,
-          min: -1,
-          max: 1,
-          step: 0.1,
-        },
-        {
-          type: 'number',
-          label: 'Frequency penalty',
-          dataKey: 'frequencyPenalty',
-          useInputToggleDataKey: 'useFrequencyPenaltyInput',
-          allowEmpty: true,
-          min: -1,
-          max: 1,
-          step: 0.1,
-        },
-        {
-          type: 'stringList',
-          label: 'Stop sequences',
-          dataKey: 'stopSequences',
-          useInputToggleDataKey: 'useStopSequencesInput',
-          placeholder: 'Stop sequence',
-          newItemDefault: '',
-        },
-        {
-          type: 'number',
-          label: 'Seed',
-          dataKey: 'seed',
-          useInputToggleDataKey: 'useSeedInput',
-          allowEmpty: true,
-          min: 0,
-          step: 1,
-        },
-      ],
-    },
-    {
-      type: 'group',
-      label: 'Outputs',
-      editors: [
-        {
-          type: 'toggle',
-          label: 'Enable Tool Calling',
-          dataKey: 'useToolCalling',
-        },
-        {
-          type: 'toggle',
-          label: 'Output usage details',
-          dataKey: 'outputUsage',
-          helperMessage:
-            'Adds a Usage output built from Vercel AI SDK usage metadata: prompt, completion, total, cached, reasoning tokens, and estimated cost when available.',
-        },
-        {
-          type: 'toggle',
-          label: 'Stream response',
-          dataKey: 'useAsGraphPartialOutput',
-          helperMessage:
-            'Shows streamed response updates in the node output while running in the editor. Other nodes only receive the final response after it is complete.',
-        },
-      ],
-    },
-  ] satisfies EditorDefinition<ChatV2SharedNode>[];
-
-  return editors as unknown as EditorDefinition<T>[];
 }
