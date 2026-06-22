@@ -376,24 +376,6 @@ export const defaultEditorContainerStyles = css`
   &.comment-node-editor {
     padding-top: 45px;
   }
-
-  /* Feature 005 C2: read-only "overridden" indicator on a field whose node value overrides its
-     Preset/Skill/Profile composition. */
-  .override-badge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    padding: 0 6px;
-    border-radius: 8px;
-    corner-shape: squircle;
-    background: var(--warning, #d98e00);
-    color: var(--grey-darkest, #1a1a1a);
-    font-size: var(--ui-font-size-xs, 10px);
-    font-weight: var(--font-weight-semibold);
-    line-height: 1.6;
-    user-select: none;
-    pointer-events: none;
-  }
 `;
 
 export const DefaultNodeEditor: FC<
