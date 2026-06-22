@@ -2,7 +2,7 @@ import stableStringify from 'safe-stable-stringify';
 import type { Outputs } from '../GraphProcessor.js';
 import type { ResolvedChatV2ProviderConfig } from './providerOptions.js';
 import type { ChatV2Provider, ChatV2ProviderOptions, ChatV2ToolChoice } from './chatV2Types.js';
-import type { LLMChatV2EditorCacheKeyParts, LLMChatV2NodeData } from './llmChatV2NodeData.js';
+import type { EffectiveLLMChatV2Data, LLMChatV2EditorCacheKeyParts } from './llmChatV2NodeData.js';
 
 export function buildLLMChatV2EditorCacheKey(parts: LLMChatV2EditorCacheKeyParts): string {
   return stableStringify(parts) ?? '';
@@ -79,7 +79,7 @@ function fingerprintProviderConfigForCache(config: ResolvedChatV2ProviderConfig)
   };
 }
 
-function fingerprintNodeDataForCache(data: LLMChatV2NodeData): LLMChatV2NodeData {
+function fingerprintNodeDataForCache(data: EffectiveLLMChatV2Data): EffectiveLLMChatV2Data {
   const isCustomProvider = data.provider === 'custom';
 
   return {
@@ -106,7 +106,7 @@ function fingerprintProviderOptionsForCache(providerOptions: ChatV2ProviderOptio
 
 export function resolveLLMChatV2EditorCache(params: {
   apiKey: string | undefined;
-  data: LLMChatV2NodeData;
+  data: EffectiveLLMChatV2Data;
   editorCache: Map<string, unknown> | undefined;
   functions: unknown;
   generationParameters: unknown;

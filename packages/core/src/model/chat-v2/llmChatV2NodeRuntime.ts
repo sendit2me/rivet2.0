@@ -30,7 +30,7 @@ import {
 } from './chatV2RuntimeOptions.js';
 import {
   type LLMChatV2EditorCacheKeyParts,
-  type LLMChatV2NodeData,
+  type CompleteEffectiveLLMChatV2Data,
   hasLLMChatV2BuiltInToolsEnabled,
 } from './llmChatV2NodeData.js';
 
@@ -47,7 +47,7 @@ export type LLMChatV2RuntimeConfig = {
   maxToolRounds: number;
 };
 
-function resolveLLMChatV2BaseURL(data: LLMChatV2NodeData, inputs: Inputs): string | undefined {
+function resolveLLMChatV2BaseURL(data: CompleteEffectiveLLMChatV2Data, inputs: Inputs): string | undefined {
   return data.provider === 'custom'
     ? getInputOrData(data, inputs, 'customProviderBaseURL', 'string', 'useCustomProviderBaseURLInput')?.trim() ||
         undefined
@@ -55,7 +55,7 @@ function resolveLLMChatV2BaseURL(data: LLMChatV2NodeData, inputs: Inputs): strin
 }
 
 export async function resolveLLMChatV2RuntimeConfig(params: {
-  data: LLMChatV2NodeData;
+  data: CompleteEffectiveLLMChatV2Data;
   nodeId: LLMChatV2EditorCacheKeyParts['nodeId'];
   inputs: Inputs;
   context: InternalProcessContext;

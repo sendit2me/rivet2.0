@@ -1,23 +1,22 @@
 import type { NodeInputDefinition, NodeOutputDefinition, PortId } from '../NodeBase.js';
 
+/**
+ * The node-owned shared chat fields. The model + sampling *values* (model/temperature/topP/…) are
+ * **layer-owned** — they live on `ChatV2LayerConfig` (supplied by the resolved Profile/Skill/Preset) and
+ * appear only on `EffectiveLLMChatV2Data`. What stays node-persisted here is: the per-param "drive from
+ * input" toggles (**vestigial** post-R2 — the per-param ports are filtered out and the toggles are
+ * unsettable, so they read inertly in the runtime/getBody; the mechanism rip is a follow-up cut), and the
+ * node-owned output-behaviour flags.
+ */
 export type ChatV2CommonNodeData = {
-  model: string;
   useModelInput: boolean;
-  temperature: number;
   useTemperatureInput: boolean;
-  topP?: number;
   useTopPInput: boolean;
-  topK?: number;
   useTopKInput: boolean;
-  presencePenalty?: number;
   usePresencePenaltyInput: boolean;
-  frequencyPenalty?: number;
   useFrequencyPenaltyInput: boolean;
-  stopSequences?: string[];
   useStopSequencesInput: boolean;
-  seed?: number;
   useSeedInput: boolean;
-  maxTokens: number;
   useMaxTokensInput: boolean;
   useToolCalling: boolean;
   outputUsage: boolean;
@@ -53,23 +52,14 @@ export function createChatV2CommonNodeData(
   overrides: Partial<ChatV2CommonNodeData> = {},
 ): ChatV2CommonNodeData {
   return {
-    model: 'gpt-4o',
     useModelInput: false,
-    temperature: 0.5,
     useTemperatureInput: false,
-    topP: 1,
     useTopPInput: false,
-    topK: undefined,
     useTopKInput: false,
-    presencePenalty: undefined,
     usePresencePenaltyInput: false,
-    frequencyPenalty: undefined,
     useFrequencyPenaltyInput: false,
-    stopSequences: [],
     useStopSequencesInput: false,
-    seed: undefined,
     useSeedInput: false,
-    maxTokens: 1024,
     useMaxTokensInput: false,
     useToolCalling: false,
     outputUsage: false,

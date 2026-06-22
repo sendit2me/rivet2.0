@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { type LLMChatV2Node, LLMChatV2NodeImpl } from '../../../src/index.js';
+import { type EffectiveLLMChatV2Data, type LLMChatV2Node, LLMChatV2NodeImpl } from '../../../src/index.js';
 import {
   createsLLMChatV2ToolResponseFormatConflictForEdit,
   hasLLMChatV2ToolResponseFormatConflict,
@@ -15,13 +15,29 @@ import {
   resolveLLMChatV2RuntimeConfig,
 } from '../../../src/model/chat-v2/llmChatV2NodeRuntime.js';
 
-function createNode(data: Partial<LLMChatV2Node['data']> = {}) {
+// Test nodes carry EFFECTIVE-shaped data (node-owned ⊕ layer defaults). The type split moved the layer
+// model config off the persisted node, but the runtime / getBody tests here exercise the resolved
+// effective config — so the helper supplies sensible layer defaults (provider/model/connection) on top
+// of the real node-owned defaults; tests override what they exercise. Cast: the node-data slot is
+// node-owned, but the runtime consumes effective.
+function createNode(data: Partial<EffectiveLLMChatV2Data> = {}) {
+  const base = LLMChatV2NodeImpl.create();
   return new LLMChatV2NodeImpl({
-    ...LLMChatV2NodeImpl.create(),
+    ...base,
     data: {
-      ...LLMChatV2NodeImpl.create().data,
+      ...base.data,
+      provider: 'openai',
+      model: 'gpt-4o',
+      apiKeySource: 'environment',
+      customProviderApiKeyEnvVarName: 'CUSTOM_PROVIDER_API_KEY',
+      customProviderBaseURL: '',
+      baseURL: '',
+      headers: [],
+      extraProviderOptions: '',
+      temperature: 0.5,
+      maxTokens: 1024,
       ...data,
-    },
+    } as LLMChatV2Node['data'],
   });
 }
 
@@ -77,38 +93,31 @@ describe('LLMChatV2NodeImpl', () => {
 
     assert.equal(node.type, 'llmChatV2');
     assert.equal(node.title, 'LLM Chat');
-    assert.equal(node.data.provider, 'openai');
-    assert.equal(node.data.apiKeySource, 'environment');
-    assert.equal(node.data.customProviderApiKeyEnvVarName, 'CUSTOM_PROVIDER_API_KEY');
-    assert.equal(node.data.customProviderBaseURL, '');
+    // Type split: the node mints ONLY node-owned fields — no provider/model/params/reasoning/connection
+    // (those are layer-owned, supplied by the resolved config). A fresh node is an unbound binding.
+    assert.equal('provider' in node.data, false);
+    assert.equal('model' in node.data, false);
+    assert.equal('temperature' in node.data, false);
+    assert.equal('baseURL' in node.data, false);
+    assert.equal('extraProviderOptions' in node.data, false);
+    assert.equal('openAIReasoningEffort' in node.data, false);
+    // node-owned fields are present at their defaults
     assert.equal(node.data.useCustomProviderBaseURLInput, false);
-    assert.equal(node.data.baseURL, '');
     assert.equal(node.data.useBaseURLInput, false);
-    assert.equal(node.data.extraProviderOptions, '');
     assert.equal(node.data.useExtraProviderOptionsInput, false);
     assert.equal(node.data.useToolCalling, false);
     assert.equal(node.data.outputReasoning, false);
-    assert.equal(node.data.presencePenalty, undefined);
     assert.equal(node.data.usePresencePenaltyInput, false);
-    assert.equal(node.data.frequencyPenalty, undefined);
     assert.equal(node.data.useFrequencyPenaltyInput, false);
-    assert.deepEqual(node.data.stopSequences, []);
     assert.equal(node.data.useStopSequencesInput, false);
-    assert.equal(node.data.seed, undefined);
     assert.equal(node.data.useSeedInput, false);
     assert.equal(node.data.responseFormat, '');
     assert.equal(node.data.responseSchemaName, '');
     assert.equal(node.data.useResponseSchemaNameInput, false);
     assert.equal(node.data.responseSchemaDescription, '');
     assert.equal(node.data.useResponseSchemaDescriptionInput, false);
-    assert.equal(node.data.anthropicThinkingMode, '');
-    assert.equal(node.data.anthropicThinkingBudget, undefined);
     assert.equal(node.data.useAnthropicThinkingBudgetInput, false);
-    assert.equal(node.data.anthropicEffort, '');
-    assert.equal(node.data.googleThinkingBudget, undefined);
     assert.equal(node.data.useGoogleThinkingBudgetInput, false);
-    assert.equal(node.data.googleThinkingLevel, '');
-    assert.equal(node.data.googleIncludeThoughts, false);
     assert.equal(node.data.toolChoice, '');
     assert.equal(node.data.toolChoiceFunction, '');
     assert.equal(node.data.parallelToolCalls, false);
@@ -246,19 +255,18 @@ describe('LLMChatV2NodeImpl', () => {
     ]);
   });
 
-  it('adds Tool Calls output when provider built-in tools are enabled', () => {
-    const node = createNode({
-      provider: 'openai',
-      useToolCalling: false,
-      enableOpenAIWebSearch: true,
-    });
+  it('the Tool Calls output keys off the node-owned tool-use toggle (built-in tools are layer-resolved)', () => {
+    // Type split: provider built-in tools (web search / code interpreter) are layer-resolved and
+    // unknowable at definition time on the config-less node (the R2 port-narrowing deferral), so the
+    // function-calls output is driven by the node-owned `useToolCalling` toggle alone.
+    const withTools = createNode({ useToolCalling: true });
+    const fc = withTools.getOutputDefinitions().find((output) => output.id === 'function-calls');
+    assert.ok(fc);
+    assert.equal(fc.title, 'Tool Calls');
+    assert.equal(fc.dataType, 'object[]');
 
-    const outputs = node.getOutputDefinitions();
-    const functionCalls = outputs.find((output) => output.id === 'function-calls');
-
-    assert.ok(functionCalls);
-    assert.equal(functionCalls.title, 'Tool Calls');
-    assert.equal(functionCalls?.dataType, 'object[]');
+    const withoutTools = createNode({ useToolCalling: false });
+    assert.ok(!withoutTools.getOutputDefinitions().some((output) => output.id === 'function-calls'));
   });
 
   it('adds reasoning output when enabled', () => {
@@ -314,22 +322,14 @@ describe('LLMChatV2NodeImpl', () => {
       toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.helperMessage,
       undefined,
     );
+    // Type split: the config-less node doesn't know its provider at editor time, so parallelToolCalls
+    // keys off the node-owned tool-use toggle only (hidden when tool use is off, shown otherwise).
     assert.equal(
-      toolsGroup.editors
-        .find((editor: any) => editor.dataKey === 'parallelToolCalls')
-        ?.hideIf({
-          provider: 'custom',
-          useToolCalling: true,
-        }),
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.hideIf({ useToolCalling: false }),
       true,
     );
     assert.equal(
-      toolsGroup.editors
-        .find((editor: any) => editor.dataKey === 'parallelToolCalls')
-        ?.hideIf({
-          provider: 'openai',
-          useToolCalling: true,
-        }),
+      toolsGroup.editors.find((editor: any) => editor.dataKey === 'parallelToolCalls')?.hideIf({ useToolCalling: true }),
       false,
     );
     assert.match(

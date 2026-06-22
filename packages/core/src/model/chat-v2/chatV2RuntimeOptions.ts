@@ -12,7 +12,7 @@ import type {
   ChatV2ToolSet,
   RunChatV2PipelineOptions,
 } from './chatV2Types.js';
-import type { LLMChatV2NodeData } from './llmChatV2NodeData.js';
+import type { CompleteEffectiveLLMChatV2Data } from './llmChatV2NodeData.js';
 
 export type LLMChatV2GenerationParameters = Pick<
   RunChatV2PipelineOptions,
@@ -30,7 +30,7 @@ type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string
 type JsonObject = { [key: string]: JsonValue | undefined };
 
 export function resolveLLMChatV2Headers(
-  data: LLMChatV2NodeData,
+  data: CompleteEffectiveLLMChatV2Data,
   inputs: Inputs,
 ): Record<string, string> | undefined {
   const resolvedHeaders =
@@ -43,7 +43,7 @@ export function resolveLLMChatV2Headers(
 }
 
 function resolveConfiguredProviderApiKey(
-  data: LLMChatV2NodeData,
+  data: CompleteEffectiveLLMChatV2Data,
   context: Pick<InternalProcessContext, 'getPluginConfig' | 'settings'>,
 ): string | undefined {
   switch (data.provider) {
@@ -77,7 +77,7 @@ function resolveConfiguredProviderApiKey(
 }
 
 export function resolveLLMChatV2ApiKey(
-  data: LLMChatV2NodeData,
+  data: CompleteEffectiveLLMChatV2Data,
   inputs: Inputs,
   context: Pick<InternalProcessContext, 'getPluginConfig' | 'settings'>,
 ): string | undefined {
@@ -128,7 +128,7 @@ function normalizeExtraProviderOptions(value: unknown): JsonObject | undefined {
   return value as JsonObject;
 }
 
-function resolveExtraProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): JsonObject | undefined {
+function resolveExtraProviderOptions(data: CompleteEffectiveLLMChatV2Data, inputs: Inputs): JsonObject | undefined {
   if (!data.useExtraProviderOptionsInput) {
     return parseExtraProviderOptionsText(data.extraProviderOptions ?? '');
   }
@@ -136,7 +136,7 @@ function resolveExtraProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): J
   return normalizeExtraProviderOptions(coerceTypeOptional(inputs['extraProviderOptions' as PortId], 'object'));
 }
 
-function resolveProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2ProviderOptions | undefined {
+function resolveProviderOptions(data: CompleteEffectiveLLMChatV2Data, inputs: Inputs): ChatV2ProviderOptions | undefined {
   const providerOptions: ChatV2ProviderOptions = {};
   const extraProviderOptions = resolveExtraProviderOptions(data, inputs);
 
@@ -221,7 +221,7 @@ function resolveProviderOptions(data: LLMChatV2NodeData, inputs: Inputs): ChatV2
 }
 
 export function resolveLLMChatV2RuntimeProviderOptions(
-  data: LLMChatV2NodeData,
+  data: CompleteEffectiveLLMChatV2Data,
   inputs: Inputs,
 ): ChatV2ProviderOptions | undefined {
   const providerOptions = resolveProviderOptions(data, inputs) ?? {};
@@ -236,7 +236,7 @@ export function resolveLLMChatV2RuntimeProviderOptions(
   return Object.keys(providerOptions).length > 0 ? providerOptions : undefined;
 }
 
-export function resolveLLMChatV2ToolChoice(data: LLMChatV2NodeData): ChatV2ToolChoice | undefined {
+export function resolveLLMChatV2ToolChoice(data: CompleteEffectiveLLMChatV2Data): ChatV2ToolChoice | undefined {
   if (!data.useToolCalling || !data.toolChoice) {
     return undefined;
   }
@@ -262,7 +262,7 @@ function normalizeStopSequences(stopSequences: string[] | undefined): string[] |
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function resolveStopSequences(data: LLMChatV2NodeData, inputs: Inputs): string[] | undefined {
+function resolveStopSequences(data: CompleteEffectiveLLMChatV2Data, inputs: Inputs): string[] | undefined {
   const stopSequences =
     data.useStopSequencesInput && inputs['stopSequences' as PortId] != null
       ? coerceTypeOptional(inputs['stopSequences' as PortId], 'string[]')
@@ -272,7 +272,7 @@ function resolveStopSequences(data: LLMChatV2NodeData, inputs: Inputs): string[]
 }
 
 export function resolveLLMChatV2GenerationParameters(
-  data: LLMChatV2NodeData,
+  data: CompleteEffectiveLLMChatV2Data,
   inputs: Inputs,
 ): LLMChatV2GenerationParameters {
   return {
@@ -288,7 +288,7 @@ export function resolveLLMChatV2GenerationParameters(
 }
 
 export function resolveLLMChatV2BuiltInTools(
-  data: LLMChatV2NodeData,
+  data: CompleteEffectiveLLMChatV2Data,
   context: Pick<InternalProcessContext, 'getPluginConfig' | 'settings'>,
   config: ResolvedChatV2ProviderConfig,
   apiKey: string | undefined,

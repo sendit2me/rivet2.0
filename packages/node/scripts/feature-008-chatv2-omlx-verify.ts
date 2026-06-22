@@ -72,12 +72,13 @@ function buildModelConfig(enableThinking: boolean): ModelConfig {
     name: 'oMLX (local)',
     provider: 'custom',
     customProviderBaseURL: BASE_URL,
-    defaultModel: MODEL,
   };
   const skill: LlmSkill = {
     id: 'thinking-toggle',
     name: enableThinking ? 'Thinking on' : 'Thinking off',
     base: { extraBody: { chat_template_kwargs: { enable_thinking: enableThinking } } },
+    // R1: the model lives on the Skill's per-provider block (moved off the Profile's removed defaultModel).
+    providers: { custom: { model: MODEL } },
   };
   const preset: LlmPreset = { id: 'coder', name: 'Coder (oMLX)', profileId: 'omlx', skillId: 'thinking-toggle' };
   return { profiles: [profile], skills: [skill], presets: [preset] };

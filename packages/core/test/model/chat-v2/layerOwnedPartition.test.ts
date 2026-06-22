@@ -4,15 +4,15 @@ import { createLLMChatV2NodeData } from '../../../src/model/chat-v2/llmChatV2Nod
 import { LAYER_OWNED_MODEL_CONFIG_FIELDS } from '../../../src/model/chat-v2/resolveEffectiveLLMChatV2Data.js';
 
 /**
- * R2 leak-class guard. `satisfies` proves every LAYER_OWNED entry is a valid key, NOT that the list is
- * COMPLETE — a genuinely layer-owned field left off would silently fall into the node-owned complement
- * and resolve to the node's default (the gpt-5/default collision, for that one field). Semantic
- * completeness can't be compiler-checked, so this test forces classification of EVERY field and fails
- * on any future-added one (forcing the review).
- *
- * NODE_OWNED is maintained here explicitly: the bindings + their input toggles, the per-param/per-call
- * input toggles (dead in R2 — the param ports are dropped — but still node-data, never read), and the
- * Q6 structural/output-contract fields (output shape / tools / response format / technical / per-call).
+ * Type-split invariant guard. The partition is now **compiler-enforced** in source: disjointness
+ * (`_AssertNodeLayerDisjoint` — the node type and `ChatV2LayerConfig` share no key) and LAYER_OWNED
+ * completeness (`_AssertLayerOwnedComplete` — every layer key is listed) are type-level `never`
+ * assertions. What remains genuinely runtime-observable, and what this test pins, is that the node
+ * **mints only node-owned fields** — `createLLMChatV2NodeData()` carries ZERO layer config, so an
+ * unbound node has no model config to silently default to (the gpt-5/default collision is gone by
+ * construction). NODE_OWNED is the expected minted set: bindings + their input toggles, the per-param/
+ * connection input toggles (vestigial post-R2 but still node-data), the per-call fields, and the Q6
+ * structural/output-contract fields.
  */
 const NODE_OWNED_FIELDS: string[] = [
   // model-config selectors (bindings) + their input-driven toggles
@@ -63,21 +63,20 @@ const NODE_OWNED_FIELDS: string[] = [
   'outputRequestStatus',
 ];
 
-describe('R2 — layer-owned/node-owned partition is EXHAUSTIVE over LLMChatV2NodeData', () => {
+describe('Type split — the node mints only node-owned fields', () => {
   const allKeys = Object.keys(createLLMChatV2NodeData()).sort();
   const layer = new Set<string>(LAYER_OWNED_MODEL_CONFIG_FIELDS);
-  const node = new Set<string>(NODE_OWNED_FIELDS);
 
-  it('every field is classified exactly once (no unclassified field silently falls to the node default)', () => {
-    const unclassified = allKeys.filter((k) => !layer.has(k) && !node.has(k));
-    const both = allKeys.filter((k) => layer.has(k) && node.has(k));
-    assert.deepEqual(unclassified, [], `unclassified fields (classify in LAYER_OWNED or NODE_OWNED): ${unclassified.join(', ')}`);
-    assert.deepEqual(both, [], `fields in BOTH buckets: ${both.join(', ')}`);
+  it('createLLMChatV2NodeData mints ZERO layer-owned fields (no node model config to silently default to)', () => {
+    const leaked = allKeys.filter((k) => layer.has(k));
+    assert.deepEqual(leaked, [], `layer-owned fields minted on the node: ${leaked.join(', ')}`);
   });
 
-  it('neither bucket names a field that no longer exists', () => {
-    const keySet = new Set(allKeys);
-    assert.deepEqual([...layer].filter((k) => !keySet.has(k)), [], 'stale LAYER_OWNED entries');
-    assert.deepEqual(NODE_OWNED_FIELDS.filter((k) => !keySet.has(k)), [], 'stale NODE_OWNED entries');
+  it('mints exactly the expected node-owned set (no surprise field, none missing)', () => {
+    const node = new Set(NODE_OWNED_FIELDS);
+    const unexpected = allKeys.filter((k) => !node.has(k));
+    const missing = NODE_OWNED_FIELDS.filter((k) => !allKeys.includes(k));
+    assert.deepEqual(unexpected, [], `unexpected minted fields: ${unexpected.join(', ')}`);
+    assert.deepEqual(missing, [], `expected node-owned fields not minted: ${missing.join(', ')}`);
   });
 });
