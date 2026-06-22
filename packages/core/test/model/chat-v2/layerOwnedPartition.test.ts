@@ -22,16 +22,7 @@ const NODE_OWNED_FIELDS: string[] = [
   'useLlmPresetIdInput',
   'useLlmProfileIdInput',
   'useLlmSkillIdInput',
-  // per-param / connection input toggles (R2: ports dropped; toggles remain node-data, never read)
-  'useModelInput',
-  'useTemperatureInput',
-  'useTopPInput',
-  'useTopKInput',
-  'usePresencePenaltyInput',
-  'useFrequencyPenaltyInput',
-  'useStopSequencesInput',
-  'useSeedInput',
-  'useMaxTokensInput',
+  // connection drive-from-input toggles (the per-param toggles were removed in cut #4)
   'useBaseURLInput',
   'useCustomProviderBaseURLInput',
   'useHeadersInput',

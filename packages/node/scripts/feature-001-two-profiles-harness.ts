@@ -62,19 +62,13 @@ function buildProject(llmProfileId: string | undefined): { project: Project; gra
     data: {
       // o1-mini forces the non-streaming path so the mock can reply with plain JSON.
       model: 'o1-mini',
-      useModelInput: false,
       temperature: 0,
-      useTemperatureInput: false,
       top_p: 1,
-      useTopPInput: false,
       useTopP: false,
       useUseTopPInput: false,
       maxTokens: 64,
-      useMaxTokensInput: false,
       useStop: false,
       useStopInput: false,
-      usePresencePenaltyInput: false,
-      useFrequencyPenaltyInput: false,
       cache: false,
       // The field under test:
       llmProfileId,

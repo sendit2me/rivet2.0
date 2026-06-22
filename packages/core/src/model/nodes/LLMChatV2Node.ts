@@ -48,23 +48,6 @@ export type {
 
 export { buildLLMChatV2EditorCacheKey, resolveLLMChatV2RuntimeProviderOptions };
 
-/**
- * Model-param input ports emitted by `getCommonChatV2Inputs` — dropped in R2: these fields are
- * layer-owned, so "drive a param from a port" is subsumed by "bind a different Skill". (The dynamic
- * axis is the input-driven `llmSkillId` binding, not per-param ports.)
- */
-const MODEL_PARAM_INPUT_PORT_IDS: ReadonlySet<string> = new Set([
-  'model',
-  'temperature',
-  'topP',
-  'topK',
-  'presencePenalty',
-  'frequencyPenalty',
-  'stopSequences',
-  'seed',
-  'maxTokens',
-]);
-
 const LLM_SELECTOR_INPUT_PORTS = [
   { toggle: 'useLlmPresetIdInput', id: 'llmPresetId', title: 'Preset ID' },
   { toggle: 'useLlmProfileIdInput', id: 'llmProfileId', title: 'Profile ID' },
@@ -142,7 +125,7 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     // uses what the resolved config actually needs and ignores the rest (per-provider narrowing deferred).
     const inputs = getCommonChatV2Inputs(this.data, {
       includeFunctions: this.data.useToolCalling,
-    }).filter((p) => !MODEL_PARAM_INPUT_PORT_IDS.has(p.id as string));
+    });
 
     // Connection: the API-key value channel — always present; used iff the resolved apiKeySource is 'input'.
     inputs.push({ id: 'apiKey' as PortId, title: 'API Key', dataType: 'string', required: false });
@@ -294,8 +277,8 @@ export class LLMChatV2NodeImpl extends NodeImpl<LLMChatV2Node> {
     return [
       ...providerDetails,
       ...(reasoningEffortLine ? [reasoningEffortLine] : []),
-      `Temperature: ${complete.useTemperatureInput ? '(Using Input)' : complete.temperature}`,
-      `Max output tokens: ${complete.useMaxTokensInput ? '(Using Input)' : complete.maxTokens}`,
+      `Temperature: ${complete.temperature}`,
+      `Max output tokens: ${complete.maxTokens}`,
     ].join('\n');
   }
 

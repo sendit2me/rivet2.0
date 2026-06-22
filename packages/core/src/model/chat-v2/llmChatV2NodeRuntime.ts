@@ -67,7 +67,7 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
   }
 
   const provider = parseChatV2Provider(data.provider);
-  const modelId = getInputOrData(data, inputs, 'model', 'string');
+  const modelId = data.model; // cut #4: the model input port is gone; read the resolved value directly
   const baseURL = resolveLLMChatV2BaseURL(data, inputs);
   const nodeHeaders = resolveLLMChatV2Headers(data, inputs);
   const apiKey = resolveLLMChatV2ApiKey(data, inputs, context);
@@ -89,7 +89,7 @@ export async function resolveLLMChatV2RuntimeConfig(params: {
     resolveLLMChatV2RuntimeProviderOptions(data, inputs),
     responseFormatParameters,
   );
-  const generationParameters = resolveLLMChatV2GenerationParameters(data, inputs);
+  const generationParameters = resolveLLMChatV2GenerationParameters(data);
   const runOptions: RunChatV2PipelineOptions = {
     provider,
     model,
